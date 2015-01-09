@@ -1,0 +1,55 @@
+# lib/flex
+
+# Dependencies:
+# ``functions`` file
+# ``DEST``, ``DATA_DIR``, ``STACK_USER`` must be defined
+
+# ``stack.sh`` calls the entry points in this order:
+# install_flex
+
+XTRACE=$(set +o | grep xtrace)
+set +o xtrace
+
+LXD_DIR=$DEST/nova-compute-lxd
+LXD_BIN_DIR=$GOPATH/src/github.com/lxc/lxd
+
+LXC_REPO=${LXC_REPO:-${GIT_BASE}/lxc/python2-lxc}
+LXC_DIR=$DEST/python2-lxc
+
+
+function configure_lxd {
+	install_package python-software-properties
+	sudo apt-add-repository -y ppa:ubuntu-lxc/lxd-daily
+	sudo apt-add-repository -y ppa:ubuntu-lxc/stable
+	apt_get update
+
+	install_package golang
+	install_package lxc lxc-dev mercurial pkg-config build-essential
+	
+	if [[ ! -d $HOME/go ]]; then
+		mkdir -p $HOME/go
+		export GOPATH=$HOME/go
+	fi
+
+	go get github.com/lxc/lxd
+	cd $GOPATH/src/github.com/lxc/lxd
+	go get -v -d ./...
+	make
+
+	if [[ ! -d /var/lib/lxd ]]; then
+		sudo mkdir -p /var/lib/lxd/
+		sudo chown $USER:$USER /var/lib/lxd
+	fi
+
+	run_process lxd "$LXD_BIN_DIR/lxd/lxd --tcp $HOST_IP:8443 --debug"
+	echo "Configure LXD API"
+}
+	
+
+function install_lxd {
+	git_clone $LXC_REPO $LXC_DIR
+	setup_develop $LXC_DIR
+
+	setup_develop $LXD_DIR
+	mkdir -p /etc/nova/rootwrap.d
+}
