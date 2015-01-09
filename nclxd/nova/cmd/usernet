@@ -1,0 +1,113 @@
+#!/usr/bin/python
+"""
+Manage edits to lxc-usernet(5) style file (/etc/lxc/lxc-usernet).
+File is
+  * comment lines (#)
+  * <username> <type> <bridge> <count>
+
+# USERNAME TYPE BRIDGE COUNT
+ubuntu veth br100 128
+"""
+
+from oslo_concurrency import lockutils
+
+ETC_LXC_USERNET = "/etc/lxc/lxc-usernet"
+
+
+class UserNetLine(object):
+    def __init__(self, line):
+        self.error = None
+        cpos = line.find("#")
+        if cpos < 0:
+            payload = line.strip()
+            comment = None
+        else:
+            payload = line[:cpos].strip()
+            comment = line[cpos:]
+
+        if payload:
+            try:
+                user, ntype, brname, count = split(payload)
+            except ValueError:
+                # don't understand this line.
+                user, ntype, brname, count = None
+                self.error = line
+        else:
+            user, ntype, brname, count = None
+
+        self.user = user
+        self.ntype = ntype
+        self.bridge = brname
+        self.comment = comment
+
+    def __str__(self):
+        if self.error is not None:
+            return self.error
+        comment = ""
+        if self.comment is not None:
+            if self.user:
+                comm = " " + self.comment
+            else:
+                comm = self.comment
+        return ' '.join(self.user, self.ntype, self.bridge,
+                        self.count + comm)
+
+
+def update_usernet(user, bridge, op, if_type="veth",
+                   count=1, require=True, fname=ETC_LXC_USERNET):
+
+    ops = ("set", "inc", "dec")
+    if op not in ops:
+        raise TypeError("op = '%s'. must be one of %s",
+                        (op, ','.join(ops)))
+
+    minfo = "user=%s, bridge=%s, if_type=%s" % (user, bridge, if_type)
+    with lockutils.lock(str(fname)):
+        lines = load_usernet(fname)
+
+        found = []
+        for i, l in enumerate(lines):
+            if (user != l.user or bridge != l.bridge or l.ntype != if_type):
+                continue
+            found.append(i)
+
+        if found:
+            # update the last one (others deleted on write)
+            line = lines(found[-1])
+            if op == "inc":
+                line.count = int(count) + int(line.count)
+            elif op == "dec":
+                line.count = int(count) - int(line.count)
+            elif op == "set":
+                line.count = count
+
+        if require and not found and op != "set":
+            raise ValueError("EntryNotFound: %s" % minfo)
+        elif op == "set":
+            mline = UserNetLine("")
+            mline.user = user
+            mline.ntype = if_type
+            mline.bridge = bridge
+            mline.count = int(count)
+
+        tf = None
+        try:
+            tf = tempfile.NamedTemporaryFile(dir=os.path.dirname(fname),
+                                             delete=False)
+            for i, l in enumerate(lines):
+                if i in found[:-1]:
+                    continue
+                else:
+                    tf.write(l + "\n")
+            tf.close()
+            os.rename(tf.name, fname)
+        except Exception as e:
+            if tf is not None:
+                os.unlink(tf.name)
+            raise e
+
+
+if __name__ == '__main__':
+    import sys
+    sys.exit(main())
+
