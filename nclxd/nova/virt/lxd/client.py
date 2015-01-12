@@ -23,6 +23,10 @@ class Client(object):
         return requests.put(self._url(path), data=json.dumps(data),
                             cert=(self.cert, self.key), verify=False)
 
+    def _delete(self, path):
+        return requests.delete(self._url(path), 
+                               cert=(self.cert, self.key), verify=False)
+
     def defined(self, name):
         container_exists = False
         response = self._get('/1.0/containers/%s/state' % name)
@@ -64,6 +68,34 @@ class Client(object):
             if response.status_code == 200:
                 container_stop = True
         return container_stop
+
+    def pause(self, name):
+        container_pause = False
+        if self.defined(name):
+            params = {'action': 'freeze'}
+            response = self._put('/1.0/containers/%s/state' % name, params)
+            if response.status_code == 200:
+                container_pause = True
+        return container_pause
+
+    def resume(self, name):
+        container_unpause = False
+        if self.defined(name):
+            params = {'action': 'unfreeze'}
+            response = self._put('/1.0/containers/%s/state' % name, params)
+            if response.status_code == 200:
+                container_unpause = True
+        return container_unpause
+
+
+
+    def destory(self, name):
+        container_delete = False
+        if self.defined(name):
+            response = self._delete('/1.0/containers/%s' % name)
+            if response.status_code == 200:
+                container_delete = True
+        return container_delete
             
 
     def list(self):

@@ -106,3 +106,16 @@ class LXDUserConfig(LXDConfigObject):
     def set_config(self):
         for ent in self.idmap.lxc_conf_lines():
             self.container.append_config_item(*ent)
+
+class LXDSetLimits(LXDConfigObject):
+    def __init__(self, container, instance):
+        super(LXDSetLimits, self).__init__()
+        self.container = container
+        self.instance = instance
+
+    def set_config(self):
+        flavor = self.instance.get_flavor()
+        self.container.append_config_item(
+            'lxc.cgroup.memory.limit_in_bytes',
+            '%sM' % flavor.memory_mb)
+

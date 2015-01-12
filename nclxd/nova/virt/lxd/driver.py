@@ -23,6 +23,9 @@ Nova LXD Driver
 
 import socket
 import contextlib
+import psutil
+
+from oslo.utils import units
 
 from oslo.config import cfg
 from oslo.serialization import jsonutils
@@ -40,11 +43,13 @@ from nova.openstack.common import log as logging
 from nova import utils
 from nova.virt import diagnostics
 from nova.virt import driver
+from nova.virt import firewall
 from nova.virt import hardware
 from nova.virt import virtapi
 
 from . import client
 from . import container
+from . import host_utils
 
 lxd_opts = [
     cfg.StrOpt('lxd_client_cert',
@@ -54,7 +59,7 @@ lxd_opts = [
                default='/etc/lxd/client.key',
                help='LXD client key'),
     cfg.StrOpt('lxd_client_host',
-               default='10.5.0.10:8443',
+               default='10.5.0.12:8443',
                help='LXD API Server'),
     cfg.StrOpt('lxd_root_dir',
                 default='/var/lib/lxd/lxc',
@@ -92,12 +97,15 @@ class LXDDriver(driver.ComputeDriver):
         self.client = client.Client(CONF.lxd.lxd_client_host,
                                     CONF.lxd.lxd_client_cert,
                                     CONF.lxd.lxd_client_key)
+        self.firewall_driver = firewall.load_driver(
+            default='nova.virt.firewall.NoopFirewallDriver')
         self.container = container.Container(self.client,
-                                             self.virtapi)
+                                             self.virtapi,
+                                             self.firewall_driver)
 
 
     def init_host(self, host):
-        return
+        return self.container.init_container()
 
     def list_instances(self):
         return self.client.list()
@@ -149,7 +157,7 @@ class LXDDriver(driver.ComputeDriver):
         self.client.stop(instance['uuid'])
 
     def power_on(self, context, instance, network_info, block_device_info):
-        self.client.start(instance['uuid])
+        self.client.start(instance['uuid'])
 
     def soft_delete(self, instance):
         pass
@@ -158,10 +166,10 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplemented()
 
     def pause(self, instance):
-        raise NotImplemented()
+        self.client.pause(instance['uuid'])
 
     def unpause(self, instance):
-        raise NotImplemented()
+        self.client.unpause(instance['uuid'])
 
     def suspend(self, instance):
         raise NotImplemented()
@@ -171,11 +179,12 @@ class LXDDriver(driver.ComputeDriver):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        pass
+        self.client.destory(instance['uuid'])
+        self.cleanup(context, instance, network_info, block_device_info)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
-        pass
+        self.container.teardown_network(instance, network_info)
 
     def attach_volume(self, context, connection_info, instance, mountpoint,
                       disk_bus=None, device_type=None, encryption=None):
@@ -210,33 +219,19 @@ class LXDDriver(driver.ComputeDriver):
                                      cpu_time_ns=0)
 
     def get_console_output(self, context, instance):
-        return 'FAKE CONSOLE OUTPUT\nANOTHER\nLAST LINE'
-
-    def get_vnc_console(self, context, instance):
-        return True
-
-    def get_spice_console(self, context, instance):
-        return True
-
-    def get_rdp_console(self, context, instance):
-        return True
-
-    def get_serial_console(self, context, instance):
-        return True
-    def get_console_pool_info(self, console_type):
-        return True
+        return self.container.get_console_log(instance)
 
     def refresh_security_group_rules(self, security_group_id):
-        return True
+        self.firewall_driver.refresh_security_group_rules(security_group_id)
 
     def refresh_security_group_members(self, security_group_id):
-        return True
+        self.firewall_driver.refresh_security_group_members(security_group_id)
 
     def refresh_instance_security_rules(self, instance):
-        return True
+        self.firewall_driver.refresh_rules(instance)
 
     def refresh_provider_fw_rules(self):
-        pass
+         self.firewall_driver.refresh_provider_fw_rules()
 
     def get_available_resource(self, nodename):
         """Updates compute manager resource info on ComputeNode table.
@@ -251,7 +246,7 @@ class LXDDriver(driver.ComputeDriver):
         data["supported_instances"] = jsonutils.dumps([
             ('i686', 'lxd', 'lxd'),
             ('x86_64', 'lxd', 'lxd')])
-        data["vcpus"] = psutil.cpu_count()
+        data["vcpus"] = 4
         data["memory_mb"] = memory['total'] / units.Mi
         data["local_gb"] = disk['total'] / units.Gi
         data["vcpus_used"] = 1
@@ -267,47 +262,11 @@ class LXDDriver(driver.ComputeDriver):
         return data
 
     def ensure_filtering_rules_for_instance(self, instance_ref, network_info):
-        return
-
-    def get_instance_disk_info(self, instance, block_device_info=None):
-        return
-
-    def live_migration(self, context, instance_ref, dest,
-                       post_method, recover_method, block_migration=False,
-                       migrate_data=None):
-        post_method(context, instance_ref, dest, block_migration,
-                            migrate_data)
-        return
-
-    def check_can_live_migrate_destination_cleanup(self, ctxt,
-                                                   dest_check_data):
-        return
-
-    def check_can_live_migrate_destination(self, ctxt, instance_ref,
-                                           src_compute_info, dst_compute_info,
-                                           block_migration=False,
-                                           disk_over_commit=False):
-        return {}
-
-    def check_can_live_migrate_source(self, ctxt, instance_ref,
-                                      dest_check_data, block_device_info=None):
-        return
-
-    def finish_migration(self, context, migration, instance, disk_info,
-                         network_info, image_meta, resize_instance,
-                         block_device_info=None, power_on=True):
-        return
-
-    def confirm_migration(self, migration, instance, network_info):
-        return
-
-    def pre_live_migration(self, context, instance_ref, block_device_info,
-                           network_info, disk, migrate_data=None):
-        return
+        self.firewall_driver.setup_basic_filtering(instance, network_info)
+        self.firewall_driver.prepare_instance_filter(instance, network_info)
 
     def unfilter_instance(self, instance_ref, network_info):
-        return
-
+        self.firewall_driver.unfilter_instance(instance, network_info)
 
     def get_available_nodes(self, refresh=False):
         hostname = socket.gethostname()
