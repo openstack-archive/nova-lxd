@@ -2,7 +2,7 @@
 # Administrator of the National Aeronautics and Space Administration.
 # All Rights Reserved.
 # Copyright (c) 2010 Citrix Systems, Inc.
-# Copyright (c) 2014 Canonical Ltd.
+# Copyright (c) 2015 Canonical Ltd.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -59,7 +59,7 @@ lxd_opts = [
                default='/etc/lxd/client.key',
                help='LXD client key'),
     cfg.StrOpt('lxd_client_host',
-               default='10.5.0.14:8443',
+               default='127.0.0.1:8443',
                help='LXD API Server'),
     cfg.StrOpt('lxd_root_dir',
                 default='/var/lib/lxd/lxc',
@@ -88,7 +88,6 @@ class LXDDriver(driver.ComputeDriver):
         "supports_recreate": False,
         }
 
-
     """LXD hypervisor driver."""
 
     def __init__(self, virtapi, read_only=False):
@@ -102,7 +101,6 @@ class LXDDriver(driver.ComputeDriver):
         self.container = container.Container(self.client,
                                              self.virtapi,
                                              self.firewall_driver)
-
 
     def init_host(self, host):
         return self.container.init_container()
@@ -135,23 +133,27 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplemented()
 
     def poll_rebooting_instances(self, timeout, instances):
-        pass
+        raise NotImplemented()
+
 
     def migrate_disk_and_power_off(self, context, instance, dest,
                                    flavor, network_info,
                                    block_device_info=None,
                                    timeout=0, retry_interval=0):
-        pass
+        raise NotImplemented()
+
 
     def finish_revert_migration(self, context, instance, network_info,
                                 block_device_info=None, power_on=True):
-        pass
+        raise NotImplemented()
+
 
     def post_live_migration_at_destination(self, context, instance,
                                            network_info,
                                            block_migration=False,
                                            block_device_info=None):
-        pass
+        raise NotImplemented()
+
 
     def power_off(self, instance, shutdown_timeout=0, shutdown_attempts=0):
         self.client.stop(instance['uuid'])
