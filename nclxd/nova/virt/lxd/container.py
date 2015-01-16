@@ -14,13 +14,15 @@ from nova.openstack.common import fileutils
 from nova.openstack.common import log as logging
 from nova import utils
 from nova.virt import images
-from nova import objects
 from nova import exception
 
 from . import config
+from . import image
+from . import utils as container_utils
 from . import vif
 
 CONF = cfg.CONF
+CONF.import_opt('use_cow_images', 'nova.virt.driver')
 CONF.import_opt('vif_plugging_timeout', 'nova.virt.driver')
 CONF.import_opt('vif_plugging_is_fatal', 'nova.virt.driver')
 LOG = logging.getLogger(__name__)
@@ -28,7 +30,7 @@ LOG = logging.getLogger(__name__)
 MAX_CONSOLE_BYTES = 100 * units.Ki
 
 def get_container_dir(instance):
-    return os.path.join(CONF.lxd.lxd_root_dir, instance, 'rootfs')
+    return os.path.join(CONF.lxd.lxd_root_dir, instance)
 
 class Container(object):
     def __init__(self, client, virtapi, firewall):
@@ -37,11 +39,12 @@ class Container(object):
         self.firewall_driver = firewall
 
         self.container = None
-        self.idmap = LXCUserIdMap()
+        self.image = None
+        self.idmap = container_utils.LXCUserIdMap()
         self.vif_driver = vif.LXDGenericDriver()
 
-        self.base_dir = os.path.join(CONF.instances_path,
-                                      CONF.image_cache_subdirectory_name)
+        self.base_dir = os.path.join(CONF.lxd.lxd_root_dir,
+                                     CONF.image_cache_subdirectory_name)
 
     def init_container(self):
         lxc_cgroup = uuid.uuid4()
@@ -80,7 +83,7 @@ class Container(object):
         self._fetch_image(context, instance)
 
         ''' Start the contianer '''
-        self._start_container(context, instance, network_info, image_meta)
+        #self._start_container(context, instance, network_info, image_meta)
 
     def _create_container(self, instance):
         if not os.path.exists(get_container_dir(instance)):
@@ -89,24 +92,26 @@ class Container(object):
             fileutils.ensure_tree(self.base_dir)
 
     def _fetch_image(self, context, instance):
-        (user, group) = self.idmap.get_user()
-        image = os.path.join(self.base_dir, '%s.tar.gz' % instance['image_ref'])
-        if not os.path.exists(image):
-            images.fetch_to_raw(context, instance['image_ref'], image,
+        container_image = os.path.join(self.base_dir, '%s.tar.gz' % instance['image_ref'])
+        
+        root_dir = get_container_dir(instance['uuid'])
+        if CONF.use_cow_images:
+            root_dir = fileutils.ensure_tree(os.path.join(root_dir, 'rootfs'))
+            self.image = image.ContainerCoW(container_image, instance, root_dir, self.base_dir)
+        else:
+            root_dir = os.path.join(get_container_dir(instance['uuid'], 'rootfs'))
+            self.image = image.ContainerLocal(container_image, instance, root_dir)
+
+        if not os.path.exists(container_image):
+            root_dir = os.path.join(root_dir, 'rootfs')
+            images.fetch_to_raw(context, instance['image_ref'], container_image,
                                 instance['user_id'], instance['project_id'])
-            if not tarfile.is_tarfile(image):
+            if not tarfile.is_tarfile(container_image):
                 raise exception.NovaException(_('Not an valid image'))
 
-        utils.execute('tar', '--directory', get_container_dir(instance['uuid']),
-                      '--anchored', '--numeric-owner', '-xpzf', image,
-                      run_as_root=True, check_exit_code=[0, 2])
-        utils.execute('chown', '-R', '%s:%s' % (user, group),
-                      get_container_dir(instance['uuid']), run_as_root=True)
+        self.image.create_container()
 
     def _start_container(self, context, instance, network_info, image_meta):
-        with utils.temporary_mutation(context, read_deleted="yes"):
-            flavor = objects.Flavor.get_by_id(context,
-                                              instance['instance_type_id'])
         timeout = CONF.vif_plugging_timeout
         # check to see if neutron is ready before
         # doing anything else
@@ -120,14 +125,14 @@ class Container(object):
             with self.virtapi.wait_for_instance_event(
                     instance, events, deadline=timeout,
                     error_callback=self._neutron_failed_callback):
-                self._write_config(instance, network_info, image_meta, flavor)
+                self._write_config(instance, network_info, image_meta)
                 self._start_network(instance, network_info)
                 self._start_firewall(instance, network_info)
                 self.client.start(instance['uuid'])
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed'))
 
-    def _write_config(self, instance, network_info, image_meta, flavor):
+    def _write_config(self, instance, network_info, image_meta):
         template = config.LXDConfigTemplate(instance['uuid'], image_meta)
         template.set_config()
 
@@ -180,64 +185,3 @@ class Container(object):
                     {'event': event_name, 'uuid': instance.uuid})
         if CONF.vif_plugging_is_fatal:
             raise exception.VirtualInterfaceCreateException()
-
-
-class LXCIdMap(object):
-
-    def __init__(self, ustart, unum, gstart, gnum):
-        self.ustart = int(ustart)
-        self.unum = int(unum)
-        self.gstart = int(gstart)
-        self.gnum = int(gnum)
-
-    def usernsexec_margs(self, with_read=None):
-        if with_read:
-            if with_read == "user":
-                with_read = os.getuid()
-            unum = self.unum - 1
-            rflag = ['-m', 'u:%s:%s:1' % (self.ustart + self.unum, with_read)]
-            print(
-                "================ rflag: %s ==================" %
-                (str(rflag)))
-        else:
-            unum = self.unum
-            rflag = []
-
-        return ['-m', 'u:0:%s:%s' % (self.ustart, unum),
-                '-m', 'g:0:%s:%s' % (self.gstart, self.gnum)] + rflag
-
-    def lxc_conf_lines(self):
-        return (('lxc.id_map', 'u 0 %s %s' % (self.ustart, self.unum)),
-                ('lxc.id_map', 'g 0 %s %s' % (self.gstart, self.gnum)))
-
-    def get_user(self):
-        return (self.ustart, self.gstart)
-
-
-class LXCUserIdMap(LXCIdMap):
-
-    def __init__(self, user=None, group=None, subuid_f="/etc/subuid",
-                 subgid_f="/etc/subgid"):
-        if user is None:
-            user = pwd.getpwuid(os.getuid())[0]
-        if group is None:
-            group = grp.getgrgid(os.getgid()).gr_name
-
-        def parse_sfile(fname, name):
-            line = None
-            with open(fname, "r") as fp:
-                for cline in fp:
-                    if cline.startswith(name + ":"):
-                        line = cline
-                        break
-            if line is None:
-                raise ValueError("%s not found in %s" % (name, fname))
-            toks = line.split(":")
-            return (toks[1], toks[2])
-
-        ustart, unum = parse_sfile(subuid_f, user)
-        gstart, gnum = parse_sfile(subgid_f, group)
-
-        self.user = user
-        self.group = group
-        super(LXCUserIdMap, self).__init__(ustart, unum, gstart, gnum)

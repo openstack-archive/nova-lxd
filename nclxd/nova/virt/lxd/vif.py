@@ -11,17 +11,13 @@ from nova.openstack.common import log as logging
 from nova.network import linux_net
 from nova.network import model as network_model
 
+from . import utils as container_utils
+
 
 CONF = cfg.CONF
 
 LOG = logging.getLogger(__name__)
 
-
-def write_lxc_usernet(instance, bridge, user=None, count=1):
-    if user is None:
-        user = getpass.getuser()
-    utils.execute('lxc-usernet-manage', 'set', user, bridge, str(count),
-                  run_as_root=True, check_exit_code=[0])
 
 def write_lxc_config(instance, vif):
     config_file = os.path.join(CONF.lxd.lxd_root_dir,
@@ -84,7 +80,7 @@ class LXDOpenVswitchDriver(object):
                                           instance['uuid'])
 
         write_lxc_config(instance, vif)
-        write_lxc_usernet(instance, br_name)
+        container_utils.write_lxc_usernet(instance, br_name)
 
     def unplug(self, instance, vif):
         try:

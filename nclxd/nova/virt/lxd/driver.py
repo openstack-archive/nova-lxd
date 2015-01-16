@@ -59,7 +59,7 @@ lxd_opts = [
                default='/etc/lxd/client.key',
                help='LXD client key'),
     cfg.StrOpt('lxd_client_host',
-               default='10.5.0.12:8443',
+               default='10.5.0.14:8443',
                help='LXD API Server'),
     cfg.StrOpt('lxd_root_dir',
                 default='/var/lib/lxd/lxc',
@@ -262,11 +262,11 @@ class LXDDriver(driver.ComputeDriver):
         return data
 
     def ensure_filtering_rules_for_instance(self, instance_ref, network_info):
-        self.firewall_driver.setup_basic_filtering(instance, network_info)
-        self.firewall_driver.prepare_instance_filter(instance, network_info)
+        self.firewall_driver.setup_basic_filtering(instance_ref, network_info)
+        self.firewall_driver.prepare_instance_filter(instance_ref, network_info)
 
     def unfilter_instance(self, instance_ref, network_info):
-        self.firewall_driver.unfilter_instance(instance, network_info)
+        self.firewall_driver.unfilter_instance(instance_ref, network_info)
 
     def get_available_nodes(self, refresh=False):
         hostname = socket.gethostname()
