@@ -181,7 +181,7 @@ class LXDDriver(driver.ComputeDriver):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        self.client.destory(instance['uuid'])
+        self.client.destroy()(instance['uuid'])
         self.cleanup(context, instance, network_info, block_device_info)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
@@ -267,8 +267,8 @@ class LXDDriver(driver.ComputeDriver):
         self.firewall_driver.setup_basic_filtering(instance_ref, network_info)
         self.firewall_driver.prepare_instance_filter(instance_ref, network_info)
 
-    def unfilter_instance(self, instance_ref, network_info):
-        self.firewall_driver.unfilter_instance(instance_ref, network_info)
+    def unfilter_instance(self, instance, network_info):
+        self.firewall_driver.unfilter_instance(instance, network_info)
 
     def get_available_nodes(self, refresh=False):
         hostname = socket.gethostname()

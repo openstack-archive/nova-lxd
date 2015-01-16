@@ -87,7 +87,7 @@ class Client(object):
                 container_pause = True
         return container_pause
 
-    def resume(self, name):
+    def unpause(self, name):
         container_unpause = False
         if self.defined(name):
             params = {'action': 'unfreeze'}
@@ -96,6 +96,14 @@ class Client(object):
                 container_unpause = True
         return container_unpause
 
+    def reboot(self, name):
+        container_reboot = False
+        if self.defined(name):
+            params = {'action': 'restart'}
+            response = self._put('/1.0/containers/%s/state' % name, params)
+            if response.status_code == 200:
+                container_reboot = True
+        return container_reboot
 
     def destroy(self, name):
         container_delete = False
