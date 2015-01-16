@@ -23,7 +23,7 @@ Nova LXD Driver
 
 import socket
 import contextlib
-import psutil
+import multiprocessing
 
 from oslo.utils import units
 
@@ -248,7 +248,7 @@ class LXDDriver(driver.ComputeDriver):
         data["supported_instances"] = jsonutils.dumps([
             ('i686', 'lxd', 'lxd'),
             ('x86_64', 'lxd', 'lxd')])
-        data["vcpus"] = 4
+        data["vcpus"] = multiprocessing.cpu_count()
         data["memory_mb"] = memory['total'] / units.Mi
         data["local_gb"] = disk['total'] / units.Gi
         data["vcpus_used"] = 1

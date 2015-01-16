@@ -112,7 +112,6 @@ class Client(object):
             if response.status_code == 200:
                 container_delete = True
         return container_delete
-            
 
     def list(self):
         containers = []
