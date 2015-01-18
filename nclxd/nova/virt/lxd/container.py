@@ -108,7 +108,6 @@ class Container(object):
         container_image = os.path.join(self.base_dir, '%s.tar.gz' % instance['image_ref'])
 
         if not os.path.exists(container_image):
-            root_dir = os.path.join(root_dir, 'rootfs')
             images.fetch_to_raw(context, instance['image_ref'], container_image,
                                 instance['user_id'], instance['project_id'])
             if not tarfile.is_tarfile(container_image):

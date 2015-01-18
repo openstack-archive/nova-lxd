@@ -69,10 +69,6 @@ class ContainerCoW(ContainerImage):
         self.base_dir = base_dir
 
     def create_container(self):
-        image_dir = os.path.join(self.base_dir, self.instance['image_ref'])
-        LOG.info(_LW('!! %s') % self.instance)
-        LOG.info(_LW('!! %s' % image_dir))
-
         if not os.path.exists(image_dir):
             (user, group) = self.idmap.get_user()
             utils.execute('btrfs', 'subvolume', 'create', image_dir)

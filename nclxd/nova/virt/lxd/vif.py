@@ -100,8 +100,8 @@ class LXDOpenVswitchDriver(object):
 
     def unplug(self, instance, vif):
         try:
-            br_name = self.get_br_name(vif['id'])
-            v1_name, v2_name = self.get_veth_pair_names(vif['id'])
+            br_name = self._get_br_name(vif['id'])
+            v1_name, v2_name = self._get_veth_pair_names(vif['id'])
 
             if linux_net.device_exists(br_name):
                 utils.execute('brctl', 'delif', br_name, v1_name,
@@ -131,7 +131,7 @@ class LXDOpenVswitchDriver(object):
                 ("qvo%s" % iface_id)[:network_model.NIC_NAME_LEN])
 
 class LXDNetworkBridgeDriver(object):
-    def plug(self, contianer, instance, vif):
+    def plug(self, container, instance, vif):
         network = vif['network']
         if (not network.get_meta('multi_host', False) and
                 network.get_meta('should_create_bridge', False)):
