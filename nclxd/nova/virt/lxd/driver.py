@@ -181,7 +181,7 @@ class LXDDriver(driver.ComputeDriver):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        self.client.destroy()(instance['uuid'])
+        self.client.destroy(instance['uuid'])
         self.cleanup(context, instance, network_info, block_device_info)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
@@ -242,7 +242,7 @@ class LXDDriver(driver.ComputeDriver):
            disk and ram.
         """
         data = {}
-        disk = host_utils.get_fs_info(CONF.instances_path)
+        disk = host_utils.get_fs_info(CONF.lxd.lxd_root_dir)
         memory = host_utils.get_memory_mb_usage()
 
         data["supported_instances"] = jsonutils.dumps([

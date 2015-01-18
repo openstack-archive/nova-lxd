@@ -15,7 +15,7 @@
 import os
 
 from nova import utils
-from nova.i18n import _, _LW
+from nova.i18n import _, _LW, _LE, _LI
 from nova.openstack.common import log as logging
 
 from . import utils as container_utils
@@ -70,6 +70,9 @@ class ContainerCoW(ContainerImage):
 
     def create_container(self):
         image_dir = os.path.join(self.base_dir, self.instance['image_ref'])
+        LOG.info(_LW('!! %s') % self.instance)
+        LOG.info(_LW('!! %s' % image_dir))
+
         if not os.path.exists(image_dir):
             (user, group) = self.idmap.get_user()
             utils.execute('btrfs', 'subvolume', 'create', image_dir)

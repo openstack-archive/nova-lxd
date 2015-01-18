@@ -17,6 +17,8 @@ import getpass
 import os
 
 from oslo.config import cfg
+from oslo_concurrency import processutils
+
 
 from nova.i18n import _LW
 from nova import exception

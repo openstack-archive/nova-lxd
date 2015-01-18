@@ -86,18 +86,17 @@ class Container(object):
 			admin_password, network_info, block_device_info, flavor):
         LOG.info(_LI('Starting new instance'), instance=instance)
 
-        instance_name = instance['uuid']
         self.container = lxc.Container(instance['uuid'])
         self.container.set_config_path(CONF.lxd.lxd_root_dir)
 
         ''' Create the instance directories '''
-        self._create_container(instance_name)
+        self._create_container(instance['uuid'])
 
         ''' Fetch the image from glance '''
         self._fetch_image(context, instance)
 
         ''' Start the contianer '''
-        #self._start_container(context, instance, network_info, image_meta)
+        self._start_container(context, instance, network_info, image_meta)
 
     def _create_container(self, instance):
         if not os.path.exists(get_container_dir(instance)):
@@ -107,14 +106,6 @@ class Container(object):
 
     def _fetch_image(self, context, instance):
         container_image = os.path.join(self.base_dir, '%s.tar.gz' % instance['image_ref'])
-        
-        root_dir = get_container_dir(instance['uuid'])
-        if CONF.use_cow_images:
-            root_dir = fileutils.ensure_tree(os.path.join(root_dir, 'rootfs'))
-            self.image = image.ContainerCoW(container_image, instance, root_dir, self.base_dir)
-        else:
-            root_dir = os.path.join(get_container_dir(instance['uuid'], 'rootfs'))
-            self.image = image.ContainerLocal(container_image, instance, root_dir)
 
         if not os.path.exists(container_image):
             root_dir = os.path.join(root_dir, 'rootfs')
@@ -122,6 +113,14 @@ class Container(object):
                                 instance['user_id'], instance['project_id'])
             if not tarfile.is_tarfile(container_image):
                 raise exception.NovaException(_('Not an valid image'))
+
+        if CONF.use_cow_images:
+            root_dir = os.path.join(get_container_dir(instance['uuid']), 'rootfs')
+            self.image = image.ContainerCoW(container_image, instance, root_dir, self.base_dir)
+        else:
+            root_dir = fileutils.ensure_tree(os.path.join(get_container_dir(instance['uuid']),
+                                            'rootfs'))
+            self.image = image.ContainerLocal(container_image, instance, root_dir)
 
         self.image.create_container()
 
@@ -178,7 +177,7 @@ class Container(object):
 
     def teardown_network(self, instance, network_info):
         for vif in network_info:
-            self.vif_driver.unplug(instancece, vif)
+            self.vif_driver.unplug(instance, vif)
         self._stop_firewall(instance, network_info)
 
     def _start_firewall(self, instance, network_info):
@@ -186,7 +185,7 @@ class Container(object):
         self.firewall_driver.prepare_instance_filter(instance, network_info)
         self.firewall_driver.apply_instance_filter(instance, network_info)
 
-    def _stop_firewall(self, instnce, network_inf):
+    def _stop_firewall(self, instance, network_info):
         self.firewall_driver.unfilter_instance(instance, network_info)
 
     def _get_neutron_events(self, network_info):
