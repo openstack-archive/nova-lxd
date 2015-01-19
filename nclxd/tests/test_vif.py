@@ -44,15 +44,3 @@ class LXDGenericDriverTestCase(test.NoDBTestCase):
         'name': 'instance-name',
         'uuid': 'instance-uuid'
     }
-
-    def test_plug_ovs_network(self):
-        pass
-
-    def test_unplug_ovs_network(self):
-        pass
-
-    def test_plug_bridge_network(self):
-        pass
-
-    def test_unplug_bridge_network(self):
-        pass

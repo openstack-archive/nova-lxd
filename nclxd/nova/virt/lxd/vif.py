@@ -27,7 +27,7 @@ from nova.openstack.common import log as logging
 from nova.network import linux_net
 from nova.network import model as network_model
 
-from . import utils as container_utils
+import utils as container_utils
 
 
 CONF = cfg.CONF

@@ -8,4 +8,4 @@ requests>=2.2.0,!=2.4.0
 oslo.concurrency>=0.3.0  # Apache-2.0
 oslo.utils>=1.2.0                       # Apache-2.0
 oslo.i18n>=1.0.0  # Apache-2.0
--e git://github.com/lxc/python2-lxc#egg=lxc
+-e git+https://github.com/lxc/python2-lxc#egg=lxc_python2
