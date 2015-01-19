@@ -2,13 +2,13 @@ import contextlib
 
 import mock
 
-from nova import tests
+from nova import test
 from nova import utils
 from nova.network import linux_net
 from nclxd.nova.virt.lxd import vif
 from nova.network import model as network_model
 
-class LXDGenericDriverTestCase(tests.testCase):
+class LXDGenericDriverTestCase(test.NoDBTestCase):
     gateway_bridge_4 = network_model.IP(address='101.168.1.1', type='gateway')
     dns_bridge_4 = network_model.IP(address='8.8.8.8', type=None)
     ips_bridge_4 = [network_model.IP(address='101.168.1.9', type=None)]
@@ -39,41 +39,20 @@ class LXDGenericDriverTestCase(tests.testCase):
                                                 'port_filter': True},
                                        devname='tap-xxx-yyy-zzz',
                                        ovs_interfaceid='aaa-bbb-ccc')
-    def test_plug_ovs_hybrid(self):
-        calls = {
-            'device_exists': [mock.call('qbrvif-xxx-yyy'),
-                              mock.call('qvovif-xxx-yyy')],
-            '_create_veth_pair': [mock.call('qvbvif-xxx-yyy',
-                                            'qvovif-xxx-yyy')],
-            'execute': [mock.call('brctl', 'addbr', 'qbrvif-xxx-yyy',
-                                  run_as_root=True),
-                        mock.call('brctl', 'setfd', 'qbrvif-xxx-yyy', 0,
-                                  run_as_root=True),
-                        mock.call('brctl', 'stp', 'qbrvif-xxx-yyy', 'off',
-                                  run_as_root=True),
-                        mock.call('tee', ('/sys/class/net/qbrvif-xxx-yyy'
-                                          '/bridge/multicast_snooping'),
-                                  process_input='0', run_as_root=True,
-                                  check_exit_code=[0, 1]),
-                        mock.call('ip', 'link', 'set', 'qbrvif-xxx-yyy', 'up',
-                                  run_as_root=True),
-                        mock.call('brctl', 'addif', 'qbrvif-xxx-yyy',
-                                  'qvbvif-xxx-yyy', run_as_root=True)],
-            'create_ovs_vif_port': [mock.call('br0',
-                                              'qvovif-xxx-yyy', 'aaa-bbb-ccc',
-                                              'ca:fe:de:ad:be:ef',
-                                              'instance-uuid')]
-        }
-        with contextlib.nested(
-                mock.patch.object(linux_net, 'device_exists',
-                                  return_value=False),
-                mock.patch.object(utils, 'execute'),
-                mock.patch.object(linux_net, '_create_veth_pair'),
-                mock.patch.object(linux_net, 'create_ovs_vif_port')
-        ) as (device_exists, execute, _create_veth_pair, create_ovs_vif_port):
-            d = vif.LXDGenericDriver()
-            d.plug_ovs_hybrid(self.instance, self.vif_ovs)
-            device_exists.assert_has_calls(calls['device_exists'])
-            _create_veth_pair.assert_has_calls(calls['_create_veth_pair'])
-            execute.assert_has_calls(calls['execute'])
-            create_ovs_vif_port.assert_has_calls(calls['create_ovs_vif_port'])
+
+    instance = {
+        'name': 'instance-name',
+        'uuid': 'instance-uuid'
+    }
+
+    def test_plug_ovs_network(self):
+        pass
+
+    def test_unplug_ovs_network(self):
+        pass
+
+    def test_plug_bridge_network(self):
+        pass
+
+    def test_unplug_bridge_network(self):
+        pass
