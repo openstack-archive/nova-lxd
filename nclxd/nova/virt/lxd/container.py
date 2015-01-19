@@ -43,10 +43,13 @@ LOG = logging.getLogger(__name__)
 
 MAX_CONSOLE_BYTES = 100 * units.Ki
 
+
 def get_container_dir(instance):
     return os.path.join(CONF.lxd.lxd_root_dir, instance)
 
+
 class Container(object):
+
     def __init__(self, client, virtapi, firewall):
         self.client = client
         self.virtapi = virtapi
@@ -83,7 +86,7 @@ class Container(object):
         return log_data
 
     def start_container(self, context, instance, image_meta, injected_files,
-			admin_password, network_info, block_device_info, flavor):
+                        admin_password, network_info, block_device_info, flavor):
         LOG.info(_LI('Starting new instance'), instance=instance)
 
         self.container = lxc.Container(instance['uuid'])
@@ -105,21 +108,27 @@ class Container(object):
             fileutils.ensure_tree(self.base_dir)
 
     def _fetch_image(self, context, instance):
-        container_image = os.path.join(self.base_dir, '%s.tar.gz' % instance['image_ref'])
+        container_image = os.path.join(
+            self.base_dir, '%s.tar.gz' % instance['image_ref'])
 
         if not os.path.exists(container_image):
-            images.fetch_to_raw(context, instance['image_ref'], container_image,
+            images.fetch_to_raw(
+                context, instance['image_ref'], container_image,
                                 instance['user_id'], instance['project_id'])
             if not tarfile.is_tarfile(container_image):
                 raise exception.NovaException(_('Not an valid image'))
 
         if CONF.use_cow_images:
-            root_dir = os.path.join(get_container_dir(instance['uuid']), 'rootfs')
-            self.image = image.ContainerCoW(container_image, instance, root_dir, self.base_dir)
+            root_dir = os.path.join(
+                get_container_dir(instance['uuid']), 'rootfs')
+            self.image = image.ContainerCoW(
+                container_image, instance, root_dir, self.base_dir)
         else:
-            root_dir = fileutils.ensure_tree(os.path.join(get_container_dir(instance['uuid']),
-                                            'rootfs'))
-            self.image = image.ContainerLocal(container_image, instance, root_dir)
+            root_dir = fileutils.ensure_tree(
+                os.path.join(get_container_dir(instance['uuid']),
+                             'rootfs'))
+            self.image = image.ContainerLocal(
+                container_image, instance, root_dir)
 
         self.image.create_container()
 
@@ -194,6 +203,6 @@ class Container(object):
     def _neutron_failed_callback(self, event_name, instance):
         LOG.error(_LE('Neutron Reported failure on event '
                       '%(event)s for instance %(uuid)s'),
-                    {'event': event_name, 'uuid': instance.uuid})
+                  {'event': event_name, 'uuid': instance.uuid})
         if CONF.vif_plugging_is_fatal:
             raise exception.VirtualInterfaceCreateException()

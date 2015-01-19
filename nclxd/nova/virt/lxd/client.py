@@ -15,7 +15,9 @@
 import json
 import requests
 
+
 class Client(object):
+
     def __init__(self, host, cert, key):
         self.host = host
         self.cert = cert
@@ -33,7 +35,7 @@ class Client(object):
                             cert=(self.cert, self.key), verify=False)
 
     def _delete(self, path):
-        return requests.delete(self._url(path), 
+        return requests.delete(self._url(path),
                                cert=(self.cert, self.key), verify=False)
 
     def defined(self, name):
@@ -63,7 +65,7 @@ class Client(object):
     def start(self, name):
         container_start = False
         if self.defined(name):
-            params = {'action':'start'}
+            params = {'action': 'start'}
             response = self._put('/1.0/containers/%s/state' % name, params)
             if response.status_code == 200:
                 container_start = True
@@ -72,7 +74,7 @@ class Client(object):
     def stop(self, name):
         container_stop = False
         if self.defined(name):
-            params = {'action':'start'}
+            params = {'action': 'start'}
             response = self._put('/1.0/containers/%s/state' % name, params)
             if response.status_code == 200:
                 container_stop = True

@@ -53,8 +53,8 @@ from . import host_utils
 
 lxd_opts = [
     cfg.StrOpt('lxd_client_cert',
-                default='/etc/lxd/client.crt',
-                help='LXD client certificate'),
+               default='/etc/lxd/client.crt',
+               help='LXD client certificate'),
     cfg.StrOpt('lxd_client_key',
                default='/etc/lxd/client.key',
                help='LXD client key'),
@@ -62,18 +62,18 @@ lxd_opts = [
                default='127.0.0.1:8443',
                help='LXD API Server'),
     cfg.StrOpt('lxd_root_dir',
-                default='/var/lib/lxd/lxc',
-                help='Default LXD directory'),
+               default='/var/lib/lxd/lxc',
+               help='Default LXD directory'),
     cfg.StrOpt('lxd_default_template',
-                default='ubuntu-cloud',
-                help='Default LXC template'),
+               default='ubuntu-cloud',
+               help='Default LXC template'),
     cfg.StrOpt('lxd_template_dir',
-                default='/usr/share/lxc/templates',
-                help='Default template directory'),
+               default='/usr/share/lxc/templates',
+               help='Default template directory'),
     cfg.StrOpt('lxd_config_dir',
-                default='/usr/share/lxc/config',
-                help='Default lxc config dir')
- ]
+               default='/usr/share/lxc/config',
+               help='Default lxc config dir')
+]
 
 
 CONF = cfg.CONF
@@ -82,11 +82,12 @@ CONF.import_opt('host', 'nova.netconf')
 
 LOG = logging.getLogger(__name__)
 
+
 class LXDDriver(driver.ComputeDriver):
     capabilities = {
         "has_imagecache": False,
         "supports_recreate": False,
-        }
+    }
 
     """LXD hypervisor driver."""
 
@@ -135,25 +136,21 @@ class LXDDriver(driver.ComputeDriver):
     def poll_rebooting_instances(self, timeout, instances):
         raise NotImplemented()
 
-
     def migrate_disk_and_power_off(self, context, instance, dest,
                                    flavor, network_info,
                                    block_device_info=None,
                                    timeout=0, retry_interval=0):
         raise NotImplemented()
 
-
     def finish_revert_migration(self, context, instance, network_info,
                                 block_device_info=None, power_on=True):
         raise NotImplemented()
-
 
     def post_live_migration_at_destination(self, context, instance,
                                            network_info,
                                            block_migration=False,
                                            block_device_info=None):
         raise NotImplemented()
-
 
     def power_off(self, instance, shutdown_timeout=0, shutdown_attempts=0):
         self.client.stop(instance['uuid'])
@@ -210,11 +207,11 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplemented()
 
     def get_info(self, instance):
-         if self.client.running(instance['uuid']):
+        if self.client.running(instance['uuid']):
             pstate = power_state.RUNNING
-         else:
+        else:
             pstate = power_state.SHUTDOWN
-         return hardware.InstanceInfo(state=pstate,
+        return hardware.InstanceInfo(state=pstate,
                                      max_mem_kb=0,
                                      mem_kb=0,
                                      num_cpu=2,
@@ -233,7 +230,7 @@ class LXDDriver(driver.ComputeDriver):
         self.firewall_driver.refresh_rules(instance)
 
     def refresh_provider_fw_rules(self):
-         self.firewall_driver.refresh_provider_fw_rules()
+        self.firewall_driver.refresh_provider_fw_rules()
 
     def get_available_resource(self, nodename):
         """Updates compute manager resource info on ComputeNode table.
@@ -253,7 +250,7 @@ class LXDDriver(driver.ComputeDriver):
         data["local_gb"] = disk['total'] / units.Gi
         data["vcpus_used"] = 1
         data["memory_mb_used"] = memory['used'] / units.Mi
-        data["local_gb_used"]  = disk['used'] / units.Gi
+        data["local_gb_used"] = disk['used'] / units.Gi
         data["hypervisor_type"] = "lxd"
         data["hypervisor_version"] = "1.0"
         data["hypervisor_hostname"] = nodename
@@ -265,7 +262,8 @@ class LXDDriver(driver.ComputeDriver):
 
     def ensure_filtering_rules_for_instance(self, instance_ref, network_info):
         self.firewall_driver.setup_basic_filtering(instance_ref, network_info)
-        self.firewall_driver.prepare_instance_filter(instance_ref, network_info)
+        self.firewall_driver.prepare_instance_filter(
+            instance_ref, network_info)
 
     def unfilter_instance(self, instance, network_info):
         self.firewall_driver.unfilter_instance(instance, network_info)
@@ -273,5 +271,3 @@ class LXDDriver(driver.ComputeDriver):
     def get_available_nodes(self, refresh=False):
         hostname = socket.gethostname()
         return [hostname]
-
-

@@ -14,6 +14,7 @@
 
 import os
 
+
 def get_fs_info(path):
     """get free/used/total space info for a filesystem
 
@@ -32,6 +33,7 @@ def get_fs_info(path):
             'free': free,
             'used': used}
 
+
 def get_memory_mb_usage():
     """Get the used memory size(MB) of the host.
 
@@ -44,7 +46,7 @@ def get_memory_mb_usage():
         idx2 = m.index('MemFree:')
         idx3 = m.index('Buffers:')
         idx4 = m.index('Cached:')
-    
+
         total = int(m[idx1 + 1])
         avail = int(m[idx2 + 1]) + int(m[idx3 + 1]) + int(m[idx4 + 1])
 

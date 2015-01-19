@@ -24,14 +24,18 @@ from nova import utils
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
+
 class LXDConfigObject(object):
+
     def __init__(self, **kwargs):
         super(LXDConfigObject, self).__init__()
 
     def set_config(self):
         pass
 
+
 class LXDConfigTemplate(LXDConfigObject):
+
     def __init__(self, instance, image_meta):
         super(LXDConfigTemplate, self).__init__()
         self.instance = instance
@@ -40,7 +44,7 @@ class LXDConfigTemplate(LXDConfigObject):
     def set_config(self):
         templates = []
         if (self.image_meta and
-            self.image_meta.get('properties', {}).get('template')):
+           self.image_meta.get('properties', {}).get('template')):
                 lxc_template = self.image_meta['properties'].get('template')
         else:
             lxc_template = CONF.lxd.lxd_default_template
@@ -51,16 +55,19 @@ class LXDConfigTemplate(LXDConfigObject):
 
         if lxc_template in templates:
             config_file = os.path.join(CONF.lxd.lxd_root_dir,
-                          self.instance, 'config')
+                                       self.instance, 'config')
 
             f = open(config_file, 'w')
-            f.write('lxc.include = %s/%s.common.conf\n' % (CONF.lxd.lxd_config_dir,
-                                                           lxc_template))
-            f.write('lxc.include = %s/%s.userns.conf\n' % (CONF.lxd.lxd_config_dir,
-                                                            lxc_template))
+            f.write('lxc.include = %s/%s.common.conf\n'
+                    % (CONF.lxd.lxd_config_dir,
+                       lxc_template))
+            f.write('lxc.include = %s/%s.userns.conf\n'
+                    % (CONF.lxd.lxd_config_dir,
+                       lxc_template))
 
 
 class LXDConfigSetName(LXDConfigObject):
+
     def __init__(self, container, instance):
         super(LXDConfigSetName, self).__init__()
         self.container = container
@@ -70,7 +77,9 @@ class LXDConfigSetName(LXDConfigObject):
         self.container.append_config_item('lxc.utsname',
                                           self.instance)
 
+
 class LXDConfigSetRoot(LXDConfigObject):
+
     def __init__(self, container, instance):
         super(LXDConfigSetRoot, self).__init__()
         self.container = container
@@ -83,7 +92,9 @@ class LXDConfigSetRoot(LXDConfigObject):
         self.container.append_config_item('lxc.rootfs',
                                           self.container_rootfs)
 
+
 class LXDConfigSetLog(LXDConfigObject):
+
     def __init__(self, container, instance):
         super(LXDConfigSetLog, self).__init__()
         self.container = container
@@ -96,7 +107,9 @@ class LXDConfigSetLog(LXDConfigObject):
         self.container.append_config_item('lxc.logfile',
                                           container_logfile)
 
+
 class LXDConfigConsole(LXDConfigObject):
+
     def __init__(self, container, instance):
         super(LXDConfigConsole, self).__init__()
         self.container = container
@@ -112,6 +125,7 @@ class LXDConfigConsole(LXDConfigObject):
 
 
 class LXDUserConfig(LXDConfigObject):
+
     def __init__(self, container, idmap):
         super(LXDUserConfig, self).__init__()
         self.container = container
@@ -121,7 +135,9 @@ class LXDUserConfig(LXDConfigObject):
         for ent in self.idmap.lxc_conf_lines():
             self.container.append_config_item(*ent)
 
+
 class LXDSetLimits(LXDConfigObject):
+
     def __init__(self, container, instance):
         super(LXDSetLimits, self).__init__()
         self.container = container
@@ -132,4 +148,3 @@ class LXDSetLimits(LXDConfigObject):
         self.container.append_config_item(
             'lxc.cgroup.memory.limit_in_bytes',
             '%sM' % flavor.memory_mb)
-

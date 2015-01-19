@@ -22,6 +22,7 @@ from . import utils as container_utils
 
 LOG = logging.getLogger(__name__)
 
+
 def write_image(idmap, image, root_dir):
     tar = ['tar', '--directory', root_dir,
            '--anchored', '--numeric-owner', '-xpzf', image]
@@ -31,7 +32,9 @@ def write_image(idmap, image, root_dir):
     args = tuple(nsexec + tar)
     utils.execute(*args, check_exit_code=[0, 2])
 
+
 class ContainerImage(object):
+
     def __init__(self, **kwargs):
         super(ContainerImage, self).__init__()
 
@@ -41,7 +44,9 @@ class ContainerImage(object):
     def remove_contianer(self):
         pass
 
+
 class ContainerLocal(ContainerImage):
+
     def __init__(self, image, instance, root_dir):
         super(ContainerLocal, self).__init__()
         self.image = image
@@ -53,13 +58,15 @@ class ContainerLocal(ContainerImage):
     def create_container(self):
         (user, group) = self.idmap.get_user()
         utils.execute('chown', '%s:%s' % (user, group), self.root_dir,
-                       run_as_root=True)
+                      run_as_root=True)
         write_image(self.idmap, self.image, self.root_dir)
 
     def remove_container(self):
         pass
 
+
 class ContainerCoW(ContainerImage):
+
     def __init__(self, image, instance, root_dir, base_dir):
         super(ContainerCoW, self).__init__()
         self.idmap = container_utils.LXCUserIdMap()

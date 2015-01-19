@@ -48,9 +48,10 @@ def write_lxc_config(instance, vif):
             bridge = vif['network']['bridge']
 
         f.write('lxc.network.link = %s\n' % bridge)
-            
+
 
 class LXDGenericDriver(object):
+
     def _get_vif_driver(self, vif):
         vif_type = vif['type']
         if vif_type is None:
@@ -70,7 +71,9 @@ class LXDGenericDriver(object):
         vif_driver = self._get_vif_driver(vif)
         vif_driver.unplug(instance, vif)
 
+
 class LXDOpenVswitchDriver(object):
+
     def plug(self, instance, vif):
         iface_id = self._get_ovs_interfaceid(vif)
         br_name = self._get_br_name(vif['id'])
@@ -81,11 +84,11 @@ class LXDOpenVswitchDriver(object):
             utils.execute('brctl', 'setfd', br_name, 0, run_as_root=True)
             utils.execute('brctl', 'stp', br_name, 'off', run_as_root=True)
             utils.execute('tee',
-                  ('/sys/class/net/%s/bridge/multicast_snooping' %
-                    br_name),
-                    process_input='0',
-                    run_as_root=True,
-                    check_exit_code=[0, 1])
+                          ('/sys/class/net/%s/bridge/multicast_snooping' %
+                           br_name),
+                          process_input='0',
+                          run_as_root=True,
+                          check_exit_code=[0, 1])
 
         if not linux_net.device_exists(v2_name):
             linux_net._create_veth_pair(v1_name, v2_name)
@@ -115,7 +118,7 @@ class LXDOpenVswitchDriver(object):
                                           v2_name)
         except processutils.ProcessExecutionError:
             LOG.exception(_("Failed while unplugging vif"),
-                         instance=instance)
+                          instance=instance)
 
     def _get_bridge_name(self, vif):
         return vif['network']['bridge']
@@ -130,22 +133,24 @@ class LXDOpenVswitchDriver(object):
         return (("qvb%s" % iface_id)[:network_model.NIC_NAME_LEN],
                 ("qvo%s" % iface_id)[:network_model.NIC_NAME_LEN])
 
+
 class LXDNetworkBridgeDriver(object):
+
     def plug(self, container, instance, vif):
         network = vif['network']
         if (not network.get_meta('multi_host', False) and
                 network.get_meta('should_create_bridge', False)):
             if network.get_meta('should_create_vlan', False):
-               iface = CONF.vlan_interface or \
-                 network.get_meta('bridge_interface')
-               LOG.debug('Ensuring vlan %(vlan)s and bridge %(bridge)s',
-                        {'vlan': network.get_meta('vlan'),
-                        'bridge': vif['network']['bridge']},
-                        instance=instance)
-               linux_net.LinuxBridgeInterfaceDriver.ensure_vlan_bridge(
+                iface = CONF.vlan_interface or \
+                    network.get_meta('bridge_interface')
+                LOG.debug('Ensuring vlan %(vlan)s and bridge %(bridge)s',
+                          {'vlan': network.get_meta('vlan'),
+                           'bridge': vif['network']['bridge']},
+                          instance=instance)
+                linux_net.LinuxBridgeInterfaceDriver.ensure_vlan_bridge(
                     network.get_meta('vlan'),
-                    vif['network']['bridge'],
-                    iface)
+                     vif['network']['bridge'],
+                     iface)
             else:
                 iface = CONF.flat_interface or \
                     network.get_meta('bridge_interface')
