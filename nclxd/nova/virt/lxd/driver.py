@@ -30,8 +30,7 @@ from oslo.utils import units
 from oslo.config import cfg
 from oslo.serialization import jsonutils
 
-from nova.compute import arch
-from nova.compute import hv_type
+
 from nova.compute import power_state
 from nova.compute import task_states
 from nova.compute import vm_mode
