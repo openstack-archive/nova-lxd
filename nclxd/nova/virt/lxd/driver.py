@@ -46,9 +46,9 @@ from nova.virt import firewall
 from nova.virt import hardware
 from nova.virt import virtapi
 
-from . import client
-from . import container
-from . import host_utils
+import client
+import container
+import host_utils
 
 lxd_opts = [
     cfg.StrOpt('lxd_client_cert',
