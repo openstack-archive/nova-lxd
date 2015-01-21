@@ -47,72 +47,65 @@ class Client(object):
 
     def running(self, name):
         container_running = False
-        if self.defined(name):
-            response = self._get('/1.0/containers/%s/state' % name)
-            if response:
-                content = json.loads(response.text)
-                if content['metadata']['state'] != 'STOPPED':
-                    container_running = True
+        response = self._get('/1.0/containers/%s/state' % name)
+        if response:
+            content = json.loads(response.text)
+            if content['metadata']['state'] != 'STOPPED':
+                container_running = True
         return container_running
 
     def state(self, name):
         if self.defined(name):
-            response = elf._get('/1.0/containers/%s/state' % name)
+            response = self._get('/1.0/containers/%s/state' % name)
             if response:
                 content = json.loads(response.text)
                 return content['metadata']['state']
 
     def start(self, name):
         container_start = False
-        if self.defined(name):
-            params = {'action': 'start'}
-            response = self._put('/1.0/containers/%s/state' % name, params)
-            if response.status_code == 200:
-                container_start = True
+        params = {'action': 'start'}
+        response = self._put('/1.0/containers/%s/state' % name, params)
+        if response.status_code == 200:
+            container_start = True
         return container_start
 
     def stop(self, name):
         container_stop = False
-        if self.defined(name):
-            params = {'action': 'start'}
-            response = self._put('/1.0/containers/%s/state' % name, params)
-            if response.status_code == 200:
-                container_stop = True
+        params = {'action': 'stop'}
+        response = self._put('/1.0/containers/%s/state' % name, params)
+        if response.status_code == 200:
+            container_stop = True
         return container_stop
 
     def pause(self, name):
         container_pause = False
-        if self.defined(name):
-            params = {'action': 'freeze'}
-            response = self._put('/1.0/containers/%s/state' % name, params)
-            if response.status_code == 200:
-                container_pause = True
+        params = {'action': 'freeze'}
+        response = self._put('/1.0/containers/%s/state' % name, params)
+        if response.status_code == 200:
+            container_pause = True
         return container_pause
 
     def unpause(self, name):
         container_unpause = False
-        if self.defined(name):
-            params = {'action': 'unfreeze'}
-            response = self._put('/1.0/containers/%s/state' % name, params)
-            if response.status_code == 200:
-                container_unpause = True
+        params = {'action': 'unfreeze'}
+        response = self._put('/1.0/containers/%s/state' % name, params)
+        if response.status_code == 200:
+            container_unpause = True
         return container_unpause
 
     def reboot(self, name):
         container_reboot = False
-        if self.defined(name):
-            params = {'action': 'restart'}
-            response = self._put('/1.0/containers/%s/state' % name, params)
-            if response.status_code == 200:
-                container_reboot = True
+        params = {'action': 'restart'}
+        response = self._put('/1.0/containers/%s/state' % name, params)
+        if response.status_code == 200:
+            container_reboot = True
         return container_reboot
 
     def destroy(self, name):
         container_delete = False
-        if self.defined(name):
-            response = self._delete('/1.0/containers/%s' % name)
-            if response.status_code == 200:
-                container_delete = True
+        response = self._delete('/1.0/containers/%s' % name)
+        if response.status_code == 200:
+            container_delete = True
         return container_delete
 
     def list(self):

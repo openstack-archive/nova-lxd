@@ -115,8 +115,8 @@ class Container(object):
             images.fetch_to_raw(
                 context, instance['image_ref'], container_image,
                                 instance['user_id'], instance['project_id'])
-            if not tarfile.is_tarfile(container_image):
-                raise exception.NovaException(_('Not an valid image'))
+            '''if not tarfile.is_tarfile(container_image):
+                raise exception.NovaException(_('Not an valid image'))'''
 
         if CONF.use_cow_images:
             root_dir = os.path.join(

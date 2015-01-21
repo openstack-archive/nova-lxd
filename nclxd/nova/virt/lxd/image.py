@@ -76,14 +76,14 @@ class ContainerCoW(ContainerImage):
         self.base_dir = base_dir
 
     def create_container(self):
-        if not os.path.exists(image_dir):
+        if not os.path.exists(self.base_dir):
             (user, group) = self.idmap.get_user()
-            utils.execute('btrfs', 'subvolume', 'create', image_dir)
-            utils.execute('chown', '%s:%s' % (user, group), image_dir,
+            utils.execute('btrfs', 'subvolume', 'create', self,base_dir)
+            utils.execute('chown', '%s:%s' % (user, group), self,base_dir,
                           run_as_root=True)
-            write_image(self.idmap, self.image, image_dir)
+            write_image(self.idmap, self.image,  self,base_dir)
 
-        utils.execute('btrfs', 'subvolume', 'snapshot', image_dir,
+        utils.execute('btrfs', 'subvolume', 'snapshot', self.base_dir,
                       self.root_dir, run_as_root=True)
         size = self.instance['root_gb']
         if size != 0:
