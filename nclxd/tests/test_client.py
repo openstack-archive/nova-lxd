@@ -27,12 +27,12 @@ class LXDTestClient(test.TestCase):
         self.client = client.Client('https://127.0.0.1:8443',
                                     'client',
                                     'key')
-    def test_container_defined(self):
+    def test_client_defined(self):
         requests.get = mock.Mock(return_value=True)
         instance = self.client.defined('test')
         self.assertTrue(instance)
 
-    def test_container_state(self):
+    def test_client_state(self):
         return_text = json.dumps({"type":"sync","result":"success",
                                   "metadata":{"state":"RUNNING","state_code":3}})
         get_return = LXDFakeResponse(code=200,
@@ -41,7 +41,7 @@ class LXDTestClient(test.TestCase):
         instance = self.client.state('test')
         self.assertIn('RUNNING', instance)
 
-    def test_container_running(self):
+    def test_client_running(self):
         return_text = json.dumps({"type":"sync","result":"success",
                                   "metadata":{"state":"RUNNING","state_code":3}})
         get_return = LXDFakeResponse(code=200,
@@ -50,7 +50,7 @@ class LXDTestClient(test.TestCase):
         instance = self.client.running('test')
         self.assertTrue(instance)
 
-    def test_container_list(self):
+    def test_client_list(self):
         return_text = json.dumps({"type":"sync","result":"success",
                                   "metadata":["dc5a4fd8-a43e-486f-9e2c-fb07917f2915"]})
         get_return = LXDFakeResponse(code=200,
@@ -60,7 +60,7 @@ class LXDTestClient(test.TestCase):
         self.assertIsInstance(instance, list)
         self.assertIn('dc5a4fd8-a43e-486f-9e2c-fb07917f2915',instance)
 
-    def test_container_start(self):
+    def test_client_start(self):
         return_text = json.dumps({"type":"sync","result":"success",
                                   "metadata":{"state":"RUNNING","state_code":3}})
         get_return = LXDFakeResponse(code=200,
@@ -69,7 +69,7 @@ class LXDTestClient(test.TestCase):
         instance = self.client.start('test')
         self.assertTrue(instance)
 
-    def test_container_stop(self):
+    def test_client_stop(self):
         return_text = json.dumps({"type":"sync","result":"success",
                                   "metadata":{"state":"RUNNING","state_code":3}})
         get_return = LXDFakeResponse(code=200,
@@ -78,7 +78,7 @@ class LXDTestClient(test.TestCase):
         instance = self.client.start('test')
         self.assertTrue(instance)
 
-    def test_container_reboot(self):
+    def test_client_reboot(self):
         return_text = json.dumps({"type":"sync","result":"success",
                                   "metadata":{"state":"RUNNING","state_code":3}})
         get_return = LXDFakeResponse(code=200,
@@ -87,7 +87,7 @@ class LXDTestClient(test.TestCase):
         instance = self.client.reboot('test')
         self.assertTrue(instance)
 
-    def test_contianer_pause(self):
+    def test_client_pause(self):
         return_text = json.dumps({"type":"sync","result":"success",
                                   "metadata":{"state":"RUNNING","state_code":3}})
         get_return = LXDFakeResponse(code=200,
@@ -96,7 +96,7 @@ class LXDTestClient(test.TestCase):
         instance = self.client.pause('test')
         self.assertTrue(instance)
 
-    def test_contianer_unpause(self):
+    def test_client_unpause(self):
         return_text = json.dumps({"type":"sync","result":"success",
                                   "metadata":{"state":"RUNNING","state_code":3}})
         get_return = LXDFakeResponse(code=200,
@@ -105,7 +105,7 @@ class LXDTestClient(test.TestCase):
         instance = self.client.unpause('test')
         self.assertTrue(instance)
 
-    def test_contianer_reboot(self):
+    def test_client_reboot(self):
         return_text = json.dumps({"type":"sync","result":"success",
                                   "metadata":{"state":"RUNNING","state_code":3}})
         get_return = LXDFakeResponse(code=200,

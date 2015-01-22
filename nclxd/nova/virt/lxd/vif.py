@@ -136,7 +136,7 @@ class LXDOpenVswitchDriver(object):
 
 class LXDNetworkBridgeDriver(object):
 
-    def plug(self, container, instance, vif):
+    def plug(self, instance, vif):
         network = vif['network']
         if (not network.get_meta('multi_host', False) and
                 network.get_meta('should_create_bridge', False)):
@@ -161,5 +161,5 @@ class LXDNetworkBridgeDriver(object):
                     iface)
         write_lxc_config(instance, vif)
 
-    def unplug(self, container, intsance, vif):
+    def unplug(self, instance, vif):
         pass
