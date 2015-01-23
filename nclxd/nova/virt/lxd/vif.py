@@ -83,7 +83,7 @@ class LXDOpenVswitchDriver(object):
                                           v2_name, iface_id, vif['address'],
                                           instance['uuid'])
 
-       container_utils.write_lxc_usernet(instance, br_name)
+        container_utils.write_lxc_usernet(instance, br_name)
 
     def unplug(self, instance, vif):
         try:
