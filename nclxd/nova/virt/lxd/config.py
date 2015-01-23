@@ -161,7 +161,7 @@ class LXDSetNetwork(LXDConfigObject):
             self.container.append_config_item(
                 'lxc.network.type', 'veth'
             )
-            self.container.append_config-item(
+            self.container.append_config_item(
                 'lxc.network.hwaddr',
                 vif['address']
             )
