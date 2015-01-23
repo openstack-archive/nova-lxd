@@ -5,10 +5,8 @@
 pbr>=0.6,!=0.7,<1.0
 Babel>=1.3
 requests>=2.2.0,!=2.4.0
-oslo.config
-oslo.concurrency>=0.3.0  # Apache-2.0
+oslo.config>=1.6.0  # Apache-2.0
+oslo.concurrency>=0.3.0,!=0.4.0         # Apache-2.0
 oslo.utils>=1.2.0                       # Apache-2.0
-oslo.i18n>=1.0.0  # Apache-2.0
-python-glanceclient
-lxc_python2
--e git+https://github.com/lxc/python2-lxc#egg=lxc_python2
+oslo.i18n>=1.3.0  # Apache-2.0
+python-glanceclient>=0.15.0
