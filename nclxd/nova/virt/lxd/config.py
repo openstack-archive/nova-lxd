@@ -148,3 +148,28 @@ class LXDSetLimits(LXDConfigObject):
         self.container.append_config_item(
             'lxc.cgroup.memory.limit_in_bytes',
             '%sM' % flavor.memory_mb)
+
+class LXDSetNetwork(LXDConfigConsole):
+
+    def __init__(self, container, network):
+        super(LXDSetNetwork, self).__init__()
+        self.container = container
+        self.network = network
+
+    def set_config(self):
+        for vif in self.network:
+            self.container.append_config_item(
+                'lxc.network.type', 'veth'
+            )
+            self.container.append_config-item(
+                'lxc.network.hwaddr',
+                vif['address']
+            )
+            if vif['type'] == 'ovs':
+                bridge = 'qbr%s' % vif['id'][:11]
+            else:
+                bridge = vif['network']['bridge']
+            self.container.append_config_item(
+                'lxc.network.link',
+                bridge
+            )

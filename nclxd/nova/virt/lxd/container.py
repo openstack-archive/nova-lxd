@@ -177,6 +177,9 @@ class Container(object):
         limit = config.LXDSetLimits(self.container, instance)
         limit.set_config()
 
+        network = config.LXDSetNetwork(self.container, self.network_info)
+        network.set_config()
+
         self.container.save_config()
 
     def _start_network(self, instance, network_info):

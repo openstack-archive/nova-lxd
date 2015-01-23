@@ -35,21 +35,6 @@ CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 
-def write_lxc_config(instance, vif):
-    config_file = os.path.join(CONF.lxd.lxd_root_dir,
-                               instance['uuid'],
-                               'config')
-    with open(config_file, 'a+') as f:
-        f.write('lxc.network.type = veth\n')
-        f.write('lxc.network.hwaddr = %s\n' % vif['address'])
-        if vif['type'] == 'ovs':
-            bridge = 'qbr%s' % vif['id'][:11]
-        else:
-            bridge = vif['network']['bridge']
-
-        f.write('lxc.network.link = %s\n' % bridge)
-
-
 class LXDGenericDriver(object):
 
     def _get_vif_driver(self, vif):
@@ -98,8 +83,7 @@ class LXDOpenVswitchDriver(object):
                                           v2_name, iface_id, vif['address'],
                                           instance['uuid'])
 
-        write_lxc_config(instance, vif)
-        container_utils.write_lxc_usernet(instance, br_name)
+       container_utils.write_lxc_usernet(instance, br_name)
 
     def unplug(self, instance, vif):
         try:
@@ -159,7 +143,6 @@ class LXDNetworkBridgeDriver(object):
                 linux_net.LinuxBridgeInterfaceDriver.ensure_bridge(
                     vif['network']['bridge'],
                     iface)
-        write_lxc_config(instance, vif)
 
     def unplug(self, instance, vif):
         pass
