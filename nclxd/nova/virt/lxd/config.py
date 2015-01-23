@@ -149,7 +149,7 @@ class LXDSetLimits(LXDConfigObject):
             'lxc.cgroup.memory.limit_in_bytes',
             '%sM' % flavor.memory_mb)
 
-class LXDSetNetwork(LXDConfigConsole):
+class LXDSetNetwork(LXDConfigObject):
 
     def __init__(self, container, network):
         super(LXDSetNetwork, self).__init__()
