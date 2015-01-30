@@ -13,27 +13,23 @@
 #    under the License.
 
 import os
-import grp
 import pwd
 import uuid
 
 import lxc
-import tarfile
 
 from oslo.config import cfg
 from oslo.utils import importutils, units
 
 from nova.i18n import _, _LW, _LE, _LI
-from nova.openstack.common import fileutils
 from nova.openstack.common import log as logging
 from nova import utils
-from nova.virt import images
 from nova import exception
 
 from . import config
-from . import image
 from . import utils as container_utils
 from . import vif
+from . import images
 
 CONF = cfg.CONF
 CONF.import_opt('use_cow_images', 'nova.virt.driver')
@@ -44,10 +40,6 @@ LOG = logging.getLogger(__name__)
 MAX_CONSOLE_BYTES = 100 * units.Ki
 
 
-def get_container_dir(instance):
-    return os.path.join(CONF.lxd.lxd_root_dir, instance)
-
-
 class Container(object):
 
     def __init__(self, client, virtapi, firewall):
@@ -55,13 +47,8 @@ class Container(object):
         self.virtapi = virtapi
         self.firewall_driver = firewall
 
-        self.container = None
-        self.image = None
         self.idmap = container_utils.LXCUserIdMap()
         self.vif_driver = vif.LXDGenericDriver()
-
-        self.base_dir = os.path.join(CONF.lxd.lxd_root_dir,
-                                     CONF.image_cache_subdirectory_name)
 
     def init_container(self):
         lxc_cgroup = uuid.uuid4()
@@ -89,48 +76,24 @@ class Container(object):
                         admin_password, network_info, block_device_info, flavor):
         LOG.info(_LI('Starting new instance'), instance=instance)
 
-        self.container = lxc.Container(instance['uuid'])
-        self.container.set_config_path(CONF.lxd.lxd_root_dir)
-
-        ''' Create the instance directories '''
-        self._create_container(instance['uuid'])
+        # Setup the LXC instance
+        instance_name = instance['uuid']
+        container = lxc.Container(instance_name)
+        container.set_config_path(CONF.lxd.lxd_root_dir)
 
         ''' Fetch the image from glance '''
-        self._fetch_image(context, instance)
+        self._fetch_image(context, instance, image_meta)
 
-        ''' Start the contianer '''
+        ''' Set up the configuration file '''
+        self._write_config(container, instance, network_info, image_meta)
+
+        ''' Start the container '''
         self._start_container(context, instance, network_info, image_meta)
 
-    def _create_container(self, instance):
-        if not os.path.exists(get_container_dir(instance)):
-            fileutils.ensure_tree(get_container_dir(instance))
-        if not os.path.exists(self.base_dir):
-            fileutils.ensure_tree(self.base_dir)
 
-    def _fetch_image(self, context, instance):
-        container_image = os.path.join(
-            self.base_dir, '%s.tar.gz' % instance['image_ref'])
-
-        if not os.path.exists(container_image):
-            images.fetch_to_raw(
-                context, instance['image_ref'], container_image,
-                                instance['user_id'], instance['project_id'])
-            '''if not tarfile.is_tarfile(container_image):
-                raise exception.NovaException(_('Not an valid image'))'''
-
-        if CONF.use_cow_images:
-            root_dir = os.path.join(
-                get_container_dir(instance['uuid']), 'rootfs')
-            self.image = image.ContainerCoW(
-                container_image, instance, root_dir, self.base_dir)
-        else:
-            root_dir = fileutils.ensure_tree(
-                os.path.join(get_container_dir(instance['uuid']),
-                             'rootfs'))
-            self.image = image.ContainerLocal(
-                container_image, instance, root_dir)
-
-        self.image.create_container()
+    def _fetch_image(self, context, instance, image_meta):
+        image = images.ContainerImage(context, instance, image_meta)
+        image.create_container()
 
     def _start_container(self, context, instance, network_info, image_meta):
         timeout = CONF.vif_plugging_timeout
@@ -146,41 +109,17 @@ class Container(object):
             with self.virtapi.wait_for_instance_event(
                     instance, events, deadline=timeout,
                     error_callback=self._neutron_failed_callback):
-                self._write_config(instance, network_info, image_meta)
                 self._start_network(instance, network_info)
                 self._start_firewall(instance, network_info)
-                self.client.start(instance['uuid'])
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed'))
 
-    def _write_config(self, instance, network_info, image_meta):
-        template = config.LXDConfigTemplate(instance['uuid'], image_meta)
-        template.set_config()
+        self.client.start(instance['uuid'])
 
-        self.container.load_config()
-
-        name = config.LXDConfigSetName(self.container, instance['uuid'])
-        name.set_config()
-
-        rootfs = config.LXDConfigSetRoot(self.container, instance['uuid'])
-        rootfs.set_config()
-
-        logpath = config.LXDConfigSetLog(self.container, instance['uuid'])
-        logpath.set_config()
-
-        console_log = config.LXDConfigConsole(self.container, instance['uuid'])
-        console_log.set_config()
-
-        idmap = config.LXDUserConfig(self.container, self.idmap)
-        idmap.set_config()
-
-        limit = config.LXDSetLimits(self.container, instance)
-        limit.set_config()
-
-        network = config.LXDSetNetwork(self.container, network_info)
-        network.set_config()
-
-        self.container.save_config()
+    def _write_config(self, container, instance, network_info, image_meta):
+        self.config = config.LXDSetConfig(container, instance, self.idmap,
+                                          image_meta, network_info)
+        self.config.write_config()
 
     def _start_network(self, instance, network_info):
         for vif in network_info:

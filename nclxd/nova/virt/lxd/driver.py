@@ -33,6 +33,7 @@ from oslo.serialization import jsonutils
 
 from nova.compute import power_state
 from nova.compute import task_states
+from nova import paths
 from nova.compute import vm_mode
 from nova.console import type as ctype
 from nova import db
@@ -66,6 +67,9 @@ lxd_opts = [
     cfg.StrOpt('lxd_default_template',
                default='ubuntu-cloud',
                help='Default LXC template'),
+    cfg.StrOpt('lxd_config_template',
+               default='/etc/lxd/config.tmpl',
+               help='container config'),
     cfg.StrOpt('lxd_template_dir',
                default='/usr/share/lxc/templates',
                help='Default template directory'),
