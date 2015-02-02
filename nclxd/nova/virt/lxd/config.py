@@ -66,7 +66,7 @@ class LXDSetConfig(object):
 
     def config_lxc_logging(self):
         self.container.append_config_item(
-            'lxc.logfile',
+            'container.logfile',
             self._get_container_logfile()
         )
 
@@ -133,4 +133,8 @@ class LXDSetConfig(object):
 
     def _get_container_logfile(self):
         return os.path.join(CONF.lxd.lxd_root_dir, self.instance['uuid'],
-                        'container.console')
+                        'container.logfile')
+
+    def _get_continer_conaosle(self):
+        return os.path.join(CONF.lxd.lxd_root_dir, self.instance['uuid',
+                        'container.console'])
