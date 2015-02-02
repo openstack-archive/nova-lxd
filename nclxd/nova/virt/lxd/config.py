@@ -136,5 +136,5 @@ class LXDSetConfig(object):
                         'container.logfile')
 
     def _get_container_console(self):
-        return os.path.join(CONF.lxd.lxd_root_dir, self.instance['uuid',
+        return os.path.join(CONF.lxd.lxd_root_dir, self.instance['uuid'],
                         'container.console'])
