@@ -93,7 +93,7 @@ class Container(object):
 
     def get_container_info(self, instance):
         instance_name = instance['uuid']
-        container = lxc.Container(instnace_name)
+        container = lxc.Container(instance_name)
         container.set_config_path(CONF.lxd.lxd_root_dir)
 
         info = {}
