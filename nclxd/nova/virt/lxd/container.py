@@ -102,7 +102,10 @@ class Container(object):
         else:
             pstate = power_state.SHUTDOWN
 
-        mem = int(container.get_cgroup_item('memory.usage_in_bytes')) / units.Mi
+        try:
+            mem = int(container.get_cgroup_item('memory.usage_in_bytes')) / units.Mi
+        except KeyError:
+            mem = 0
 
         return {'state': pstate,
                 'mem': mem,
