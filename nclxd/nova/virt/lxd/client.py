@@ -71,7 +71,7 @@ class Client(object):
 
     def stop(self, name):
         container_stop = False
-        params = {'action': 'stop'}
+        params = {'action': 'stop', 'force': True}
         response = self._put('/1.0/containers/%s/state' % name, params)
         if response.status_code == 200:
             container_stop = True
