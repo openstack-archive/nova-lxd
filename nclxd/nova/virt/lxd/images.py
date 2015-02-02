@@ -47,6 +47,7 @@ class ContainerImage(object):
                                       self.instance['image_ref'])
         self.container_image = os.path.join(self.base_dir,
                                        '%s.tar.gz' % self.instance['image_ref'])
+        self.container_console = os.path.join(self.root_dir, 'container.console')
 
     def create_container(self):
         LOG.info(_LI('Fetching image from glance.'))
@@ -103,6 +104,7 @@ class ContainerImage(object):
 
         if not os.path.exists(self.container_dir):
             fileutils.ensure_tree(self.container_dir)
+        utils.execute('touch', self.container_console)
         self._write_image()
 
     def _write_image(self):
