@@ -63,7 +63,7 @@ class Container(object):
     def get_console_log(self, instance):
         console_log = os.path.join(CONF.lxd.lxd_root_dir,
                                    instance['uuid'],
-                                   'console.log')
+                                   'container.console')
         with open(console_log, 'rb') as fp:
             log_data, remaining = utils.last_bytes(fp, MAX_CONSOLE_BYTES)
             if remaining > 0:
