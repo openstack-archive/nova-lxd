@@ -88,7 +88,7 @@ class ContainerImage(object):
 
         if not os.path.exists(self.image_dir):
             utils.execute('btrfs', 'subvolume', 'create', self.image_dir)
-            self._write_image()
+            self._write_image(self.image_dir)
 
         size = self.instance['root_gb']
         utils.execute('btrfs', 'subvolume', 'snapshot', self.image_dir,
@@ -105,14 +105,14 @@ class ContainerImage(object):
         if not os.path.exists(self.container_dir):
             fileutils.ensure_tree(self.container_dir)
         utils.execute('touch', self.container_console)
-        self._write_image()
+        self._write_image(self.container_dir)
 
-    def _write_image(self):
+    def _write_image(self, image_dir):
         (user, group) = self.idmap.get_user()
-        utils.execute('tar', '--directory', self.container_dir,
+        utils.execute('tar', '--directory', image_dir,
                       '--anchored', '--numeric-owner',
                       '-xpzf', self.container_image,
-                      check_exit_code=[0, 2])
+                      check_exit_code=[0,2])
         utils.execute('chown', '-R', '%s:%s' % (user, group),
                       self.container_dir,
                       run_as_root=True)
