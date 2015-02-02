@@ -211,14 +211,11 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplemented()
 
     def get_info(self, instance):
-        if self.client.running(instance['uuid']):
-            pstate = power_state.RUNNING
-        else:
-            pstate = power_state.SHUTDOWN
-        return hardware.InstanceInfo(state=pstate,
-                                     max_mem_kb=0,
-                                     mem_kb=0,
-                                     num_cpu=2,
+        info = self.container.get_container_info(instance)
+        return hardware.InstanceInfo(state=info['state'],
+                                     max_mem_kb=info['mem'],
+                                     mem_kb=info['mem'],
+                                     num_cpu=info['cpu'],
                                      cpu_time_ns=0)
 
     def get_console_output(self, context, instance):

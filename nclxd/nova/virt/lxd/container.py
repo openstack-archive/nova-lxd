@@ -25,6 +25,7 @@ from nova.i18n import _, _LW, _LE, _LI
 from nova.openstack.common import log as logging
 from nova import utils
 from nova import exception
+from nova.compute import power_state
 
 from . import config
 from . import utils as container_utils
@@ -89,6 +90,23 @@ class Container(object):
 
         ''' Start the container '''
         self._start_container(context, instance, network_info, image_meta)
+
+    def get_container_info(self, instance):
+        instance_name = instance['uuid']
+        container = lxc.Container(instnace_name)
+        container.set_config_path(CONF.lxd.lxd_root_dir)
+
+        info = {}
+        if self.client.running(instance['uuid']):
+            pstate = power_state.RUNNING
+        else:
+            pstate = power_state.SHUTDOWN
+
+        mem = container.get_cgroup_item('memory.usage_in_bytes') / units.Mi
+
+        return {'state': pstate,
+                'mem': mem,
+                'cpu': 1}
 
 
     def _fetch_image(self, context, instance, image_meta):
