@@ -181,6 +181,7 @@ class LXDDriver(driver.ComputeDriver):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
+        self.client.stop(instance['uuid'])
         self.client.destroy(instance['uuid'])
         self.cleanup(context, instance, network_info, block_device_info)
 
