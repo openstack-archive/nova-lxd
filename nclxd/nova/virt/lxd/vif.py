@@ -100,6 +100,9 @@ class LXDOpenVswitchDriver(object):
 
             linux_net.delete_ovs_vif_port(self._get_bridge_name(vif),
                                           v2_name)
+            if linux_net.device_exists(v2_name):
+                utils.execute('ip', 'link', 'set', v2_name, 'down',
+                              run_as_root=True)
         except processutils.ProcessExecutionError:
             LOG.exception(_("Failed while unplugging vif"),
                           instance=instance)
