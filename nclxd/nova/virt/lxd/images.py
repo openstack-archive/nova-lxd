@@ -114,5 +114,5 @@ class ContainerImage(object):
                       '-xpzf', self.container_image,
                       check_exit_code=[0,2])
         utils.execute('chown', '-R', '%s:%s' % (user, group),
-                      self.container_dir,
+                      image_dir,
                       run_as_root=True)
