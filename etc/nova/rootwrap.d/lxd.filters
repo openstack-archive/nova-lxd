@@ -4,3 +4,4 @@
 [Filters]
 cgm: CommandFilter, cgm, root
 lxc-usernet-manage: CommandFilter, lxc-usernet-manage, root
+btrfs: CommandFilter, btrfs, root
