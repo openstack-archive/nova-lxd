@@ -50,4 +50,5 @@ function install_lxd {
 
 	setup_develop $LXD_DIR
 	mkdir -p /etc/nova/rootwrap.d
+	sudo cp $LXD_DIR/etc/nova/rootwrap.d/* /etc/nova/rootwrap.d
 }
