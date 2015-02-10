@@ -131,6 +131,6 @@ class Client(object):
     def destroy(self, name):
         container_delete = False
         resp = self._make_request('DELETE', '/1.0/containers/%s' % name )
-        if resp.statu == 202:
+        if resp.status == 202:
             container_delete = True
         return container_delete
