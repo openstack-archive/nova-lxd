@@ -52,15 +52,9 @@ import container
 import host_utils
 
 lxd_opts = [
-    cfg.StrOpt('lxd_client_cert',
-               default='/etc/lxd/client.crt',
-               help='LXD client certificate'),
-    cfg.StrOpt('lxd_client_key',
-               default='/etc/lxd/client.key',
-               help='LXD client key'),
-    cfg.StrOpt('lxd_client_host',
-               default='127.0.0.1:8443',
-               help='LXD API Server'),
+    cfg.StrOpt('lxd_socket',
+               default='/var/lib/lxd/unix.socket',
+               help='Default LXD unix socket'),
     cfg.StrOpt('lxd_root_dir',
                default='/var/lib/lxd/lxc',
                help='Default LXD directory'),
@@ -97,9 +91,7 @@ class LXDDriver(driver.ComputeDriver):
     def __init__(self, virtapi, read_only=False):
         super(LXDDriver, self).__init__(virtapi)
 
-        self.client = client.Client(CONF.lxd.lxd_client_host,
-                                    CONF.lxd.lxd_client_cert,
-                                    CONF.lxd.lxd_client_key)
+        self.client = client.Client()
         self.firewall_driver = firewall.load_driver(
             default='nova.virt.firewall.NoopFirewallDriver')
         self.container = container.Container(self.client,
