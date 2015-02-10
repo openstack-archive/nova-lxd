@@ -35,24 +35,17 @@ class UnixHTTPConnection(httplib.HTTPConnection):
 
 class Client(object):
     def __init__(self):
-        self.unix_socket = CONF.lxd.lxd_socket
+        self.unix_socket = '/var/lib/lxd/unix.socket'
+
+    def _make_request(self, *args, **kwargs):
         self.conn = UnixHTTPConnection(self.unix_socket)
-
-    def _get(self, path):
-        self.conn.request('GET', path)
-        return self.conn.getresponse()
-
-    def _put(self, path, data, headers=None):
-        self.conn.request('PUT', path, json.dumps(data))
-        return self.conn.getresponse()
-
-    def _delete(self, path):
-        self.conn.request('DELETE', path)
+        self.conn.request(*args, **kwargs)
         return self.conn.getresponse()
 
     def running(self, name):
         container_running = False
-        resp = self._get('/1.0/containers/%s/state' % name)
+        resp = self._make_request('GET',
+                                  '/1.0/containers/%s/state' % name)
         if resp.status == 200:
             content = json.loads(resp.read())
             if content['metadata']['state'] == 'RUNNING':
@@ -61,7 +54,8 @@ class Client(object):
 
     def defined(self, name):
         container_exists = False
-        resp = self._get('/1.0/containers/%s/state' % name)
+        resp = self._make_request('GET',
+                                  '/1.0/containers/%s/state' % name)
         if resp.status == 200:
             content = json.loads(resp.read())
             if content['metadata']['state'] in ['RUNNING', 'UNKNOWN',
@@ -70,16 +64,15 @@ class Client(object):
         return container_exists
 
     def state(self, name):
-        resp = self._get('/1.0/containers/%s/state' % name)
+        resp = self._make_request('GET', '/1.0/containers/%s/state' % name)
         if resp.status == 200:
             operation = json.loads(resp.read())
             return operation['metadata']['state']
 
-
     def list(self):
         containers = []
-        resp = self._get('/1.0/list')
-        if resp:
+        resp = self._make_request('GET', '/1.0/list')
+        if resp.status == 200:
             data = json.loads(resp.read())
             for i in data['metadata']:
                 containers.append(i)
@@ -87,11 +80,12 @@ class Client(object):
 
     def start(self, name):
         container_start = False
-        data = {'action': 'start'}
-        resp = self._put('/1.0/containers/%s/state' % name, data)
+        action = {'action': 'start'}
+        resp = self._make_request('PUT', '/1.0/containers/%s/state' % name,
+                                  json.dumps(action))
         if resp.status == 202:
             content = json.loads(resp.read())
-            resp = self._get(content['operation'])
+            resp = self._make_request('GET', content['operation'])
             if resp:
                 data = json.loads(resp.read())
                 if data['metadata']['status'] == 'Running':
@@ -100,39 +94,43 @@ class Client(object):
 
     def stop(self, name):
         container_stop = False
-        data = {'action': 'stop', 'force': True}
-        resp = self._put('/1.0/containers/%s/state' % name, data)
+        action = {'action': 'stop', 'force': True}
+        resp = self._make_request('PUT', '/1.0/containers/%s/state' % name,
+                                  json.dumps(action))
         if resp.status == 202:
             container_stop = True
         return container_stop
 
     def pause(self, name):
         container_pause = False
-        data = {'action': 'freeze', 'force': True}
-        resp = self._put('/1.0/containers/%s/state' % name, data)
+        action = {'action': 'freeze', 'force': True}
+        resp = self._make_request('PUT', '/1.0/containers/%s/state' % name,
+                                  json.dumps(action))
         if resp.status == 202:
             container_pause = True
         return container_pause
 
     def unpause(self, name):
         container_unpause = False
-        data = {'action': 'unfreeze', 'force': True}
-        resp = self._put('/1.0/containers/%s/state' % name, data)
+        action = {'action': 'unfreeze', 'force': True}
+        resp = self._make_request('PUT', '/1.0/containers/%s/state' % name,
+                                  json.dumps(action))
         if resp.status == 202:
             container_unpause = True
         return container_unpause
 
     def reboot(self, name):
         container_reboot = False
-        data = {'action': 'restart', 'force': True}
-        resp = self._put('/1.0/containers/%s/state' % name, data)
+        action = {'action': 'restart', 'force': True}
+        resp = self._make_request('PUT', '/1.0/containers/%s/state' % name,
+                                  json.dumps(action))
         if resp.status == 202:
             container_reboot = True
         return container_reboot
 
     def destroy(self, name):
         container_delete = False
-        resp = self._delete('/1.0/containers/%s' % name)
+        resp = self._make_request('DELETE', '/1.0/containers/%s' % name )
         if resp.statu == 202:
             container_delete = True
         return container_delete
