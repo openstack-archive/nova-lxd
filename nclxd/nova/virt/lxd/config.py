@@ -66,7 +66,7 @@ class LXDSetConfig(object):
 
     def config_lxc_logging(self):
         self.container.append_config_item(
-            'container.logfile',
+            'lxc.logfile',
             self._get_container_logfile()
         )
 
@@ -88,7 +88,7 @@ class LXDSetConfig(object):
 
     def config_lxc_console(self):
         self.container.append_config_item(
-            'container.console',
+            'lxc.console.logfile',
             self._get_container_console()
         )
 
