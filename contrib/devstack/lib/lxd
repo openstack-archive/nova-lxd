@@ -21,18 +21,7 @@ function configure_lxd {
 	install_package python-software-properties
 	apt_get update
 
-	install_package golang
-	install_package lxc lxc-dev mercurial pkg-config build-essential
-	
-	if [[ ! -d $HOME/go ]]; then
-		mkdir -p $HOME/go
-		export GOPATH=$HOME/go
-	fi
-
-	go get github.com/lxc/lxd
-	cd $GOPATH/src/github.com/lxc/lxd
-	go get -v -d ./...
-	make
+	apt-add-repository -y ppa:ubuntu-lxc/lxd-daily
 
 	if [[ ! -d /var/lib/lxd ]]; then
 		sudo mkdir -p /var/lib/lxd/

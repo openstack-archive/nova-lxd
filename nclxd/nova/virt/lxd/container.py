@@ -52,14 +52,9 @@ class Container(object):
         self.vif_driver = vif.LXDGenericDriver()
 
     def init_container(self):
-        lxc_cgroup = uuid.uuid4()
-        utils.execute('cgm', 'create', 'all', lxc_cgroup,
-                      run_as_root=True)
-        utils.execute('cgm', 'chown', 'all', lxc_cgroup,
-                      pwd.getpwuid(os.getuid()).pw_uid,
-                      pwd.getpwuid(os.getuid()).pw_gid,
-                      run_as_root=True)
-        utils.execute('cgm', 'movepid', 'all', lxc_cgroup, os.getpid())
+        if not os.path.exists(CONF.lxd.lxd_socket):
+            msg = _('LXD is not running.')
+            raise exception(msg)
 
     def get_console_log(self, instance):
         console_log = os.path.join(CONF.lxd.lxd_root_dir,
