@@ -22,6 +22,10 @@ function configure_lxd {
 	apt_get update
 
 	sudo apt-add-repository -y ppa:ubuntu-lxc/lxd-daily
+	apt_get update
+	install_package lxd lxc-dev
+
+	setfacl -m nova:rx /var/lib/lxd/lxd
 
 	if [[ ! -d /var/lib/lxd ]]; then
 		sudo mkdir -p /var/lib/lxd/
