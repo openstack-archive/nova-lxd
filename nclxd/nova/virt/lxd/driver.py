@@ -69,7 +69,7 @@ lxd_opts = [
                help='Default template directory'),
     cfg.StrOpt('lxd_config_dir',
                default='/usr/share/lxc/config',
-               help='Default lxc config dir')
+               help='Default lxc config dir'),
     cfg.StrOpt('lxd_default_user',
                default='root',
                help="Default subuid user.")
