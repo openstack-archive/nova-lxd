@@ -76,9 +76,9 @@ class LXCUserIdMap(LXCIdMap):
     def __init__(self, user=None, group=None, subuid_f="/etc/subuid",
                  subgid_f="/etc/subgid"):
         if user is None:
-            user = pwd.getpwuid(CONF.lxd.lxd_default_user)[0]
+            user = pwd.getpwnam(CONF.lxd.lxd_default_user)[0]
         if group is None:
-            group = grp.getgrgid(CONF.lxd.lxd_default_user).gr_name
+            group = grp.getgrnam(CONF.lxd.lxd_default_user).gr_name
 
         def parse_sfile(fname, name):
             line = None
