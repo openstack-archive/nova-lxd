@@ -34,7 +34,7 @@ CONF = cfg.CONF
 
 def write_lxc_usernet(instance, bridge, user=None, count=1):
     if user is None:
-        user = CONF.lxd.lxd_default_user
+        user = getpass.getuser()
     utils.execute('lxc-usernet-manage', 'set', user, bridge, str(count),
                   run_as_root=True, check_exit_code=[0])
 
@@ -50,7 +50,7 @@ class LXCIdMap(object):
     def usernsexec_margs(self, with_read=None):
         if with_read:
             if with_read == "user":
-                with_read = pwd.getpwuid(CONF.lxd.lxd_default_user)
+                with_read = os.getuid()
             unum = self.unum - 1
             rflag = ['-m', 'u:%s:%s:1' % (self.ustart + self.unum, with_read)]
             print(
@@ -76,9 +76,9 @@ class LXCUserIdMap(LXCIdMap):
     def __init__(self, user=None, group=None, subuid_f="/etc/subuid",
                  subgid_f="/etc/subgid"):
         if user is None:
-            user = pwd.getpwnam(CONF.lxd.lxd_default_user)[0]
+            user = pwd.getpwuid(os.getuid())[0]
         if group is None:
-            group = grp.getgrnam(CONF.lxd.lxd_default_user).gr_name
+            group = grp.getgrgid(os.getgid()).gr_name
 
         def parse_sfile(fname, name):
             line = None
