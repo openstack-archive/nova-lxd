@@ -20,6 +20,7 @@ import os
 
 
 from oslo.config import cfg
+from nova.i18n import _
 
 from nova.openstack.common import log as logging
 from nova import context as nova_context
@@ -45,9 +46,9 @@ def parse_subfile(name, fname):
             if cline.startswith(name + ":"):
                 line = cline
                 break
-            if line is None:
-                raise ValueError("%s not found in %s" % (name, fname))
-            toks = line.split(":")
+        if line is None:
+            raise ValueError("%s not found in %s" % (name, fname))
+        toks = line.split(":")
     return (toks[1], toks[2])
 
 def get_container_config(instance):
