@@ -206,6 +206,7 @@ class LXDDriver(driver.ComputeDriver):
 
     def get_info(self, instance):
         info = self.container.get_container_info(instance)
+        LOG.info(_('!!! %s') % info)
         return hardware.InstanceInfo(state=info['state'],
                                      max_mem_kb=info['mem'],
                                      mem_kb=info['mem'],
