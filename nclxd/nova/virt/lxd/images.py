@@ -32,7 +32,6 @@ LOG = logging.getLogger(__name__)
 
 class ContainerImage(object):
     def __init__(self, context, instance, image_meta):
-        self.idmap = container_utils.LXCUserIdMap()
         self.context = context
         self.image_meta = image_meta
         self.instance = instance
@@ -108,7 +107,10 @@ class ContainerImage(object):
         self._write_image(self.container_dir)
 
     def _write_image(self, image_dir):
-        (user, group) = self.idmap.get_user()
+        (user, cgroup) = container_utils.parse_subfile(CONF.lxd.lxd_default_user,
+                                                      '/etc/subuid')
+        (group, cgroup) = container_utils.parse_subfile(CONF.lxd.lxd_default_user,
+                                                        'etc/subgid')
         utils.execute('tar', '--directory', image_dir,
                       '--anchored', '--numeric-owner',
                       '-xpzf', self.container_image,

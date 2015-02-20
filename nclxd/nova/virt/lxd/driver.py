@@ -69,6 +69,9 @@ lxd_opts = [
     cfg.StrOpt('lxd_config_dir',
                default='/usr/share/lxc/config',
                help='Default lxc config dir'),
+    cfg.StrOpt('lxd_default_user',
+               defalt='root',
+               help='Default LXD user')
 ]
 
 
