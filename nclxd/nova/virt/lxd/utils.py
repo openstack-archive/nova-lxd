@@ -35,7 +35,7 @@ CONF = cfg.CONF
 
 def write_lxc_usernet(instance, bridge, user=None, count=1):
     if user is None:
-        user = getpass.getuser()
+        user = CONF.lxd.lxd_default_user
     utils.execute('lxc-usernet-manage', 'set', user, bridge, str(count),
                   run_as_root=True, check_exit_code=[0])
 
