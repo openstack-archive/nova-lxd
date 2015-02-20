@@ -110,7 +110,7 @@ class ContainerImage(object):
         (user, cgroup) = container_utils.parse_subfile(CONF.lxd.lxd_default_user,
                                                       '/etc/subuid')
         (group, cgroup) = container_utils.parse_subfile(CONF.lxd.lxd_default_user,
-                                                        'etc/subgid')
+                                                        '/etc/subgid')
         utils.execute('tar', '--directory', image_dir,
                       '--anchored', '--numeric-owner',
                       '-xpzf', self.container_image,
