@@ -13,13 +13,11 @@
 #    under the License.
 
 import os
-import pwd
-import uuid
 
 import lxc
 
 from oslo.config import cfg
-from oslo.utils import importutils, units
+from oslo.utils import units
 
 from nova.i18n import _, _LW, _LE, _LI
 from nova.openstack.common import log as logging
@@ -48,13 +46,12 @@ class Container(object):
         self.virtapi = virtapi
         self.firewall_driver = firewall
 
-        self.idmap = container_utils.LXCUserIdMap()
         self.vif_driver = vif.LXDGenericDriver()
 
     def init_container(self):
         if not os.path.exists(CONF.lxd.lxd_socket):
             msg = _('LXD is not running.')
-            raise exception(msg)
+            raise Exception(msg)
 
     def get_console_log(self, instance):
         console_log = os.path.join(CONF.lxd.lxd_root_dir,
@@ -91,7 +88,6 @@ class Container(object):
         container = lxc.Container(instance_name)
         container.set_config_path(CONF.lxd.lxd_root_dir)
 
-        info = {}
         if self.client.running(instance['uuid']):
             pstate = power_state.RUNNING
         else:
@@ -133,7 +129,7 @@ class Container(object):
         self.client.start(instance['uuid'])
 
     def _write_config(self, container, instance, network_info, image_meta):
-        self.config = config.LXDSetConfig(container, instance, self.idmap,
+        self.config = config.LXDSetConfig(container, instance,
                                           image_meta, network_info)
         self.config.write_config()
 

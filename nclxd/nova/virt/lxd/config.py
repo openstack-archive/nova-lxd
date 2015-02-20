@@ -14,12 +14,15 @@
 
 import os
 
+import jinja2
+
 from oslo.config import cfg
 from nova.i18n import _LW, _
 
 from nova import exception
 from nova import utils
 
+from . import utils as container_utils
 
 from nova.openstack.common import log as logging
 
@@ -28,49 +31,66 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDSetConfig(object):
-    def __init__(self, container, instance, idmap, image_meta, network_info):
+    def __init__(self, container, instance, image_meta, network_info):
         self.container = container
         self.instance = instance
-        self.idmap = idmap
         self.image_meta = image_meta
         self.network_info = network_info
 
         self.config = {}
 
     def write_config(self):
-        lxc_template = self._get_lxc_template()
+        lxc_template = self.get_lxd_template()
         if lxc_template:
-            self._write_lxc_template(lxc_template)
-            self.container.load_config()
-            self.config_lxc_name()
-            self.config_lxc_rootfs()
-            self.config_lxc_user()
-            self.config_lxc_logging()
-            self.config_lxc_network()
-            self.config_lxc_console()
-            self.config_lxc_limits()
-            self.container.save_config()
+            net = self.config_lxd_network()
+            (user, uoffset) = container_utils.parse_subfile(CONF.lxd.lxd_default_user,
+                                                            '/etc/sbuid')
+            (group, goffset) = container_utils.parse_subfile(CONF.lxd.lxd_default_user,
+                                                             '/etc/subgid')
+            self.config = {
+                'lxd_common_config': '%s/%s.common.conf' % (CONF.lxd.lxd_config_dir,
+                                                                       lxc_template),
+                'lxd_userns_config': '%s/%s.userns.conf' % (CONF.lxd.lxd_config_dir,
+                                                            lxc_template),
+                'lxd_rootfs': self.config_lxd_rootfs(),
+                'lxd_name': self.config_lxd_name(),
+                'lxd_logfile': self.config_lxd_logging(),
+                'lxd_console_file': self.config_lxd_console(),
+                'lxd_mac_addr': net['mac'],
+                'lxd_network_link': net['link'],
+                'lxd_user': user,
+                'lxd_uoffset': uoffset,
+                'lxd_group': group,
+                'lxd_goffset': goffset
+            }
 
-    def config_lxc_name(self):
+        tmpl_path, tmpl_file = os.path.split(CONF.lxd.lxd_config_template)
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(tmpl_path),
+                                 trim_blocks=True)
+        template = env.get_template(tmpl_file)
+        tmpl = template.render(self.config)
+        config_file = container_utils.get_container_config(self.instance)
+        f = open(config_file, 'w')
+        f.write(tmpl)
+        f.close()
+
+    def config_lxd_name(self):
         if self.instance:
-            self.container.append_config_item('lxc.utsname',
-                                 self.instance['uuid'])
+            return self.instance['uuid']
 
-    def config_lxc_rootfs(self):
-        container_rootfs = self._get_container_rootfs()
+    def config_lxd_rootfs(self):
+        container_rootfs = container_utils.get_container_rootfs(self.instance)
         if not os.path.exists(container_rootfs):
             msg = _('Container rootfs not found')
             raise exception.InstanceNotReady(msg)
 
-        self.container.append_config_item('lxc.rootfs', container_rootfs)
+        return container_rootfs
 
-    def config_lxc_logging(self):
-        self.container.append_config_item(
-            'lxc.logfile',
-            self._get_container_logfile()
-        )
+    def config_lxd_logging(self):
+        return container_utils.get_container_logfile(self.instance)
 
-    def config_lxc_network(self):
+    def config_lxd_network(self):
+        net = {}
         if self.network_info:
             # NOTE(jamespage) this does not deal with multiple nics.
             for vif in self.network_info:
@@ -82,31 +102,23 @@ class LXDSetConfig(object):
             if vif_type == 'ovs':
                 bridge = 'qbr%s' % vif_id
 
-            self.container.append_config_item('lxc.network.type', 'veth')
-            self.container.append_config_item('lxc.network.hwaddr', mac)
-            self.container.append_config_item('lxc.network.link', bridge)
+            net = {'mac': mac,
+                   'link': bridge}
+        return net
 
-    def config_lxc_console(self):
-        self.container.append_config_item(
-            'lxc.console.logfile',
-            self._get_container_console()
-        )
+    def config_lxd_console(self):
+        return container_utils.get_container_console(self.instance)
 
-
-    def config_lxc_limits(self):
+    def config_lxd_limits(self):
         pass
 
-    def config_lxc_user(self):
-        for ent in self.idmap.lxc_conf_lines():
-           self.container.append_config_item(*ent)
-
-    def _get_lxc_template(self):
+    def get_lxd_template(self):
         LOG.debug('Fetching LXC template')
 
         templates = []
         if (self.image_meta and
                 self.image_meta.get('properties', {}).get('template')):
-            lxc_template = self.image_meta['propeties'].get('template')
+            lxc_template = self.image_meta['properties'].get('template')
         else:
             lxc_template = CONF.lxd.lxd_default_template
         path = os.listdir(CONF.lxd.lxd_template_dir)
@@ -114,27 +126,3 @@ class LXDSetConfig(object):
             templates.append(line.replace('lxc-', ''))
         if lxc_template in templates:
             return lxc_template
-
-    def _write_lxc_template(self, template_name):
-        config_file = self._get_container_config()
-        f = open(config_file, 'w')
-        f.write('lxc.include = %s/%s.common.conf\n' % (CONF.lxd.lxd_config_dir,
-                                                       template_name))
-        f.write('lxc.include = %s/%s.userns.conf\n' % (CONF.lxd.lxd_config_dir,
-                                                       template_name))
-        f.close()
-
-    def _get_container_config(self):
-        return os.path.join(CONF.lxd.lxd_root_dir, self.instance['uuid'], 'config')
-
-
-    def _get_container_rootfs(self):
-        return os.path.join(CONF.lxd.lxd_root_dir, self.instance['uuid'], 'rootfs')
-
-    def _get_container_logfile(self):
-        return os.path.join(CONF.lxd.lxd_root_dir, self.instance['uuid'],
-                        'container.logfile')
-
-    def _get_container_console(self):
-        return os.path.join(CONF.lxd.lxd_root_dir, self.instance['uuid'],
-                        'container.console')

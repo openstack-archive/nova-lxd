@@ -22,7 +22,6 @@ Nova LXD Driver
 """
 
 import socket
-import contextlib
 import multiprocessing
 
 from oslo.utils import units
@@ -62,8 +61,8 @@ lxd_opts = [
                default='ubuntu-cloud',
                help='Default LXC template'),
     cfg.StrOpt('lxd_config_template',
-               default='/etc/lxd/config.tmpl',
-               help='container config'),
+               default='/etc/lxd/lxd.template',
+               help='container config template'),
     cfg.StrOpt('lxd_template_dir',
                default='/usr/share/lxc/templates',
                help='Default template directory'),
