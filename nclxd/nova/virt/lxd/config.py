@@ -44,7 +44,7 @@ class LXDSetConfig(object):
         if lxc_template:
             net = self.config_lxd_network()
             (user, uoffset) = container_utils.parse_subfile(CONF.lxd.lxd_default_user,
-                                                            '/etc/sbuid')
+                                                            '/etc/subuid')
             (group, goffset) = container_utils.parse_subfile(CONF.lxd.lxd_default_user,
                                                              '/etc/subgid')
             self.config = {
