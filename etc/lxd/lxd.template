@@ -9,7 +9,7 @@ lxc.id_map = g 0 {{lxd_group}} {{lxd_goffset}}
 lxc.rootfs = {{lxd_rootfs}}
 lxc.utsname = {{lxd_name}}
 lxc.logfile = {{lxd_logfile}}
-lxc.console.logfile {{lxd_console_file}}
+lxc.console.logfile = {{lxd_console_file}}
 
 # Container network
 lxc.network.type = veth
