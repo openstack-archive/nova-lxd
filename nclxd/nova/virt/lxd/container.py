@@ -17,7 +17,7 @@ import os
 import lxc
 
 from oslo.config import cfg
-from oslo.utils import units
+from oslo.utils import units, excutils
 
 from nova.i18n import _, _LW, _LE, _LI
 from nova.openstack.common import log as logging
@@ -69,19 +69,30 @@ class Container(object):
                         admin_password, network_info, block_device_info, flavor):
         LOG.info(_LI('Starting new instance'), instance=instance)
 
-        # Setup the LXC instance
-        instance_name = instance['uuid']
-        container = lxc.Container(instance_name)
-        container.set_config_path(CONF.lxd.lxd_root_dir)
+        try:
+            # Setup the LXC instance
+            instance_name = instance['uuid']
+            container = lxc.Container(instance_name)
+            container.set_config_path(CONF.lxd.lxd_root_dir)
 
-        ''' Fetch the image from glance '''
-        self._fetch_image(context, instance, image_meta)
+            ''' Fetch the image from glance '''
+            self._fetch_image(context, instance, image_meta)
 
-        ''' Set up the configuration file '''
-        self._write_config(container, instance, network_info, image_meta)
+            ''' Set up the configuration file '''
+            self._write_config(container, instance, network_info, image_meta)
 
-        ''' Start the container '''
-        self._start_container(context, instance, network_info, image_meta)
+            ''' Start the container '''
+            self._start_container(context, instance, network_info, image_meta)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                self.destroy_container(context, instance, network_info,
+                                       block_device_info)
+
+    def destroy_container(self, context, instance, network_info, block_device_info,
+                destroy_disks=None, migrate_data=None):
+        self.client.stop(instance['uuid'])
+        self.client.destroy(instance['uuid'])
+        self.teardown_network(instance, network_info)
 
     def get_container_info(self, instance):
         instance_name = instance['uuid']
