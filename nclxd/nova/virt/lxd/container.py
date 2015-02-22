@@ -57,6 +57,8 @@ class Container(object):
         console_log = os.path.join(CONF.lxd.lxd_root_dir,
                                    instance['uuid'],
                                    'container.console')
+	user = os.getuid()
+	utils.execute('chown', user, console_log, run_as_root=True)
         with open(console_log, 'rb') as fp:
             log_data, remaining = utils.last_bytes(fp, MAX_CONSOLE_BYTES)
             if remaining > 0:
