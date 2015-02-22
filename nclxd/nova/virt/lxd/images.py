@@ -17,9 +17,11 @@ import os
 import tarfile
 
 from oslo.config import cfg
+from oslo.utils import units, excutils
+
 
 from nova import utils
-from nova.i18n import _, _LW, _LE, _LI
+from nova.i18n import _, _LI
 from nova.openstack.common import fileutils
 from nova.openstack.common import log as logging
 from nova.virt import images
@@ -29,6 +31,7 @@ from . import utils as container_utils
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
+
 
 class ContainerImage(object):
     def __init__(self, context, instance, image_meta):
@@ -45,8 +48,14 @@ class ContainerImage(object):
         self.image_dir = os.path.join(self.base_dir,
                                       self.instance['image_ref'])
         self.container_image = os.path.join(self.base_dir,
-                                       '%s.tar.gz' % self.instance['image_ref'])
+                                            '%s.tar.gz' % self.instance['image_ref'])
         self.container_console = os.path.join(self.root_dir, 'container.console')
+
+        if not os.path.exists(self.base_dir):
+            fileutils.ensure_tree(self.base_dir)
+
+        (out, err) = utils.execute('stat', '-f', '-c', '%T', self.base_dir)
+        self.filesystem_type = out.rstrip()
 
     def create_container(self):
         LOG.info(_LI('Fetching image from glance.'))
@@ -56,28 +65,30 @@ class ContainerImage(object):
             msg = _('Unable to determine disk format for image.')
             raise exception.Invalid(msg)
 
-        if not os.path.exists(self.base_dir):
-            fileutils.ensure_tree(self.base_dir)
-
         if not os.path.exists(self.root_dir):
             fileutils.ensure_tree(self.root_dir)
 
         if not os.path.exists(self.container_image):
-            images.fetch_to_raw(self.context, self.instance['image_ref'], self.container_image,
-                                self.instance['user_id'], self.instance['project_id'],
-                                max_size=self.max_size)
+            try:
+                images.fetch_to_raw(self.context, self.instance['image_ref'], self.container_image,
+                                    self.instance['user_id'], self.instance['project_id'],
+                                    max_size=self.max_size)
+            except Exception as ex:
+                    with excutils.save_and_reraise_exception():
+                            os.unlink(self.container_image)
+                            msg = _('Failed to download image.')
+                            raise exception.Invalid(msg)
+
 
             if not tarfile.is_tarfile(self.container_image):
                 msg = _('Not a valid tarfile')
                 raise exception.InvalidImageRef(msg)
 
         if os.path.exists(self.container_dir):
-            msg = _('Contianer rootfs already exists')
+            msg = _('Container rootfs already exists')
             raise exception.NovaException(msg)
 
-        (out, err) = utils.execute('stat', '-f', '-c', '%T', self.root_dir)
-        filesystem_type = out.rstrip()
-        if filesystem_type == 'btrfs':
+        if self.filesystem_type == 'btrfs':
             self.create_btrfs_container()
         else:
             self.create_local_container()
@@ -88,15 +99,16 @@ class ContainerImage(object):
         if not os.path.exists(self.image_dir):
             utils.execute('btrfs', 'subvolume', 'create', self.image_dir)
             self._write_image(self.image_dir)
-
+        
         size = self.instance['root_gb']
         utils.execute('btrfs', 'subvolume', 'snapshot', self.image_dir,
                       self.container_dir, run_as_root=True)
         if size != 0:
             utils.execute('btrfs', 'quota', 'enable', self.container_dir,
-                          run_as_root=True)
+                         run_as_root=True)
             utils.execute('btrfs', 'qgroup', 'limit', '%sG' % size,
-                           self.container_dir, run_as_root=True)
+                          self.container_dir, run_as_root=True)
+
 
     def create_local_container(self):
         LOG.info(_LI('Creating local container rootfs'))

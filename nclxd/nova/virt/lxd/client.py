@@ -12,9 +12,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import httplib
 import json
 import socket
+
+from eventlet.green import httplib
 
 from oslo.config import cfg
 
@@ -84,12 +85,7 @@ class Client(object):
         resp = self._make_request('PUT', '/1.0/containers/%s/state' % name,
                                   json.dumps(action))
         if resp.status == 202:
-            content = json.loads(resp.read())
-            resp = self._make_request('GET', content['operation'])
-            if resp:
-                data = json.loads(resp.read())
-                if data['metadata']['status'] == 'Running':
-                    container_start = True
+            container_start = True
         return container_start
 
     def stop(self, name):

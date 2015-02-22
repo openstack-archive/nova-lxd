@@ -38,6 +38,17 @@ LOG = logging.getLogger(__name__)
 
 MAX_CONSOLE_BYTES = 100 * units.Ki
 
+LXD_POWER_STATES = {
+    'RUNNING': power_state.RUNNING,
+    'STOPPED': power_state.SHUTDOWN,
+    'STARTING': power_state.BUILDING,
+    'STOPPING': power_state.SHUTDOWN,
+    'ABORTING': power_state.CRASHED,
+    'FREEZING': power_state.PAUSED,
+    'FROZEN': power_state.SUSPENDED,
+    'THAWED': power_state.PAUSED,
+    'NONE': power_state.NOSTATE
+}
 
 class Container(object):
 
@@ -101,17 +112,18 @@ class Container(object):
         container = lxc.Container(instance_name)
         container.set_config_path(CONF.lxd.lxd_root_dir)
 
-        if self.client.running(instance['uuid']):
-            pstate = power_state.RUNNING
-        else:
-            pstate = power_state.SHUTDOWN
-
         try:
             mem = int(container.get_cgroup_item('memory.usage_in_bytes')) / units.Mi
         except KeyError:
             mem = 0
 
-        return {'state': pstate,
+
+        container_state = self.client.state(instance_name)
+        if container_state is None:
+                container_state = 'NONE'
+
+        LOG.info(_('!!! %s') % container_state)
+        return {'state': LXD_POWER_STATES[container_state],
                 'mem': mem,
                 'cpu': 1}
 
