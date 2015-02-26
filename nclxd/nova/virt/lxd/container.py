@@ -129,7 +129,7 @@ class Container(object):
 
 
     def _fetch_image(self, context, instance, image_meta):
-        image = images.ContainerImage(context, instance, image_meta)
+        image = images.ContainerImage(context, instance, image_meta, self.client)
         image.create_container()
 
     def _start_container(self, context, instance, network_info, image_meta):

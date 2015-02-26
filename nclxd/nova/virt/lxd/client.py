@@ -47,6 +47,7 @@ class Client(object):
 
         return resp.status, data
 
+
     def running(self, name):
         container_running = False
         (status, data) = self._make_request('GET',
@@ -128,3 +129,7 @@ class Client(object):
         if status == 202:
             container_delete = True
         return container_delete
+
+    def list_images(self):
+        (status, data) = self._make_request('GET', '/1.0/images')
+        return [image.split('/1.0')[-1] for image in data['metadata'] ]
