@@ -92,10 +92,10 @@ class Container(object):
             self._fetch_image(context, instance, image_meta)
 
             ''' Set up the configuration file '''
-            self._write_config(container, instance, network_info, image_meta)
+            #self._write_config(container, instance, network_info, image_meta)
 
             ''' Start the container '''
-            self._start_container(context, instance, network_info, image_meta)
+            #self._start_container(context, instance, network_info, image_meta)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 self.destroy_container(context, instance, network_info,
