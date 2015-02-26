@@ -21,7 +21,6 @@ from oslo_log import log as logging
 from oslo.utils import units, excutils
 
 from nova.i18n import _, _LW, _LE, _LI
-from nova.openstack.common import log as logging
 from nova import utils
 from nova import exception
 from nova.compute import power_state
