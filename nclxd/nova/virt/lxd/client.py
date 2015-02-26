@@ -143,7 +143,5 @@ class Client(object):
         action = {'target': fingerprint,
                   'name': alias}
         (status, data) = self._make_request('POST','/1.0/images/aliases', json.dumps(action))
-        if status == 200:
-            container_alias = True
-        return container_alias
+        return data
 

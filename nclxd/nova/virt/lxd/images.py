@@ -74,7 +74,9 @@ class ContainerImage(object):
         if alias in self.client.list_aliases():
             msg = _('Alias already exists')
             raise exception.ImageUnacceptable(msg)
-        self.client.create_alias(alias, fingerprint)
+
+        data = self.client.create_alias(alias, fingerprint)
+        LOG.info(_('!!! %s') % data)
 
         os.unlink(self.container_image)
 
