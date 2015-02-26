@@ -49,7 +49,7 @@ class ContainerImage(object):
     def create_container(self):
         LOG.info(_('Downloading image from glance'))
 
-        disk_format = self.image_meta('disk_format')
+        disk_format = self.image_meta.get('disk_format')
         if disk_format != 'root-tar' or disk_format is None:
             msg = _('Unable to determine disk format for image.')
             raise exception.InvalidImageRef(msg)
