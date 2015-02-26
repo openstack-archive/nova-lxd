@@ -57,8 +57,7 @@ class ContainerImage(object):
             raise exception.InvalidImageRef(msg)
 
         if os.path.exists(self.container_image):
-            msg = _('Image already exists')
-            raise exception.InvalidImageRef(msg)
+            return
 
         LOG.info(_('Fetching Image from Glance'))
         images.fetch_to_raw(self.context, self.instance['image_ref'], self.container_image,
@@ -67,7 +66,16 @@ class ContainerImage(object):
 
         fingerprint = self._get_fingerprint(self.container_image)
 
-        LOG.info(_('!!! %s') % fingerprint)
+        if fingerprint in self.client.list_images():
+            msg = _('Image already exists in image store')
+            raise exception.InvalidImageRef(msg)
+
+        alias = 'glance/%s' % self.instance['image_meta']
+        if alias in self.client.list_aliases():
+            msg = _('Alias already exists')
+            raise exception.ImageUnacceptable(msg)
+        self.client.create_alias(alias, fingerprint)
+
         os.unlink(self.container_image)
 
     def _get_fingerprint(self, filename):

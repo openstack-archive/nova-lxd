@@ -132,4 +132,18 @@ class Client(object):
 
     def list_images(self):
         (status, data) = self._make_request('GET', '/1.0/images')
-        return [image.split('/1.0')[-1] for image in data['metadata'] ]
+        return [image.split('/1.0/images')[-1] for image in data['metadata']]
+
+    def list_aliases(self):
+        status, data = self._make_request('/1.0/images/aliases')
+        return [alias.split('/1.0/aliases')[-1] for alias in data['metadata']]
+
+    def create_alias(self, alias, fingerprint):
+        container_alias = False
+        action = {'target': fingerprint,
+                  'name': alias}
+        (status, data) = self._make_request('POST','/1.0/images/aliases', json.dumps(action))
+        if status == 200:
+            container_alias = True
+        return container_alias
+
