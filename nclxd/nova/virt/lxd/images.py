@@ -13,6 +13,8 @@
 #    under the License.
 
 import os
+import hashlib
+
 
 from oslo.config import cfg
 from oslo_log import log as logging
@@ -54,7 +56,7 @@ class ContainerImage(object):
             msg = _('Unable to determine disk format for image.')
             raise exception.InvalidImageRef(msg)
 
-        if self.instance['image_ref'] in self.client.list_images():
+        if os.path.exists(self.container_image):
             msg = _('Image already exists')
             raise exception.InvalidImageRef(msg)
 
@@ -62,3 +64,15 @@ class ContainerImage(object):
         images.fetch_to_raw(self.context, self.instance['image_ref'], self.container_image,
                             self.instance['user_id'], self.instance['project_id'],
                             max_size=self.max_size)
+
+        fingerprint = self._get_fingerprint(self.container_image)
+
+        LOG.info(_('!!! %s') % fingerprint)
+        os.unlink(self.container_image)
+
+    def _get_fingerprint(self, filename):
+        m = hashlib.sha256()
+        with open(filename, 'rb') as f:
+            for chunk in iter(lambda: f.read(128 * m.block_size), b''):
+                m.update(chunk)
+        return m.hexdigest()
