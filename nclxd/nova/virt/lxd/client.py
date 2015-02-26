@@ -41,7 +41,11 @@ class Client(object):
     def _make_request(self, *args, **kwargs):
         self.conn = UnixHTTPConnection(self.unix_socket)
         self.conn.request(*args, **kwargs)
-        return self.conn.getresponse()
+        resp = self.conn.getresponse()
+
+        data = json.loads(resp.read())
+
+        return resp.status, data
 
     def running(self, name):
         container_running = False
@@ -71,13 +75,10 @@ class Client(object):
             return operation['metadata']['state']
 
     def list(self):
-        containers = []
-        resp = self._make_request('GET', '/1.0/list')
-        if resp.status == 200:
-            data = json.loads(resp.read())
-            for i in data['metadata']:
-                containers.append(i)
-        return containers
+        (status, data) = self._make_request('GET', '/1.0/list')
+        if status != 200:
+            return []
+        return [container.split('/1.0/list')[-1] for container in data['metadata']]
 
     def start(self, name):
         container_start = False
