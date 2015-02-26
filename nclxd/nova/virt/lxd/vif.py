@@ -17,6 +17,7 @@ import getpass
 import os
 
 from oslo.config import cfg
+from oslo_log import log as logging
 from oslo_concurrency import processutils
 
 
