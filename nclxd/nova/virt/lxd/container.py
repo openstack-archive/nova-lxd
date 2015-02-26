@@ -17,6 +17,7 @@ import os
 import lxc
 
 from oslo.config import cfg
+from oslo_log import log as logging
 from oslo.utils import units, excutils
 
 from nova.i18n import _, _LW, _LE, _LI

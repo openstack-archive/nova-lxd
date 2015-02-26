@@ -17,6 +17,7 @@ import os
 import jinja2
 
 from oslo.config import cfg
+from oslo_log import log as logging
 from nova.i18n import _LW, _
 
 from nova import exception
@@ -24,7 +25,7 @@ from nova import utils
 
 from . import utils as container_utils
 
-from nova.openstack.common import log as logging
+
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)

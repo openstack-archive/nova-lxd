@@ -17,13 +17,13 @@ import os
 import tarfile
 
 from oslo.config import cfg
+from oslo_log import log as logging
 from oslo.utils import units, excutils
 
 
 from nova import utils
 from nova.i18n import _, _LI
 from nova.openstack.common import fileutils
-from nova.openstack.common import log as logging
 from nova.virt import images
 from nova import exception
 

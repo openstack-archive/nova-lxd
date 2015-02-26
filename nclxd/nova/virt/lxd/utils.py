@@ -20,9 +20,11 @@ import os
 
 
 from oslo.config import cfg
+from oslo_log import log as logging
+
 from nova.i18n import _
 
-from nova.openstack.common import log as logging
+
 from nova import context as nova_context
 from nova import objects
 from nova import utils
