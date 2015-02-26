@@ -49,30 +49,27 @@ class Client(object):
 
     def running(self, name):
         container_running = False
-        resp = self._make_request('GET',
+        (status, data) = self._make_request('GET',
                                   '/1.0/containers/%s/state' % name)
-        if resp.status == 200:
-            content = json.loads(resp.read())
-            if content['metadata']['state'] == 'RUNNING':
+        if status == 200:
+            if data['metadata']['state'] == 'RUNNING':
                 container_running = True
         return container_running
 
     def defined(self, name):
         container_exists = False
-        resp = self._make_request('GET',
+        (status, data) = self._make_request('GET',
                                   '/1.0/containers/%s/state' % name)
-        if resp.status == 200:
-            content = json.loads(resp.read())
-            if content['metadata']['state'] in ['RUNNING', 'UNKNOWN',
+        if status == 200:
+            if data['metadata']['state'] in ['RUNNING', 'UNKNOWN',
                                                 'STOPPED', 'FROZEN']:
                 container_exists = True
         return container_exists
 
     def state(self, name):
-        resp = self._make_request('GET', '/1.0/containers/%s/state' % name)
-        if resp.status == 200:
-            operation = json.loads(resp.read())
-            return operation['metadata']['state']
+        (status, data) = self._make_request('GET', '/1.0/containers/%s/state' % name)
+        if status == 200:
+            return data['metadata']['state']
 
     def list(self):
         (status, data) = self._make_request('GET', '/1.0/list')
@@ -83,51 +80,51 @@ class Client(object):
     def start(self, name):
         container_start = False
         action = {'action': 'start'}
-        resp = self._make_request('PUT', '/1.0/containers/%s/state' % name,
+        (status, data) = self._make_request('PUT', '/1.0/containers/%s/state' % name,
                                   json.dumps(action))
-        if resp.status == 202:
+        if status == 202:
             container_start = True
         return container_start
 
     def stop(self, name):
         container_stop = False
         action = {'action': 'stop', 'force': True}
-        resp = self._make_request('PUT', '/1.0/containers/%s/state' % name,
+        (status, data) = self._make_request('PUT', '/1.0/containers/%s/state' % name,
                                   json.dumps(action))
-        if resp.status == 202:
+        if status == 202:
             container_stop = True
         return container_stop
 
     def pause(self, name):
         container_pause = False
         action = {'action': 'freeze', 'force': True}
-        resp = self._make_request('PUT', '/1.0/containers/%s/state' % name,
+        (status, data) = self._make_request('PUT', '/1.0/containers/%s/state' % name,
                                   json.dumps(action))
-        if resp.status == 202:
+        if status == 202:
             container_pause = True
         return container_pause
 
     def unpause(self, name):
         container_unpause = False
         action = {'action': 'unfreeze', 'force': True}
-        resp = self._make_request('PUT', '/1.0/containers/%s/state' % name,
+        (status, data) = self._make_request('PUT', '/1.0/containers/%s/state' % name,
                                   json.dumps(action))
-        if resp.status == 202:
+        if status == 202:
             container_unpause = True
         return container_unpause
 
     def reboot(self, name):
         container_reboot = False
         action = {'action': 'restart', 'force': True}
-        resp = self._make_request('PUT', '/1.0/containers/%s/state' % name,
+        (status, data) = self._make_request('PUT', '/1.0/containers/%s/state' % name,
                                   json.dumps(action))
-        if resp.status == 202:
+        if status == 202:
             container_reboot = True
         return container_reboot
 
     def destroy(self, name):
         container_delete = False
-        resp = self._make_request('DELETE', '/1.0/containers/%s' % name)
-        if resp.status == 202:
+        (status, data) = self._make_request('DELETE', '/1.0/containers/%s' % name)
+        if status == 202:
             container_delete = True
         return container_delete
