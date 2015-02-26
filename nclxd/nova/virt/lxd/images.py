@@ -70,7 +70,7 @@ class ContainerImage(object):
             msg = _('Image already exists in image store')
             raise exception.InvalidImageRef(msg)
 
-        alias = 'glance/%s' % self.instance['image_meta']
+        alias = 'glance/%s' % self.instance['image_ref']
         if alias in self.client.list_aliases():
             msg = _('Alias already exists')
             raise exception.ImageUnacceptable(msg)
