@@ -13,8 +13,8 @@ set +o xtrace
 LXD_DIR=$DEST/nova-compute-lxd
 LXD_BIN_DIR=$GOPATH/src/github.com/lxc/lxd
 
-LXC_REPO=${LXC_REPO:-${GIT_BASE}/lxc/python2-lxc}
-LXC_DIR=$DEST/python2-lxc
+LXC_REPO=${LXC_REPO:-${GIT_BASE}/zulcss/pylxd}
+LXC_DIR=$DEST/pylxd
 
 
 function configure_lxd {
