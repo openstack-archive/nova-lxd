@@ -30,6 +30,7 @@ from oslo.config import cfg
 from oslo_log import log as logging
 from oslo.serialization import jsonutils
 
+from pylxd import client
 
 from nova.compute import power_state
 from nova.compute import task_states
@@ -47,7 +48,6 @@ from nova.virt import firewall
 from nova.virt import hardware
 from nova.virt import virtapi
 
-import client
 import container
 import host_utils
 
