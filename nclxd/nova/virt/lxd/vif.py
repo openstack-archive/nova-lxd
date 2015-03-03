@@ -24,11 +24,8 @@ from oslo_concurrency import processutils
 from nova.i18n import _LW
 from nova import exception
 from nova import utils
-from nova.openstack.common import log as logging
 from nova.network import linux_net
 from nova.network import model as network_model
-
-import utils as container_utils
 
 
 CONF = cfg.CONF
@@ -83,8 +80,6 @@ class LXDOpenVswitchDriver(object):
             linux_net.create_ovs_vif_port(self._get_bridge_name(vif),
                                           v2_name, iface_id, vif['address'],
                                           instance['uuid'])
-
-        container_utils.write_lxc_usernet(instance, br_name)
 
     def unplug(self, instance, vif):
         try:

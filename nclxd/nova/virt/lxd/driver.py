@@ -57,22 +57,7 @@ lxd_opts = [
                help='Default LXD unix socket'),
     cfg.StrOpt('lxd_root_dir',
                default='/var/lib/lxd/lxc',
-               help='Default LXD directory'),
-    cfg.StrOpt('lxd_default_template',
-               default='ubuntu-cloud',
-               help='Default LXC template'),
-    cfg.StrOpt('lxd_config_template',
-               default='/etc/lxd/lxd.template',
-               help='container config template'),
-    cfg.StrOpt('lxd_template_dir',
-               default='/usr/share/lxc/templates',
-               help='Default template directory'),
-    cfg.StrOpt('lxd_config_dir',
-               default='/usr/share/lxc/config',
-               help='Default lxc config dir'),
-    cfg.StrOpt('lxd_default_user',
-               default='root',
-               help='Default LXD user')
+               help='Default LXD directory')
 ]
 
 

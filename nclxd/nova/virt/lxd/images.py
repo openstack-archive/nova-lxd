@@ -15,14 +15,11 @@
 import os
 import hashlib
 
-
 from oslo.config import cfg
 from oslo_log import log as logging
-from oslo.utils import units, excutils
+from oslo_utils import excutils
 
-
-from nova import utils
-from nova.i18n import _, _LI
+from nova.i18n import _, _LE
 from nova.openstack.common import fileutils
 from nova.virt import images
 from nova import exception
@@ -48,7 +45,7 @@ class ContainerImage(object):
         if not os.path.exists(self.base_dir):
             fileutils.ensure_tree(self.base_dir)
 
-    def create_container(self):
+    def upload_image(self):
         LOG.info(_('Downloading image from glance'))
 
         disk_format = self.image_meta.get('disk_format')
@@ -56,33 +53,47 @@ class ContainerImage(object):
             msg = _('Unable to determine disk format for image.')
             raise exception.InvalidImageRef(msg)
 
+        if not os.path.exists(self.container_image):
+            LOG.info(_('Fetching Image from Glance'))
+            try:
+                images.fetch_to_raw(self.context, self.instance['image_ref'], self.container_image,
+                                    self.instance['user_id'], self.instance['project_id'],
+                                    max_size=self.max_size)
+                fingerprint = self._get_fingerprint()
+
+                if fingerprint in self.client.list_images():
+                    msg = _('Image already exists in LXD store')
+                    raise exception.InvalidImageRef(msg)
+
+                self.client.upload_image(self.container_image, self.container_image.split('/')[-1])
+
+                if self.instance['image_ref'] in self.client.list_aliases():
+                    msg = _('Alias already exists in LXD store')
+                    raise exception.InvalidImageRef(msg)
+
+                self.client.alias_create(self.instance['image_ref'], fingerprint)
+                os.unlink(self.container_image)
+            except Exception:
+                with excutils.save_and_reraise_exception():
+                    LOG.error(_LE('Erorr uploading image to image store for %(image).'),
+                                 {'image': self.instance['image_ref']})
+                    self.cleanup_image()
+
+    def cleanup_image(self):
+        LOG.info(_('Cleaning up image'))
+
         if os.path.exists(self.container_image):
-            return
+            fingerprint = self._get_fingerprint()
+            os.unlink(self.container_image)
 
-        LOG.info(_('Fetching Image from Glance'))
-        images.fetch_to_raw(self.context, self.instance['image_ref'], self.container_image,
-                            self.instance['user_id'], self.instance['project_id'],
-                            max_size=self.max_size)
+        if self.instance['image_ref'] in self.client.lists_aliases():
+            self.client.alias_delete(self.instance['image_ref'])
 
-        fingerprint = self._get_fingerprint(self.container_image)
+        if fingerprint is not None:
+            self.client.remove_image(fingerprint)
 
-        if fingerprint in self.client.list_images():
-            msg = _('Image already exists in image store')
-            raise exception.InvalidImageRef(msg)
 
-        alias = 'glance/%s' % self.instance['image_ref']
-        if alias in self.client.list_aliases():
-            msg = _('Alias already exists')
-            raise exception.ImageUnacceptable(msg)
-
-        data = self.client.create_alias(alias, fingerprint)
-        LOG.info(_('!!! %s') % data)
-
-        os.unlink(self.container_image)
-
-    def _get_fingerprint(self, filename):
-        m = hashlib.sha256()
-        with open(filename, 'rb') as f:
-            for chunk in iter(lambda: f.read(128 * m.block_size), b''):
-                m.update(chunk)
-        return m.hexdigest()
+    def _get_fingerprint(self):
+        with open(self.container_image, 'rb') as fp:
+            fingerprint = hashlib.sha256(fp.read()).hexdigest()
+        return fingerprint

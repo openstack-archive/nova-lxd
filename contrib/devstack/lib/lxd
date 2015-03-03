@@ -24,18 +24,7 @@ function configure_lxd {
 	sudo apt-add-repository -y ppa:ubuntu-lxc/lxd-daily
 	apt_get update
 	install_package lxd lxc-dev
-
-	setfacl -m nova:rx /var/lib/lxd/lxd
-
-	if [[ ! -d /var/lib/lxd ]]; then
-		sudo mkdir -p /var/lib/lxd/
-		sudo chown $USER:$USER /var/lib/lxd
-	fi
-
-	run_process lxd "$LXD_BIN_DIR/lxd/lxd --tcp $HOST_IP:8443 --debug"
-	echo "Configure LXD API"
 }
-	
 
 function install_lxd {
 	git_clone $LXC_REPO $LXC_DIR

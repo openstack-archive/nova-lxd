@@ -17,9 +17,14 @@ import socket
 
 from eventlet.green import httplib
 
+from oslo_log import log as logging
 from oslo.config import cfg
 
+from nova.i18n import _
+
 CONF = cfg.CONF
+
+LOG = logging.getLogger(__name__)
 
 class UnixHTTPConnection(httplib.HTTPConnection):
 
@@ -69,14 +74,24 @@ class Client(object):
 
     def state(self, name):
         (status, data) = self._make_request('GET', '/1.0/containers/%s/state' % name)
+        if status == 150:
+            return 'PENDING'
+        if status == 500:
+            return 'UNKNOWN'
         if status == 200:
             return data['metadata']['state']
 
     def list(self):
-        (status, data) = self._make_request('GET', '/1.0/list')
+        (status, data) = self._make_request('GET', '/1.0')
         if status != 200:
             return []
-        return [container.split('/1.0/list')[-1] for container in data['metadata']]
+        return [container.split('/1.0')[-1] for container in data['metadata']]
+
+    def update_container(self, instance, config):
+        container_update = False
+        (status, data) = self._make_request('PUT', '/1.0/containers/%s' % instance, json.dumps(config))
+        if status != 200:
+            raise Exception('Failed to update configuration')
 
     def start(self, name):
         container_start = False
@@ -134,14 +149,29 @@ class Client(object):
         (status, data) = self._make_request('GET', '/1.0/images')
         return [image.split('/1.0/images')[-1] for image in data['metadata']]
 
+    def upload_image(self, path, filename):
+        (status, data) = self._make_request('POST', '/1.0/images', open(path, 'rb'))
+
+        if status != 200:
+            raise Exception('Failed to upload image')
+
+    def remove_image(self, fingerprint):
+        (status, data) = self._make_request('DELETE', '/1.0/images/%s' % fingerprint)
+        if status != 200:
+            raise Exception('Failed to delete image')
+
     def list_aliases(self):
-        status, data = self._make_request('/1.0/images/aliases')
-        return [alias.split('/1.0/aliases')[-1] for alias in data['metadata']]
+        (status, data) = self._make_request('GET', '/1.0/images/aliases')
+        return [alias.split('/1.0/images/aliases')[-1] for alias in data['metadata']]
 
-    def create_alias(self, alias, fingerprint):
-        container_alias = False
-        action = {'target': fingerprint,
-                  'name': alias}
-        (status, data) = self._make_request('POST','/1.0/images/aliases', json.dumps(action))
-        return data
+    def alias_create(self, name, target):
+        payload = {'target': target,
+                   'name': name}
+        (status, data) = self._make_request('POST', '/1.0/images/aliases', json.dumps(payload))
+        if status != 200:
+            raise Exception('Alias create failed')
 
+    def alias_delete(self, name):
+        (status, data) = self._make_request('DELETE', '/1.0/images/aliases/%s' % name)
+        if status != 200:
+            raise Exception('Failed to delete alias')

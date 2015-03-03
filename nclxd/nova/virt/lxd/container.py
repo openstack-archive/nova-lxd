@@ -14,11 +14,9 @@
 
 import os
 
-import lxc
-
 from oslo.config import cfg
 from oslo_log import log as logging
-from oslo.utils import units, excutils
+from oslo.utils import units
 
 from nova.i18n import _, _LW, _LE, _LI
 from nova import utils
@@ -26,7 +24,6 @@ from nova import exception
 from nova.compute import power_state
 
 from . import config
-from . import utils as container_utils
 from . import vif
 from . import images
 
@@ -34,6 +31,7 @@ CONF = cfg.CONF
 CONF.import_opt('use_cow_images', 'nova.virt.driver')
 CONF.import_opt('vif_plugging_timeout', 'nova.virt.driver')
 CONF.import_opt('vif_plugging_is_fatal', 'nova.virt.driver')
+
 LOG = logging.getLogger(__name__)
 
 MAX_CONSOLE_BYTES = 100 * units.Ki
@@ -47,8 +45,10 @@ LXD_POWER_STATES = {
     'FREEZING': power_state.PAUSED,
     'FROZEN': power_state.SUSPENDED,
     'THAWED': power_state.PAUSED,
-    'NONE': power_state.NOSTATE
+    'PENDING': power_state.BUILDING,
+    'UNKNOWN': power_state.NOSTATE
 }
+
 
 class Container(object):
 
@@ -57,7 +57,9 @@ class Container(object):
         self.virtapi = virtapi
         self.firewall_driver = firewall
 
+
         self.vif_driver = vif.LXDGenericDriver()
+        self.config = {}
 
     def init_container(self):
         if not os.path.exists(CONF.lxd.lxd_socket):
@@ -68,8 +70,7 @@ class Container(object):
         console_log = os.path.join(CONF.lxd.lxd_root_dir,
                                    instance['uuid'],
                                    'container.console')
-	user = os.getuid()
-	utils.execute('chown', user, console_log, run_as_root=True)
+
         with open(console_log, 'rb') as fp:
             log_data, remaining = utils.last_bytes(fp, MAX_CONSOLE_BYTES)
             if remaining > 0:
@@ -82,24 +83,15 @@ class Container(object):
                         admin_password, network_info, block_device_info, flavor):
         LOG.info(_LI('Starting new instance'), instance=instance)
 
-        try:
-            # Setup the LXC instance
-            instance_name = instance['uuid']
-            container = lxc.Container(instance_name)
-            container.set_config_path(CONF.lxd.lxd_root_dir)
+        # Setup the LXC instance
+        ''' Fetch the image from glance '''
+        self._fetch_image(context, instance, image_meta)
 
-            ''' Fetch the image from glance '''
-            self._fetch_image(context, instance, image_meta)
+        ''' Set up the configuration file '''
+        self._write_config(instance, network_info, image_meta)
 
-            ''' Set up the configuration file '''
-            #self._write_config(container, instance, network_info, image_meta)
-
-            ''' Start the container '''
-            #self._start_container(context, instance, network_info, image_meta)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                self.destroy_container(context, instance, network_info,
-                                       block_device_info)
+        ''' Start the container '''
+        #self._start_container(context, instance, network_info, image_meta)
 
     def destroy_container(self, context, instance, network_info, block_device_info,
                 destroy_disks=None, migrate_data=None):
@@ -108,29 +100,19 @@ class Container(object):
         self.teardown_network(instance, network_info)
 
     def get_container_info(self, instance):
-        instance_name = instance['uuid']
-        container = lxc.Container(instance_name)
-        container.set_config_path(CONF.lxd.lxd_root_dir)
-
-        try:
-            mem = int(container.get_cgroup_item('memory.usage_in_bytes')) / units.Mi
-        except KeyError:
-            mem = 0
-
-
-        container_state = self.client.state(instance_name)
+        container_state = self.client.state(instance['uuid'])
         if container_state is None:
-                container_state = 'NONE'
+            state = power_state.CRASHED
+        else:
+            state = LXD_POWER_STATES[container_state]
 
-        LOG.info(_('!!! %s') % container_state)
-        return {'state': LXD_POWER_STATES[container_state],
-                'mem': mem,
+        return {'state': state,
+                'mem': 0,
                 'cpu': 1}
-
 
     def _fetch_image(self, context, instance, image_meta):
         image = images.ContainerImage(context, instance, image_meta, self.client)
-        image.create_container()
+        image.upload_image()
 
     def _start_container(self, context, instance, network_info, image_meta):
         timeout = CONF.vif_plugging_timeout
@@ -153,10 +135,10 @@ class Container(object):
 
         self.client.start(instance['uuid'])
 
-    def _write_config(self, container, instance, network_info, image_meta):
-        self.config = config.LXDSetConfig(container, instance,
-                                          image_meta, network_info)
-        self.config.write_config()
+    def _write_config(self, instance, network_info, image_meta):
+        cconfig = config.LXDSetConfig(self.config, instance, image_meta, network_info)
+        self.config = cconfig.write_config()
+        self.client.update_container(instance['uuid'], self.config)
 
     def _start_network(self, instance, network_info):
         for vif in network_info:
