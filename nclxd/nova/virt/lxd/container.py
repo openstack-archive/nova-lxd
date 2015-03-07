@@ -68,7 +68,7 @@ class Container(object):
 
     def get_console_log(self, instance):
         console_log = os.path.join(CONF.lxd.lxd_root_dir,
-                                   instance['uuid'],
+                                   instance.uuid,
                                    'container.console')
 
         with open(console_log, 'rb') as fp:
@@ -88,19 +88,19 @@ class Container(object):
         self._fetch_image(context, instance, image_meta)
 
         ''' Set up the configuration file '''
-        self._write_config(instance, network_info, image_meta)
+        #self._write_config(instance, network_info, image_meta)
 
         ''' Start the container '''
         #self._start_container(context, instance, network_info, image_meta)
 
     def destroy_container(self, context, instance, network_info, block_device_info,
                 destroy_disks=None, migrate_data=None):
-        self.client.stop(instance['uuid'])
-        self.client.destroy(instance['uuid'])
+        self.client.stop(instance.uuid)
+        self.client.destroy(instance.uuid)
         self.teardown_network(instance, network_info)
 
     def get_container_info(self, instance):
-        container_state = self.client.state(instance['uuid'])
+        container_state = self.client.state(instance.uuid)
         if container_state is None:
             state = power_state.CRASHED
         else:
@@ -112,13 +112,13 @@ class Container(object):
 
     def _fetch_image(self, context, instance, image_meta):
         image = images.ContainerImage(context, instance, image_meta, self.client)
-        image.upload_image()
+        image.fetch_image()
 
     def _start_container(self, context, instance, network_info, image_meta):
         timeout = CONF.vif_plugging_timeout
         # check to see if neutron is ready before
         # doing anything else
-        if (not self.client.running(instance['uuid']) and
+        if (not self.client.running(instance.uuid) and
                 utils.is_neutron() and timeout):
             events = self._get_neutron_events(network_info)
         else:
@@ -133,12 +133,12 @@ class Container(object):
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed'))
 
-        self.client.start(instance['uuid'])
+        self.client.start(instance.uuid)
 
     def _write_config(self, instance, network_info, image_meta):
         cconfig = config.LXDSetConfig(self.config, instance, image_meta, network_info)
         self.config = cconfig.write_config()
-        self.client.update_container(instance['uuid'], self.config)
+        self.client.update_container(instance.uuid, self.config)
 
     def _start_network(self, instance, network_info):
         for vif in network_info:

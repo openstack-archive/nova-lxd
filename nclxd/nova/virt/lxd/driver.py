@@ -32,21 +32,9 @@ from oslo.serialization import jsonutils
 
 from pylxd import client
 
-from nova.compute import power_state
-from nova.compute import task_states
-from nova import paths
-from nova.compute import vm_mode
-from nova.console import type as ctype
-from nova import db
-from nova import exception
-from nova.i18n import _LW
-
-from nova import utils
-from nova.virt import diagnostics
 from nova.virt import driver
 from nova.virt import firewall
 from nova.virt import hardware
-from nova.virt import virtapi
 
 import container
 import host_utils

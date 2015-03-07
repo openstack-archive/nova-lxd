@@ -47,19 +47,3 @@ class LXDSetConfig(object):
         # Specify the console
         console_log = 'lxc.console.logfile = %s\n' % get_container_console(self.instance)
         self.raw_lxc['lxc.raw'] = console_log
-
-        # Specify the network
-        for vif in self.network_info:
-            vif_id = vif['id'][:11]
-            vif_type = vif['type']
-            bridge = vif['network']['bridge']
-            mac = vif['address']
-
-            if vif_type == 'ovs':
-                bridge = 'qbr%s' % vif_id
-
-            self.raw_lxc['lxc.raw'] += 'lxc.network.type = veth\n'
-            self.raw_lxc['lxc.raw'] += 'lxc.network.addr = %s\n' % mac
-            self.raw_lxc['lxc.raw'] += 'lxc.network.link = %s\n' % bridge
-
-        self.image = {'type': 'image', 'alias': self.instance['image_ref']}
