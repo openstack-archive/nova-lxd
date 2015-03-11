@@ -16,105 +16,53 @@ import os
 
 from oslo.config import cfg
 from oslo_log import log as logging
-from oslo.utils import units
 
 from nova.i18n import _, _LW, _LE, _LI
 from nova import utils
 from nova import exception
-from nova.compute import power_state
 
-from . import config
 from . import vif
 from . import images
+from . import constants
+from . import config
 
 CONF = cfg.CONF
-CONF.import_opt('use_cow_images', 'nova.virt.driver')
 CONF.import_opt('vif_plugging_timeout', 'nova.virt.driver')
 CONF.import_opt('vif_plugging_is_fatal', 'nova.virt.driver')
 
 LOG = logging.getLogger(__name__)
 
-MAX_CONSOLE_BYTES = 100 * units.Ki
-
-LXD_POWER_STATES = {
-    'RUNNING': power_state.RUNNING,
-    'STOPPED': power_state.SHUTDOWN,
-    'STARTING': power_state.BUILDING,
-    'STOPPING': power_state.SHUTDOWN,
-    'ABORTING': power_state.CRASHED,
-    'FREEZING': power_state.PAUSED,
-    'FROZEN': power_state.SUSPENDED,
-    'THAWED': power_state.PAUSED,
-    'PENDING': power_state.BUILDING,
-    'UNKNOWN': power_state.NOSTATE
-}
-
 
 class Container(object):
 
-    def __init__(self, client, virtapi, firewall):
+    def __init__(self, client):
         self.client = client
-        self.virtapi = virtapi
-        self.firewall_driver = firewall
-
-
+        self.image = images.ContainerImage(self.client)
+        self.config = config.ContainerConfig(self.client)
         self.vif_driver = vif.LXDGenericDriver()
-        self.config = {}
 
-    def init_container(self):
-        if not os.path.exists(CONF.lxd.lxd_socket):
-            msg = _('LXD is not running.')
-            raise Exception(msg)
-
-    def get_console_log(self, instance):
-        console_log = os.path.join(CONF.lxd.lxd_root_dir,
-                                   instance.uuid,
-                                   'container.console')
-
-        with open(console_log, 'rb') as fp:
-            log_data, remaining = utils.last_bytes(fp, MAX_CONSOLE_BYTES)
-            if remaining > 0:
-                LOG.info(_LI('Truncated console log returned, '
-                             '%d bytes ignored'),
-                         remaining, instance=instance)
-        return log_data
+    def init_host(self):
+        host = self.client.ping()
+        if host['status'] != 'Success':
+            raise Exception('LXD is not running')
 
     def start_container(self, context, instance, image_meta, injected_files,
-                        admin_password, network_info, block_device_info, flavor):
-        LOG.info(_LI('Starting new instance'), instance=instance)
+                        admin_password, network_info=None, block_device_info=None,
+                        flavor=None):
+        LOG.debug(_('Fetching image from Glance.'))
+        self.image.fetch_image(context, instance, image_meta)
 
-        # Setup the LXC instance
-        ''' Fetch the image from glance '''
-        self._fetch_image(context, instance, image_meta)
+        LOG.debug(_('Writing LXD config'))
+        self.config.create_container_config(instance, image_meta, network_info)
 
-        ''' Set up the configuration file '''
-        #self._write_config(instance, network_info, image_meta)
+        LOG.debug(_('Setup Networking'))
+        self._start_network(instance, network_info)
 
-        ''' Start the container '''
-        #self._start_container(context, instance, network_info, image_meta)
+        LOG.debug(_('Start container'))
+        #self._start_container(instance)
 
-    def destroy_container(self, context, instance, network_info, block_device_info,
-                destroy_disks=None, migrate_data=None):
-        self.client.stop(instance.uuid)
-        self.client.destroy(instance.uuid)
-        self.teardown_network(instance, network_info)
-
-    def get_container_info(self, instance):
-        container_state = self.client.state(instance.uuid)
-        if container_state is None:
-            state = power_state.CRASHED
-        else:
-            state = LXD_POWER_STATES[container_state]
-
-        return {'state': state,
-                'mem': 0,
-                'cpu': 1}
-
-    def _fetch_image(self, context, instance, image_meta):
-        image = images.ContainerImage(context, instance, image_meta, self.client)
-        image.fetch_image()
-
-    def _start_container(self, context, instance, network_info, image_meta):
+    def container_destroy(self, context, instance, network_info, block_device_info,
+                destroy_disks, migrate_data):
         timeout = CONF.vif_plugging_timeout
         # check to see if neutron is ready before
         # doing anything else
@@ -132,30 +80,34 @@ class Container(object):
                 self._start_firewall(instance, network_info)
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed'))
+        try:
+            (status, resp) = self.client.container_delete(instance.uuid)
+            if resp.get('status') != 'OK':
+                raise exception.NovaException
+        except Exception as e:
+            LOG.debug(_('Failed to delete instance: %s') % resp.get('metadata'))
+            msg = _('Cannot delete container: {0}')
+            raise exception.NovaException(msg.format(e),
+                                          instance_id=instance.name)
 
-        self.client.start(instance.uuid)
-
-    def _write_config(self, instance, network_info, image_meta):
-        cconfig = config.LXDSetConfig(self.config, instance, image_meta, network_info)
-        self.config = cconfig.write_config()
-        self.client.update_container(instance.uuid, self.config)
+    def _start_container(self, instance):
+        try:
+            (status, resp) = self.client.container_start(instance.uuid)
+            if resp.get('status') != 'OK':
+                raise exception.NovaException
+        except Exception as e:
+            LOG.debug(_('Failed to delete instance: %s') % resp.get('metadata'))
+            msg = _('Cannot delete container: {0}')
+            raise exception.NovaException(msg.format(e),
+                                          instance_id=instance.name)
 
     def _start_network(self, instance, network_info):
-        for vif in network_info:
+         for vif in network_info:
             self.vif_driver.plug(instance, vif)
 
-    def teardown_network(self, instance, network_info):
+    def _teardown_network(self, instance, network_info):
         for vif in network_info:
             self.vif_driver.unplug(instance, vif)
-        self._stop_firewall(instance, network_info)
-
-    def _start_firewall(self, instance, network_info):
-        self.firewall_driver.setup_basic_filtering(instance, network_info)
-        self.firewall_driver.prepare_instance_filter(instance, network_info)
-        self.firewall_driver.apply_instance_filter(instance, network_info)
-
-    def _stop_firewall(self, instance, network_info):
-        self.firewall_driver.unfilter_instance(instance, network_info)
 
     def _get_neutron_events(self, network_info):
         return [('network-vif-plugged', vif['id'])
