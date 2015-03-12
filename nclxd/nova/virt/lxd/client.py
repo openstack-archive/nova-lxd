@@ -18,7 +18,7 @@ class UnixHTTPConnection(httplib.HTTPConnection):
 
 class Client(object):
     def __init__(self):
-	self.unix_socket = '/var/lib/lxd/unix.socket'
+	    self.unix_socket = '/var/lib/lxd/unix.socket'
 
     def _make_request(self, *args, **kwargs):
         conn = UnixHTTPConnection(self.unix_socket)
@@ -30,9 +30,7 @@ class Client(object):
     # host ping
     def ping(self):
         (status, data) = self._make_request('GET', '/1.0')
-        return { 'status_code': data.get('status'),
-                 'status': data.get('status_code')
-               }
+        return (status, data)
 
     # containers
     def container_list(self):
@@ -43,21 +41,7 @@ class Client(object):
     def container_info(self, container):
         (status, data) = self._make_request('GET', '/1.0/containers/%s'
                                             % container)
-        if data.get('type') == 'error':
-            return  {
-                     'status_code': data.get('error_code'),
-                     'status': data.get('error')
-                    }
-
-        container = data.get('metadata')
-        container_status = container.get('status')
-        return {'status_code': str(data.get('status_code')),
-                'status': str(data.get('status')),
-                'name': str(container.get('name')),
-                'config': str(container.get('config', 'None')),
-                'profiles': str(container.get('profile', 'None')),
-                'userdata': str(container.get('userdata', 'None')),
-                'container_status': str(container_status.get('status', "None"))}
+        return (status, data)
 
 
     def container_defined(self, name):
@@ -84,7 +68,7 @@ class Client(object):
     def container_start(self, name):
         action = {'action': 'start', 'force': True}
         (status, data) = self._make_request('PUT', '/1.0/containers/%s/state'
-                                            % name)
+                                            % name, json.dumps(action))
         print data
         return (status, data)
 
@@ -92,7 +76,6 @@ class Client(object):
         (status, data) = self._make_request('DELETE', '/1.0/containers/%s'
                                             % name)
         return (status, data)
-
 
     # profiles
     def profile_list(self):

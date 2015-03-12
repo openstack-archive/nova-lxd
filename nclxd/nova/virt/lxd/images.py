@@ -118,7 +118,8 @@ class ContainerImage(object):
         rootfs_dir = os.path.join(self.workdir, 'rootfs')
 
         fileutils.ensure_tree(rootfs_dir)
-        utils.execute('tar', '-zxvf', container_image, '-C', rootfs_dir,
+        utils.execute('tar', '--anchored', '--numeric-owner', '-zxvf',
+                      container_image, '-C', rootfs_dir,
                       run_as_root=True, check_exit_code=[0, 2])
 
         metadata_yaml = json.dumps(self.metadata, sort_keys=True,

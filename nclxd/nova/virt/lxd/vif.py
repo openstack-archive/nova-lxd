@@ -21,7 +21,7 @@ from oslo_log import log as logging
 from oslo_concurrency import processutils
 
 
-from nova.i18n import _LW
+from nova.i18n import _LW, _
 from nova import exception
 from nova import utils
 from nova.network import linux_net
@@ -57,7 +57,7 @@ class LXDGenericDriver(object):
 
 class LXDOpenVswitchDriver(object):
 
-    def plug(self, instance, vif):
+    def plug(self, instance, vif, port='ovs'):
         iface_id = self._get_ovs_interfaceid(vif)
         br_name = self._get_br_name(vif['id'])
         v1_name, v2_name = self._get_veth_pair_names(vif['id'])
@@ -77,9 +77,14 @@ class LXDOpenVswitchDriver(object):
             linux_net._create_veth_pair(v1_name, v2_name)
             utils.execute('ip', 'link', 'set', br_name, 'up', run_as_root=True)
             utils.execute('brctl', 'addif', br_name, v1_name, run_as_root=True)
-            linux_net.create_ovs_vif_port(self._get_bridge_name(vif),
-                                          v2_name, iface_id, vif['address'],
-                                          instance['uuid'])
+            if port == 'ovs':
+                linux_net.create_ovs_vif_port(self._get_bridge_name(vif),
+                                              v2_name, iface_id,
+                                              vif['address'], instance.uuid)
+            elif port == 'ivs':
+                linux_net.create_ivs_vif_port(v2_name, iface_id,
+                                              vif['address'], instance.uuid)
+
 
     def unplug(self, instance, vif):
         try:

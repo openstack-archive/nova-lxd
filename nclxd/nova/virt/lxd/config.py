@@ -20,7 +20,7 @@ class ContainerConfig(object):
         self.resources = {}
         self.devices = {}
 
-    def create_container_config(self, instance, image_meta, network_info):
+    def create_container_config(self, instance, network_info):
         self.config = { 'name': instance.uuid,
                        'architecture':  'x86_64',
                        'ephemeral': True,
@@ -31,7 +31,7 @@ class ContainerConfig(object):
                             'alias': instance.image_ref}
 
         self.config['devices'] = { 'eth0':
-                                    self._get_container_devices(instance, network_info)}
+                                    self._get_container_devices(network_info)}
 
         self.config['config'] = {'raw.lxc': 'lxc.console.logfile = %s'
                                             % self._get_console_path(instance),
@@ -40,21 +40,21 @@ class ContainerConfig(object):
                                  }
 
         LOG.debug(_('Creating container configuration'))
-        self._container_init()
+        self._container_init(instance)
 
-    def _container_init(self):
+    def _container_init(self, instance):
         try:
             (status, resp) = self.client.container_init(self.config)
             if resp.get('status') != 'OK':
                 raise exception.NovaException
         except Exception as e:
-            LOG.debug(_('Failed to delete instance: %s') % resp.get('metadata'))
-            msg = _('Cannot delete container: {0}')
+            LOG.debug(_('Failed to init container: %s') % resp.get('metadata'))
+            msg = _('Cannot init container: {0}')
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance.name)
 
 
-    def _get_container_devices(self, instance, network_info):
+    def _get_container_devices(self, network_info):
         for vif in network_info:
             vif_id = vif['id'][:11]
             vif_type = vif['type']
