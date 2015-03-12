@@ -30,10 +30,11 @@ from oslo.config import cfg
 from oslo_log import log as logging
 from oslo.serialization import jsonutils
 
-from pylxd import client
+import client
+import constants
 
+from nova.i18n import _
 from nova.virt import driver
-from nova.virt import firewall
 from nova.virt import hardware
 
 import container
@@ -68,25 +69,22 @@ class LXDDriver(driver.ComputeDriver):
         super(LXDDriver, self).__init__(virtapi)
 
         self.client = client.Client()
-        self.firewall_driver = firewall.load_driver(
-            default='nova.virt.firewall.NoopFirewallDriver')
         self.container = container.Container(self.client,
-                                             self.virtapi,
-                                             self.firewall_driver)
+                                             virtapi)
 
     def init_host(self, host):
-        return self.container.init_container()
+        return self.container.init_host()
 
     def list_instances(self):
-        return self.client.list()
+        return self.client.container_list()
 
     def list_instance_uuids(self):
-        return self.client.list()
+        return self.client.container_list()
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None,
               flavor=None):
-        self.container.start_container(context, instance, image_meta,
+        self.container.container_start(context, instance, image_meta,
                                        injected_files, admin_password, network_info,
                                        block_device_info, flavor)
 
@@ -95,7 +93,7 @@ class LXDDriver(driver.ComputeDriver):
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
-        self.client.reboot(instance['uuid'])
+        pass
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
@@ -124,10 +122,10 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplemented()
 
     def power_off(self, instance, shutdown_timeout=0, shutdown_attempts=0):
-        self.client.stop(instance['uuid'])
+        pass
 
     def power_on(self, context, instance, network_info, block_device_info):
-        self.client.start(instance['uuid'])
+        pass
 
     def soft_delete(self, instance):
         pass
@@ -136,10 +134,10 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplemented()
 
     def pause(self, instance):
-        self.client.pause(instance['uuid'])
+        pass
 
     def unpause(self, instance):
-        self.client.unpause(instance['uuid'])
+        pass
 
     def suspend(self, instance):
         raise NotImplemented()
@@ -149,7 +147,7 @@ class LXDDriver(driver.ComputeDriver):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        return self.container.destroy_container(context, instance, network_info, block_device_info,
+        return self.container.container_destroy(context, instance, network_info, block_device_info,
                                                 destroy_disks, migrate_data)
 
 
@@ -179,27 +177,27 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplemented()
 
     def get_info(self, instance):
-        info = self.container.get_container_info(instance)
-        return hardware.InstanceInfo(state=info['state'],
-                                     max_mem_kb=info['mem'],
-                                     mem_kb=info['mem'],
-                                     num_cpu=info['cpu'],
+        istate = self.container.container_info(instance)
+        return hardware.InstanceInfo(state=istate,
+                                     max_mem_kb=0,
+                                     mem_kb=0,
+                                     num_cpu=1,
                                      cpu_time_ns=0)
 
     def get_console_output(self, context, instance):
         return self.container.get_console_log(instance)
 
     def refresh_security_group_rules(self, security_group_id):
-        self.firewall_driver.refresh_security_group_rules(security_group_id)
+        pass
 
     def refresh_security_group_members(self, security_group_id):
-        self.firewall_driver.refresh_security_group_members(security_group_id)
+        pass
 
     def refresh_instance_security_rules(self, instance):
-        self.firewall_driver.refresh_rules(instance)
+        pass
 
     def refresh_provider_fw_rules(self):
-        self.firewall_driver.refresh_provider_fw_rules()
+        pass
 
     def get_available_resource(self, nodename):
         """Updates compute manager resource info on ComputeNode table.
@@ -221,7 +219,7 @@ class LXDDriver(driver.ComputeDriver):
         data["memory_mb_used"] = memory['used'] / units.Mi
         data["local_gb_used"] = disk['used'] / units.Gi
         data["hypervisor_type"] = "lxd"
-        data["hypervisor_version"] = "1.0"
+        data["hypervisor_version"] = "0"
         data["hypervisor_hostname"] = nodename
         data["cpu_info"] = "?"
         data["disk_available_least"] = disk['free'] / units.Gi
@@ -230,12 +228,10 @@ class LXDDriver(driver.ComputeDriver):
         return data
 
     def ensure_filtering_rules_for_instance(self, instance_ref, network_info):
-        self.firewall_driver.setup_basic_filtering(instance_ref, network_info)
-        self.firewall_driver.prepare_instance_filter(
-            instance_ref, network_info)
+        pass
 
     def unfilter_instance(self, instance, network_info):
-        self.firewall_driver.unfilter_instance(instance, network_info)
+        pass
 
     def get_available_nodes(self, refresh=False):
         hostname = socket.gethostname()
