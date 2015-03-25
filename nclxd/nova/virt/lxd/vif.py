@@ -85,7 +85,6 @@ class LXDOpenVswitchDriver(object):
                 linux_net.create_ivs_vif_port(v2_name, iface_id,
                                               vif['address'], instance.uuid)
 
-
     def unplug(self, instance, vif):
         try:
             br_name = self._get_br_name(vif['id'])

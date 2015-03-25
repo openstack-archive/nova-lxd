@@ -85,7 +85,7 @@ class Container(object):
         console_log = self._get_console_path(instance)
         container_log = self._get_container_log(instance)
         container = {'name': instance.uuid,
-                     'source': {'type': 'image','alias': instance.image_ref}}
+                     'source': {'type': 'image', 'alias': instance.image_ref}}
         try:
             (status, resp) = self.client.container_init(container)
             if resp.get('status') != 'OK':
@@ -107,13 +107,14 @@ class Container(object):
 
         network_type = self._get_container_devices(network_info)
         container_config = {'config': {'raw.lxc': 'lxc.logfile = %s\nlxc.console.logfile=%s\n'
-                                                  % (container_log,console_log)},
+                                                  % (container_log, console_log)},
                             'devices': {'eth0': {'nictype': 'bridged',
                                                  'parent': network_type['parent'],
                                                  'hwaddr': network_type['hwaddr'],
                                                  'type': 'nic'}}}
         try:
-            (status, resp) = self.client.container_update(instance.uuid, container_config)
+            (status, resp) = self.client.container_update(
+                instance.uuid, container_config)
             if resp.get('status') != 'OK':
                 raise exception.NovaException
         except Exception as e:
@@ -123,7 +124,7 @@ class Container(object):
                                           instance_id=instance.name)
 
     def container_restart(self, context, instance, network_info, reboot_type,
-               block_device_info=None, bad_volumes_callback=None):
+                          block_device_info=None, bad_volumes_callback=None):
         try:
             (status, resp) = self.client.container_restart(instance.uuid)
             if resp.get('status') != 'OK':
@@ -178,29 +179,33 @@ class Container(object):
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance.name)
 
-    def container_destroy(self, context, instance, network_info, block_device_info,
+    def container_destroy(
+        self, context, instance, network_info, block_device_info,
                 destroy_disks, migrate_data):
         try:
             (status, resp) = self.client.container_delete(instance.uuid)
             if resp.get('status') != 'OK':
                 raise exception.NovaException
         except Exception as e:
-            LOG.debug(_('Failed to delete instance: %s') % resp.get('metadata'))
+            LOG.debug(_('Failed to delete instance: %s') %
+                      resp.get('metadata'))
             msg = _('Cannot delete container: {0}')
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance.name)
+
     def get_console_log(self, instance):
         console_dir = os.path.join(CONF.lxd.lxd_root_dir, instance.uuid)
         console_log = self._get_console_path(instance)
         uid = pwd.getpwuid(os.getuid()).pw_uid
-        utils.execute('chown', '%s:%s' % (uid, uid), console_log, run_as_root=True)
+        utils.execute('chown', '%s:%s' %
+                      (uid, uid), console_log, run_as_root=True)
         utils.execute('chmod', '755', console_dir, run_as_root=True)
         with open(console_log, 'rb') as fp:
             log_data, remaining = utils.last_bytes(fp, MAX_CONSOLE_BYTES)
             if remaining > 0:
                 LOG.info(_('Truncated console log returned, '
-                            '%d bytes ignored'),
-                            remaining, instance=instance)
+                           '%d bytes ignored'),
+                         remaining, instance=instance)
         return log_data
 
     def container_info(self, instance):
@@ -218,25 +223,26 @@ class Container(object):
         # check to see if neutron is ready before
         # doing anything else
         if (not self.client.container_running(instance.uuid) and
-            utils.is_neutron() and timeout):
-                events = self._get_neutron_events(network_info)
+                utils.is_neutron() and timeout):
+            events = self._get_neutron_events(network_info)
         else:
-                events = {}
+            events = {}
 
         try:
             with self.virtapi.wait_for_instance_event(
                 instance, events, deadline=timeout,
-                error_callback=self._neutron_failed_callback):
+                    error_callback=self._neutron_failed_callback):
                 self._start_network(instance, network_info)
         except exception.VirtualInterfaceCreateException:
-                 LOG.info(_LW('Failed'))
+            LOG.info(_LW('Failed'))
 
         try:
             (status, resp) = self.client.container_start(instance.uuid)
             if resp.get('status') != 'OK':
                 raise exception.NovaException
         except Exception as e:
-            LOG.debug(_('Failed to container instance: %s') % resp.get('metadata'))
+            LOG.debug(_('Failed to container instance: %s') %
+                      resp.get('metadata'))
             msg = _('Cannot container container: {0}')
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance.name)

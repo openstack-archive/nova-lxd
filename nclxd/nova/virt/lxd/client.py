@@ -18,6 +18,7 @@ import socket
 
 
 class UnixHTTPConnection(httplib.HTTPConnection):
+
     def __init__(self, path, host='localhost', port=None, strict=None,
                  timeout=None):
         httplib.HTTPConnection.__init__(self, host, port=port,
@@ -30,9 +31,11 @@ class UnixHTTPConnection(httplib.HTTPConnection):
         sock.connect(self.path)
         self.sock = sock
 
+
 class Client(object):
+
     def __init__(self):
-	    self.unix_socket = '/var/lib/lxd/unix.socket'
+        self.unix_socket = '/var/lib/lxd/unix.socket'
 
     def _make_request(self, *args, **kwargs):
         conn = UnixHTTPConnection(self.unix_socket)
@@ -56,7 +59,6 @@ class Client(object):
         (status, data) = self._make_request('GET', '/1.0/containers/%s'
                                             % container)
         return (status, data)
-
 
     def container_defined(self, name):
         (status, data) = self._make_request('GET', '/1.0/containers/%s' % name)
@@ -122,11 +124,11 @@ class Client(object):
     def profile_list(self):
         (status, data) = self._make_request('GET', '/1.0/profiles')
         return [profile.split('/1.0/profiles/')[-1]
-                    for profile in data['metadata']]
+                for profile in data['metadata']]
 
     def profile_create(self, config):
         (status, data) = self._make_request('POST', '/1.0/profiles',
-                                                json.dumps(config))
+                                            json.dumps(config))
         return (status, data)
 
     def profile_update(self, name, config):
@@ -137,7 +139,7 @@ class Client(object):
     def profile_show(self, name):
         (status, data) = self._make_request('GET', '/1.0/profiles/%s' % name)
 
-        container_profile  = data.get('metadata')
+        container_profile = data.get('metadata')
 
         return {'status': data.get('status'),
                 'status_code': data.get('status_code'),
@@ -168,19 +170,21 @@ class Client(object):
 
     def alias_create(self, name, target):
         payload = {'target': target, 'name': name}
-        (status, data) = self._make_request('POST', '/1.0/images/aliases', json.dumps(payload))
+        (status, data) = self._make_request(
+            'POST', '/1.0/images/aliases', json.dumps(payload))
         print data
         return (status, data)
 
     def alias_delete(self, name):
-        (status, data) = self._make_request('DELETE', '/1.0/images/aliases/%s' % name)
+        (status, data) = self._make_request(
+            'DELETE', '/1.0/images/aliases/%s' % name)
         return (status, data)
 
     # operations
     def operation_list(self):
         (status, data) = self._make_request('GET', '/1.0/operations')
         return [operation.split('/1.0/operations/')[-1]
-                        for operation in data['metadata']['running']]
+                for operation in data['metadata']['running']]
 
     def operation_show(self, oid):
         (status, data) = self._make_request('GET', '/1.0/operations/%s' % oid)

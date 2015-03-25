@@ -92,7 +92,8 @@ class LXDDriver(driver.ComputeDriver):
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
-        self.container.container_restart(context, instance, network_info, reboot_type,
+        self.container.container_restart(
+            context, instance, network_info, reboot_type,
                                          block_device_info, bad_volumes_callback)
 
     def rescue(self, context, instance, network_info, image_meta,
@@ -122,10 +123,12 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplemented()
 
     def power_off(self, instance, shutdown_timeout=0, shutdown_attempts=0):
-        self.container.container_power_off(instance, shutdown_timeout, shutdown_attempts)
+        self.container.container_power_off(
+            instance, shutdown_timeout, shutdown_attempts)
 
     def power_on(self, context, instance, network_info, block_device_info):
-        self.container.container_power_on(instance, network_info, block_device_info)
+        self.container.container_power_on(
+            instance, network_info, block_device_info)
 
     def soft_delete(self, instance):
         pass
@@ -147,9 +150,9 @@ class LXDDriver(driver.ComputeDriver):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        return self.container.container_destroy(context, instance, network_info, block_device_info,
+        return self.container.container_destroy(
+            context, instance, network_info, block_device_info,
                                                 destroy_disks, migrate_data)
-
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):

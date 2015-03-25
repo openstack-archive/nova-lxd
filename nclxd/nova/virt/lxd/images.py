@@ -29,6 +29,7 @@ LOG = logging.getLogger(__name__)
 
 
 class ContainerImage(object):
+
     def __init__(self, client):
         self.client = client
         self.metadata = {}
@@ -82,7 +83,8 @@ class ContainerImage(object):
     def _create_alias(self, instance, fingerprint):
         try:
             LOG.debug(_('Creating LXD profile'))
-            (status, resp) = self.client.alias_create(instance.image_ref, fingerprint)
+            (status, resp) = self.client.alias_create(
+                instance.image_ref, fingerprint)
             if resp.get('status') == 'error':
                 raise exception.NovaException
         except Exception as e:
