@@ -31,7 +31,6 @@ from oslo_log import log as logging
 from oslo.serialization import jsonutils
 
 import client
-import constants
 
 from nova.i18n import _
 from nova.virt import driver
