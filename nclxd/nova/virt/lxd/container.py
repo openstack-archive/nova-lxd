@@ -12,10 +12,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import os
+import pwd
+
 from oslo.config import cfg
 from oslo_log import log as logging
 from oslo_utils import units
 
+from nova.openstack.common import loopingcall
 
 from nova.i18n import _, _LW, _LE
 from nova import utils
@@ -25,7 +29,6 @@ from nova.compute import power_state
 
 from . import vif
 from . import images
-from . import config
 
 CONF = cfg.CONF
 CONF.import_opt('vif_plugging_timeout', 'nova.virt.driver')
@@ -55,7 +58,6 @@ class Container(object):
         self.client = client
         self.virtapi = virtapi
         self.image = images.ContainerImage(self.client)
-        self.config = config.ContainerConfig(self.client)
         self.vif_driver = vif.LXDGenericDriver()
 
     def init_host(self):
@@ -70,14 +72,111 @@ class Container(object):
         LOG.debug(_('Fetching image from Glance.'))
         self.image.fetch_image(context, instance, image_meta)
 
-        LOG.debug(_('Writing LXD config'))
-        self.config.create_container_config(instance, network_info)
+        LOG.debug(_('Setting up container profiles'))
+        self.setup_container(instance, network_info)
 
         LOG.debug(_('Setup Networking'))
         self._start_network(instance, network_info)
 
         LOG.debug(_('Start container'))
         self._start_container(instance, network_info)
+
+    def setup_container(self, instance, network_info):
+        console_log = self._get_console_path(instance)
+        container_log = self._get_container_log(instance)
+        container = {'name': instance.uuid,
+                     'source': {'type': 'image','alias': instance.image_ref}}
+        try:
+            (status, resp) = self.client.container_init(container)
+            if resp.get('status') != 'OK':
+                raise exception.NovaException
+        except Exception as e:
+            LOG.debug(_('Failed to init container: %s') % resp)
+            msg = _('Cannot init container: {0}')
+            raise exception.NovaException(msg.format(e),
+                                          instance_id=instance.name)
+
+        oid = resp.get('operation').split('/')[3]
+        if not oid:
+            msg = _('Unable to determine resource id')
+            raise exception.NovaException(msg)
+
+        timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_start,
+                                                     oid)
+        timer.start(interval=0.5).wait()
+
+        network_type = self._get_container_devices(network_info)
+        container_config = {'config': {'raw.lxc': 'lxc.logfile = %s\nlxc.console.logfile=%s\n'
+                                                  % (container_log,console_log)},
+                            'devices': {'eth0': {'nictype': 'bridged',
+                                                 'parent': network_type['parent'],
+                                                 'hwaddr': network_type['hwaddr'],
+                                                 'type': 'nic'}}}
+        try:
+            (status, resp) = self.client.container_update(instance.uuid, container_config)
+            if resp.get('status') != 'OK':
+                raise exception.NovaException
+        except Exception as e:
+            LOG.debug(_('Failed to update container: %s') % resp)
+            msg = _('Cannot update container: {0}')
+            raise exception.NovaException(msg.format(e),
+                                          instance_id=instance.name)
+
+    def container_restart(self, context, instance, network_info, reboot_type,
+               block_device_info=None, bad_volumes_callback=None):
+        try:
+            (status, resp) = self.client.container_restart(instance.uuid)
+            if resp.get('status') != 'OK':
+                raise exception.NovaException
+        except Exception as e:
+            LOG.debug(_('Failed to restart container: %s') % resp)
+            msg = _('Cannot restart container: {0}')
+            raise exception.NovaException(msg.format(e),
+                                          instance_id=instance.name)
+
+    def container_power_on(self, instance, shutdown_timeout=0, shutdown_attempts=0):
+        try:
+            (status, resp) = self.client.container_stop(instance.uuid)
+            if resp.get('status') != 'OK':
+                raise exception.NovaException
+        except Exception as e:
+            LOG.debug(_('Failed to power on container: %s') % resp)
+            msg = _('Cannot power on container: {0}')
+            raise exception.NovaException(msg.format(e),
+                                          instance_id=instance.name)
+
+    def container_power_off(self, context, instance, network_info, block_device_info):
+        try:
+            (status, resp) = self.client.container_stop(instance.uuid)
+            if resp.get('status') != 'OK':
+                raise exception.NovaException
+        except Exception as e:
+            LOG.debug(_('Failed to power off container: %s') % resp)
+            msg = _('Cannot power on  container: {0}')
+            raise exception.NovaException(msg.format(e),
+                                          instance_id=instance.name)
+
+    def container_suspend(self, instance):
+        try:
+            (status, resp) = self.client.container_suspend(instance.uuid)
+            if resp.get('status') != 'OK':
+                raise exception.NovaException
+        except Exception as e:
+            LOG.debug(_('Failed to suspend container: %s') % resp)
+            msg = _('Cannot suspend container: {0}')
+            raise exception.NovaException(msg.format(e),
+                                          instance_id=instance.name)
+
+    def container_resume(self, context, instance, network_info, block_device_info=None):
+        try:
+            (status, resp) = self.client.container_resume(instance.uuid)
+            if resp.get('status') != 'OK':
+                raise exception.NovaException
+        except Exception as e:
+            LOG.debug(_('Failed to resume container: %s') % resp)
+            msg = _('Cannot suspend container: {0}')
+            raise exception.NovaException(msg.format(e),
+                                          instance_id=instance.name)
 
     def container_destroy(self, context, instance, network_info, block_device_info,
                 destroy_disks, migrate_data):
@@ -90,6 +189,19 @@ class Container(object):
             msg = _('Cannot delete container: {0}')
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance.name)
+    def get_console_log(self, instance):
+        console_dir = os.path.join(CONF.lxd.lxd_root_dir, instance.uuid)
+        console_log = self._get_console_path(instance)
+        uid = pwd.getpwuid(os.getuid()).pw_uid
+        utils.execute('chown', '%s:%s' % (uid, uid), console_log, run_as_root=True)
+        utils.execute('chmod', '755', console_dir, run_as_root=True)
+        with open(console_log, 'rb') as fp:
+            log_data, remaining = utils.last_bytes(fp, MAX_CONSOLE_BYTES)
+            if remaining > 0:
+                LOG.info(_('Truncated console log returned, '
+                            '%d bytes ignored'),
+                            remaining, instance=instance)
+        return log_data
 
     def container_info(self, instance):
         try:
@@ -137,6 +249,11 @@ class Container(object):
         for vif in network_info:
             self.vif_driver.unplug(instance, vif)
 
+    def _wait_for_start(self, oid):
+        containers = self.client.operation_list()
+        if oid not in containers:
+            raise loopingcall.LoopingCallDone()
+
     def _get_neutron_events(self, network_info):
         return [('network-vif-plugged', vif['id'])
                 for vif in network_info if vif.get('active', True) is False]
@@ -147,3 +264,25 @@ class Container(object):
                   {'event': event_name, 'uuid': instance.uuid})
         if CONF.vif_plugging_is_fatal:
             raise exception.VirtualInterfaceCreateException()
+
+    def _get_console_path(self, instance):
+        return os.path.join(CONF.lxd.lxd_root_dir, instance.uuid, 'console.log')
+
+    def _get_container_log(self, instance):
+        return os.path.join(CONF.lxd.lxd_root_dir, instance.uuid, 'container.log')
+
+    def _get_container_devices(self, network_info):
+        for vif in network_info:
+            vif_id = vif['id'][:11]
+            vif_type = vif['type']
+            bridge = vif['network']['bridge']
+            mac = vif['address']
+
+        if vif_type == 'ovs':
+            bridge = 'qbr%s' % vif_id
+
+        return {
+            'type': 'nic',
+            'parent': bridge,
+            'hwaddr': mac,
+        }

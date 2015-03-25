@@ -13,14 +13,10 @@
 #    under the License.
 
 import os
-import json
-import time
-import tempfile
-import shutil
+
 
 from oslo.config import cfg
 from oslo_log import log as logging
-from oslo_utils import excutils
 
 from nova.i18n import _, _LE
 from nova.openstack.common import fileutils
@@ -39,7 +35,6 @@ class ContainerImage(object):
 
         self.base_dir = os.path.join(CONF.instances_path,
                                      CONF.image_cache_subdirectory_name)
-        self.workdir = tempfile.mkdtemp()
 
     def fetch_image(self, context, instance, image_meta):
         LOG.debug(_('Fetching image from glance'))
@@ -56,8 +51,6 @@ class ContainerImage(object):
             self._try_fetch_image(context, container_image, instance)
 
             LOG.debug(_('Upload image to LXD'))
-            self._get_image_metadata(instance, image_meta)
-            self._update_image(instance, image_meta, container_image)
             if instance.image_ref not in self.client.alias_list():
                 fingerprint = self._create_image(instance, container_image)
                 self._create_alias(instance, fingerprint)
@@ -70,67 +63,7 @@ class ContainerImage(object):
         except exception.ImageNotFound:
             LOG.debug("Image %(image_id)s doesn't exist anymore on "
                       "image service, attempting to copy image ",
-                      {'image_id': image_id})
-
-    def _get_image_metadata(self, instance, image_meta):
-        ''' Generate LXD metadata understands '''
-        LOG.info(_('Generating metadata for LXD image'))
-
-        ''' Extract the information from the glance image '''
-        variant = 'Default'
-        img_meta_prop = image_meta.get('properties', {}) if image_meta else {}
-        architecture  = img_meta_prop.get('architecture', '')
-        if not architecture:
-            raise exception.NovaException(_('Unable to determine architecture.'))
-
-
-        os_distro = img_meta_prop.get('os_distro')
-        if not os_distro:
-            raise exception.NovaException(_('Unable to distribution.'))
-
-        os_version = img_meta_prop.get('os_version')
-        if not os_version:
-            raise exception.NovaException(_('Unable to determine version.'))
-
-        os_release = img_meta_prop.get('os_release')
-        if not os_release:
-            raise exception.NovaException(_('Unable to determine release '))
-        epoch = time.time()
-
-        self.metadata = {
-            'architecture': architecture,
-            'creation_date': int(epoch),
-            'properties': {
-                'os': os_distro,
-                'release': os_release,
-                'architecture': architecture,
-                'variant': variant,
-                'description': "%s %s %s Default (%s)" %
-                               (os_distro,
-                                os_release,
-                                architecture,
-                                os_version),
-                'name': instance['image_ref']
-            },
-        }
-
-    def _update_image(self,instance, image_meta, container_image):
-        rootfs_dir = os.path.join(self.workdir, 'rootfs')
-
-        fileutils.ensure_tree(rootfs_dir)
-        utils.execute('tar', '--anchored', '--numeric-owner', '-zxvf',
-                      container_image, '-C', rootfs_dir,
-                      run_as_root=True, check_exit_code=[0, 2])
-
-        metadata_yaml = json.dumps(self.metadata, sort_keys=True,
-                           indent=4, separators=(',', ': '),
-                           ensure_ascii=False).encode('utf-8') + b"\n"
-        metadata_file = os.path.join(self.workdir, 'metadata.yaml')
-        with open(metadata_file, 'w') as fp:
-            fp.write(metadata_yaml)
-        utils.execute('tar', '-C', self.workdir, '-zcvf',
-                      container_image, 'metadata.yaml', 'rootfs',
-                      run_as_root=True, check_exit_code=[0, 2])
+                      {'image_id': instance.image_ref})
 
     def _create_image(self, instance, container_image):
         try:
@@ -145,6 +78,7 @@ class ContainerImage(object):
             msg = _('Cannot create image: {0}')
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance.name)
+
     def _create_alias(self, instance, fingerprint):
         try:
             LOG.debug(_('Creating LXD profile'))

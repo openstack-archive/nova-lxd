@@ -1,3 +1,17 @@
+# Copyright (c) 2015 Canonical Ltd
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
 import httplib
 import json
 import socket
@@ -62,19 +76,46 @@ class Client(object):
     def container_init(self, config):
         (status, data) = self._make_request('POST', '/1.0/containers',
                                             json.dumps(config))
-        print data
         return (status, data)
 
     def container_start(self, name):
         action = {'action': 'start', 'force': True}
         (status, data) = self._make_request('PUT', '/1.0/containers/%s/state'
                                             % name, json.dumps(action))
-        print data
+        return (status, data)
+
+    def container_restart(self, name):
+        action = {'action': 'restart', 'force': True}
+        (status, data) = self._make_request('PUT', '/1.0/containers/%s/state'
+                                            % name, json.dumps(action))
+        return (status, data)
+
+    def container_stop(self, name):
+        action = {'action': 'stop', 'force': True}
+        (status, data) = self._make_request('PUT', '/1.0/containers/%s/state'
+                                            % name, json.dumps(action))
+        return (status, data)
+
+    def container_suspend(self, name):
+        action = {'action': 'freeze', 'force': True}
+        (status, data) = self._make_request('PUT', '/1.0/containers/%s/state'
+                                            % name, json.dumps(action))
+        return (status, data)
+
+    def container_resume(self, name):
+        ction = {'action': 'unfreeze', 'force': True}
+        (status, data) = self._make_request('PUT', '/1.0/containers/%s/state'
+                                            % name, json.dumps(action))
         return (status, data)
 
     def container_delete(self, name):
         (status, data) = self._make_request('DELETE', '/1.0/containers/%s'
                                             % name)
+        return (status, data)
+
+    def container_update(self, name, config):
+        (status, data) = self._make_request('PUT', '/1.0/containers/%s'
+                                            % name, json.dumps(config))
         return (status, data)
 
     # profiles
@@ -91,7 +132,7 @@ class Client(object):
     def profile_update(self, name, config):
         (status, data) = self._make_request('PUT', '/1.0/profiles/%s' % name,
                                             json.dumps(config))
-        reutrn (status, data)
+        return (status, data)
 
     def profile_show(self, name):
         (status, data) = self._make_request('GET', '/1.0/profiles/%s' % name)
@@ -133,4 +174,14 @@ class Client(object):
 
     def alias_delete(self, name):
         (status, data) = self._make_request('DELETE', '/1.0/images/aliases/%s' % name)
+        return (status, data)
+
+    # operations
+    def operation_list(self):
+        (status, data) = self._make_request('GET', '/1.0/operations')
+        return [operation.split('/1.0/operations/')[-1]
+                        for operation in data['metadata']['running']]
+
+    def operation_show(self, oid):
+        (status, data) = self._make_request('GET', '/1.0/operations/%s' % oid)
         return (status, data)
