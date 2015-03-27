@@ -35,6 +35,7 @@ import client
 from nova.i18n import _
 from nova.virt import driver
 from nova.virt import hardware
+from nova.virt import firewall
 
 import container
 import host_utils
@@ -68,8 +69,10 @@ class LXDDriver(driver.ComputeDriver):
         super(LXDDriver, self).__init__(virtapi)
 
         self.client = client.Client()
+        self.firewall = firewall.load_driver(
+                            default='nova.virt.firewall.NoopFirewallDriver')
         self.container = container.Container(self.client,
-                                             virtapi)
+                                             virtapi,firewall)
 
     def init_host(self, host):
         return self.container.init_host()
@@ -191,16 +194,16 @@ class LXDDriver(driver.ComputeDriver):
         return self.container.get_console_log(instance)
 
     def refresh_security_group_rules(self, security_group_id):
-        pass
+        self.firewall.refresh_security_group_rules(security_group_id)
 
     def refresh_security_group_members(self, security_group_id):
-        pass
+        self.firewall.refresh_security_group_members(security_group_id)
 
     def refresh_instance_security_rules(self, instance):
-        pass
+        self.firewall.refresh_provider_fw_rules()
 
     def refresh_provider_fw_rules(self):
-        pass
+        self.firewall.refresh_provider_fw_rules()
 
     def get_available_resource(self, nodename):
         """Updates compute manager resource info on ComputeNode table.
@@ -231,10 +234,11 @@ class LXDDriver(driver.ComputeDriver):
         return data
 
     def ensure_filtering_rules_for_instance(self, instance_ref, network_info):
-        pass
+        self.firewall.setup_basic_filtering(instance, network_info)
+        self.firewall.prepare_instance_filter(instance, network_info)
 
     def unfilter_instance(self, instance, network_info):
-        pass
+        self.firewall.unfilter_instance(instance, network_info)
 
     def get_available_nodes(self, refresh=False):
         hostname = socket.gethostname()
