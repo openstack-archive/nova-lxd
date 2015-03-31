@@ -24,8 +24,8 @@ def create_tarball():
 	os.mkdir(rootfs_dir)
 	image = opts.image
 	r = subprocess.call(['tar', '--anchored', '--numeric-owner', 
-						 '--exclude="dev/*"', '--numeric-owner',
-						 '-zxf', image, '-C', rootfs_dir])
+						 '--exclude=dev/*', '-zxf', image,
+                         '-C', rootfs_dir])
 
 	epoch = time.time()
 	metadata = {
@@ -40,7 +40,7 @@ def create_tarball():
 		fp.write(metadata_yaml)
 	source_tarball = image.split('.')
 	dest_tarball = "%s-lxd.tar.gz"  % source_tarball[0]
-	r = subprocess.call(['tar', '-C', workdir, '-zcvf',
+	r = subprocess.call(['tar', '-C', workdir, '-zcf',
 						 dest_tarball, 'metadata.yaml', 'rootfs'])
 
 if __name__ == '__main__':
