@@ -40,7 +40,7 @@ def create_tarball():
 		fp.write(metadata_yaml)
 	source_tarball = image.split('.')
 	dest_tarball = "%s-lxd.tar.gz"  % source_tarball[0]
-	r = subprocess.call(['tar', '-C', workdir, '-zcvf',
+	r = subprocess.call(['tar', '-C', workdir, '-zcf',
 						 dest_tarball, 'metadata.yaml', 'rootfs'])
 
 if __name__ == '__main__':
