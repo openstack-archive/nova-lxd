@@ -24,8 +24,8 @@ def create_tarball():
 	os.mkdir(rootfs_dir)
 	image = opts.image
 	r = subprocess.call(['tar', '--anchored', '--numeric-owner', 
-						 '--exclude="dev/*"', '--numeric-owner',
-						 '-zxf', image, '-C', rootfs_dir])
+						 '--exclude="dev/*"', '-zxf', image,
+                         '-C', rootfs_dir])
 
 	epoch = time.time()
 	metadata = {
