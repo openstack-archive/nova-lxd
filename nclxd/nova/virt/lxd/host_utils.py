@@ -30,7 +30,7 @@ def get_fs_info(path):
     used = (hddinfo.f_blocks - hddinfo.f_bfree) * hddinfo.f_frsize
     available = st.f_bavail * st.f_frsize
     return {'total': total,
-            'available': free,
+            'available': available,
             'used': used}
 
 
