@@ -27,10 +27,10 @@ def get_fs_info(path):
     """
     hddinfo = os.statvfs(path)
     total = hddinfo.f_frsize * hddinfo.f_blocks
-    free = hddinfo.f_frsize * hddinfo.f_bavail
-    used = hddinfo.f_frsize * (hddinfo.f_blocks - hddinfo.f_bfree)
+    used = (hddinfo.f_blocks - hddinfo.f_bfree) * hddinfo.f_frsize
+    available = st.f_bavail * st.f_frsize
     return {'total': total,
-            'free': free,
+            'available': free,
             'used': used}
 
 

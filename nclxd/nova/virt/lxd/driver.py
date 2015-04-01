@@ -228,7 +228,7 @@ class LXDDriver(driver.ComputeDriver):
         data["hypervisor_version"] = "0"
         data["hypervisor_hostname"] = nodename
         data["cpu_info"] = "?"
-        data["disk_available_least"] = disk['free'] / units.Gi
+        data["disk_available_least"] = disk['available'] / units.Gi
         data['numa_topology'] = None
 
         return data
