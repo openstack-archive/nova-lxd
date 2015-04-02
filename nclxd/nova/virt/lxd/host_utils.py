@@ -26,9 +26,9 @@ def get_fs_info(path):
               :total: How big the filesytem is (in bytes)
     """
     hddinfo = os.statvfs(path)
-    total = hddinfo.f_frsize * hddinfo.f_blocks
-    used = (hddinfo.f_blocks - hddinfo.f_bfree) * hddinfo.f_frsize
-    available = st.f_bavail * st.f_frsize
+    total = hddinfo.f_blocks * hddinfo.f_bsize
+    available = hddinfo.f_bavail * hddinfo.f_bsize
+    used = total - available
     return {'total': total,
             'available': available,
             'used': used}
