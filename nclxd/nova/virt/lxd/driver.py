@@ -126,8 +126,7 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplemented()
 
     def power_off(self, instance, shutdown_timeout=0, shutdown_attempts=0):
-        self.container.container_power_off(
-            instance, shutdown_timeout, shutdown_attempts)
+        self.container.container_power_off(instance)
 
     def power_on(self, context, instance, network_info, block_device_info):
         self.container.container_power_on(
@@ -234,8 +233,8 @@ class LXDDriver(driver.ComputeDriver):
         return data
 
     def ensure_filtering_rules_for_instance(self, instance_ref, network_info):
-        self.firewall.setup_basic_filtering(instance, network_info)
-        self.firewall.prepare_instance_filter(instance, network_info)
+        self.firewall.setup_basic_filtering(instance_ref, network_info)
+        self.firewall.prepare_instance_filter(instance_ref, network_info)
 
     def unfilter_instance(self, instance, network_info):
         self.firewall.unfilter_instance(instance, network_info)

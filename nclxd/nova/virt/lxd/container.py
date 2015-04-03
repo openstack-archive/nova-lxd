@@ -54,7 +54,7 @@ LXD_POWER_STATES = {
 
 class Container(object):
 
-    def __init__(self, client, virtapi. firewall):
+    def __init__(self, client, virtapi, firewall):
         self.client = client
         self.virtapi = virtapi
         self.firewall = firewall
@@ -150,7 +150,7 @@ class Container(object):
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance.name)
 
-    def container_power_off(self, context, instance, network_info, block_device_info):
+    def container_power_off(self, instance):
         try:
             (status, resp) = self.client.container_stop(instance.uuid)
             if resp.get('status') != 'OK':
