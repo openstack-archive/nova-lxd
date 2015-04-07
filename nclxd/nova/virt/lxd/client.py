@@ -62,9 +62,9 @@ class Client(object):
 
     def container_defined(self, name):
         (status, data) = self._make_request('GET', '/1.0/containers/%s' % name)
-        container_defined = False
-        if data.get('type') != 'error':
-            container_defined = True
+        container_defined = True
+        if data.get('type') == 'error':
+            container_defined = False
         return container_defined
 
     def container_running(self, name):
@@ -105,7 +105,7 @@ class Client(object):
         return (status, data)
 
     def container_resume(self, name):
-        ction = {'action': 'unfreeze', 'force': True}
+        action = {'action': 'unfreeze', 'force': True}
         (status, data) = self._make_request('PUT', '/1.0/containers/%s/state'
                                             % name, json.dumps(action))
         return (status, data)

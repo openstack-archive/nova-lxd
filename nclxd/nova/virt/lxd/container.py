@@ -17,11 +17,12 @@ import pwd
 
 from oslo.config import cfg
 from oslo_log import log as logging
+from oslo_utils import excutils
 from oslo_utils import units
 
 from nova.openstack.common import loopingcall
 
-from nova.i18n import _, _LW, _LE
+from nova.i18n import _, _LW, _LE, _LI
 from nova import utils
 from nova import exception
 from nova.compute import power_state
@@ -29,6 +30,7 @@ from nova.compute import power_state
 
 from . import vif
 from . import images
+from . import utils as container_utils
 
 CONF = cfg.CONF
 CONF.import_opt('vif_plugging_timeout', 'nova.virt.driver')
@@ -57,7 +59,9 @@ class Container(object):
     def __init__(self, client, virtapi):
         self.client = client
         self.virtapi = virtapi
-        self.image = images.ContainerImage(self.client)
+        self.idmap = container_utils.LXCUserIdMap()
+        self.image = images.ContainerImage(self.client,
+                                           self.idmap)
         self.vif_driver = vif.LXDGenericDriver()
 
     def init_host(self):
@@ -69,32 +73,80 @@ class Container(object):
     def container_start(self, context, instance, image_meta, injected_files,
                         admin_password, network_info=None, block_device_info=None,
                         flavor=None):
-        LOG.debug(_('Fetching image from Glance.'))
-        self.image.fetch_image(context, instance, image_meta)
+        LOG.info(_LI('Spawning new instance'), instance=instance)
+        if self.client.container_defined(instance.uuid):
+            raise exception.InstanceExists(name=instance.uuid)
 
-        LOG.debug(_('Setting up container profiles'))
-        self.setup_container(instance, network_info)
+        try:
+            LOG.debug(_('Fetching image from Glance.'))
+            self.image.fetch_image(context, instance, image_meta)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to create image for: %(instance)s'),
+                          {'instance': instance.uuid})
+                self.container_destroy(context, instance, network_info,
+                                       block_device_info,
+                                       destroy_disks=None, migrate_data=None)
 
-        LOG.debug(_('Setup Networking'))
-        self._start_network(instance, network_info)
+        try:
+            LOG.debug(_('Setting up container profiles'))
+            self.setup_container(instance, network_info)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to setup container for: %(instance)s'),
+                          {'instance': instance.uuid})
+                self.container_destroy(context, instance, network_info,
+                                       block_device_info,
+                                       destroy_disks=None, migrate_data=None)
 
-        LOG.debug(_('Start container'))
-        self._start_container(instance, network_info)
+        try:
+            LOG.debug(_('Setup Networking'))
+            self._start_network(instance, network_info)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to setup container for: %(instance)s'),
+                          {'instance': instance.uuid})
+                self.container_destroy(context, instance, network_info,
+                                       block_device_info,
+                                       destroy_disks=None, migrate_data=None)
+
+        try:
+            LOG.debug(_('Start container'))
+            self._start_container(instance, network_info)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to setup container for: %(instance)s'),
+                          {'instance': instance.uuid})
+                self.container_destroy(context, instance, network_info,
+                                       block_device_info,
+                                       destroy_disks=None, migrate_data=None)
+
+        def _wait_for_boot():
+            state = self.container_info(instance)
+            if state == power_state.RUNNING:
+                LOG.info(_LI("Instance spawned successfully."),
+                         instance=instance)
+                raise loopingcall.LoopingCallDone()
+
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_boot)
+        timer.start(interval=0.5).wait()
+
 
     def setup_container(self, instance, network_info):
         console_log = self._get_console_path(instance)
         container_log = self._get_container_log(instance)
+        container_rootfs = self._get_container_rootfs(instance)
         container = {'name': instance.uuid,
-                     'source': {'type': 'image', 'alias': instance.image_ref}}
+                     'source': {'type': 'none', 'path': container_rootfs}}
         try:
             (status, resp) = self.client.container_init(container)
             if resp.get('status') != 'OK':
                 raise exception.NovaException
-        except Exception as e:
-            LOG.debug(_('Failed to init container: %s') % resp)
-            msg = _('Cannot init container: {0}')
-            raise exception.NovaException(msg.format(e),
-                                          instance_id=instance.name)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to setup container %(instance)s. LXD response %(response)s'),
+                            {'instance': instance.uuid,
+                            'response': resp})
 
         oid = resp.get('operation').split('/')[3]
         if not oid:
@@ -117,11 +169,11 @@ class Container(object):
                 instance.uuid, container_config)
             if resp.get('status') != 'OK':
                 raise exception.NovaException
-        except Exception as e:
-            LOG.debug(_('Failed to update container: %s') % resp)
-            msg = _('Cannot update container: {0}')
-            raise exception.NovaException(msg.format(e),
-                                          instance_id=instance.name)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to update container: %(instance)s. LXD response %(response)s'),
+                          {'instance': instance.uuid,
+                           'response': resp})
 
     def container_restart(self, context, instance, network_info, reboot_type,
                           block_device_info=None, bad_volumes_callback=None):
@@ -182,6 +234,9 @@ class Container(object):
     def container_destroy(
         self, context, instance, network_info, block_device_info,
                 destroy_disks, migrate_data):
+        if not self.client.container_defined(instance):
+            return
+        
         try:
             (status, resp) = self.client.container_delete(instance.uuid)
             if resp.get('status') != 'OK':
@@ -246,6 +301,11 @@ class Container(object):
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance.name)
 
+    def cleanup_container(self, instance, network_info):
+        self._teardown_network(instance, network_info)
+        utils.execute('umount', self._get_container_rootfs(instance),
+                      run_as_root=True)
+
     def _start_network(self, instance, network_info):
         for vif in network_info:
             self.vif_driver.plug(instance, vif)
@@ -269,6 +329,9 @@ class Container(object):
                   {'event': event_name, 'uuid': instance.uuid})
         if CONF.vif_plugging_is_fatal:
             raise exception.VirtualInterfaceCreateException()
+
+    def _get_container_rootfs(self, instance):
+        return os.path.join(CONF.lxd.lxd_root_dir, instance.uuid, 'rootfs')
 
     def _get_console_path(self, instance):
         return os.path.join(CONF.lxd.lxd_root_dir, instance.uuid, 'console.log')
