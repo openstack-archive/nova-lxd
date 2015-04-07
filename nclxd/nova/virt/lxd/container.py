@@ -54,10 +54,9 @@ LXD_POWER_STATES = {
 
 class Container(object):
 
-    def __init__(self, client, virtapi, firewall):
+    def __init__(self, client, virtapi):
         self.client = client
         self.virtapi = virtapi
-        self.firewall = firewall
         self.image = images.ContainerImage(self.client)
         self.vif_driver = vif.LXDGenericDriver()
 
@@ -81,9 +80,6 @@ class Container(object):
 
         LOG.debug(_('Start container'))
         self._start_container(instance, network_info)
-
-        LOG.debug(_('Start firewall'))
-        self._start_firewall(instance, network_info)
 
     def setup_container(self, instance, network_info):
         console_log = self._get_console_path(instance)
@@ -196,8 +192,6 @@ class Container(object):
             msg = _('Cannot delete container: {0}')
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance.name)
-        self._stop_firewall(instance, network_info)
-
     def get_console_log(self, instance):
         console_dir = os.path.join(CONF.lxd.lxd_root_dir, instance.uuid)
         console_log = self._get_console_path(instance)
@@ -297,12 +291,3 @@ class Container(object):
             'parent': bridge,
             'hwaddr': mac,
         }
-
-    def _start_firewall(self, instance, network_info):
-        self.firewall.setup_basic_filtering(instance, network_info)
-        self.firewall.prepare_instance_filter(instance, network_info)
-        self.firewall.apply_instance_filter(instance, network_info)
-
-    def _stop_firewall(self, instance, network_info):
-        self.firewall_driver.unfilter_instance(instance, network_info)
-
