@@ -39,6 +39,7 @@ class ContainerImage(object):
         self.image_dir = None
         self.rootfs_dir = None
         self.upper_dir = None
+        self.work_dir = None
 
         self.base_dir = os.path.join(CONF.instances_path,
                                      CONF.image_cache_subdirectory_name)
@@ -124,10 +125,15 @@ class ContainerImage(object):
                     utils.execute('mkdir', '-p', self.upper_dir,
                                   run_as_root=True)
 
-                utils.execute('mount', '-t', 'overlayfs', 'overlayfs',
+                if not os.path.exists(self.work_dir):
+                    utils.execute('mkdir', '-p', self.workd_dir,
+                                  run_as_root=True)
+
+                utils.execute('mount', '-t', 'overlay', 'overlay',
                               '-o',
-                              'lowerdir=%s,upperdir=%s'
-                               %(self.image_dir, self.upper_dir),
+                              'lowerdir=%s,upperdir=%s,workdir=%s'
+                               %(self.image_dir, self.upper_dir,
+                                 self.work_dir),
                                  self.rootfs_dir,
                                  run_as_root=True)
 
