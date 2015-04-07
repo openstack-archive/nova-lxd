@@ -153,7 +153,7 @@ class Container(object):
             msg = _('Unable to determine resource id')
             raise exception.NovaException(msg)
 
-        timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_start,
+        timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_operation,
                                                      oid)
         timer.start(interval=0.5).wait()
 
@@ -247,6 +247,18 @@ class Container(object):
             msg = _('Cannot delete container: {0}')
             raise exception.NovaException(msg.format(e),
                                           instance_id=instance.name)
+
+        oid = resp.get('operation').split('/')[3]
+        if not oid:
+            msg = _('Unable to determine resource id')
+            raise exception.NovaException(msg)
+
+        timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_operation,
+                                                     oid)
+        timer.start(interval=0.5).wait()
+
+        self.cleanup_container(instance, network_info)
+
     def get_console_log(self, instance):
         console_dir = os.path.join(CONF.lxd.lxd_root_dir, instance.uuid)
         console_log = self._get_console_path(instance)
@@ -303,8 +315,14 @@ class Container(object):
 
     def cleanup_container(self, instance, network_info):
         self._teardown_network(instance, network_info)
-        utils.execute('umount', self._get_container_rootfs(instance),
-                      run_as_root=True)
+        try:
+            rootfs = self._get_container_rootfs(instance)
+            LOG.info(_('!!! %s') % rootfs)
+            utils.execute('umount', rootfs,
+                         attempts=3, run_as_root=True)
+        except processutils.ProcessExecutionError as exc:
+            LOG.exception(_LE("Couldn't unmount the share %s"),
+                              exc)
 
     def _start_network(self, instance, network_info):
         for vif in network_info:
@@ -314,7 +332,7 @@ class Container(object):
         for vif in network_info:
             self.vif_driver.unplug(instance, vif)
 
-    def _wait_for_start(self, oid):
+    def _wait_for_operation(self, oid):
         containers = self.client.operation_list()
         if oid not in containers:
             raise loopingcall.LoopingCallDone()

@@ -172,7 +172,6 @@ class Client(object):
         payload = {'target': target, 'name': name}
         (status, data) = self._make_request(
             'POST', '/1.0/images/aliases', json.dumps(payload))
-        print data
         return (status, data)
 
     def alias_delete(self, name):

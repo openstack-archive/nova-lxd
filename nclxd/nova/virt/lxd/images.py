@@ -120,13 +120,15 @@ class ContainerImage(object):
                                   run_as_root=True)
 
                 self.upper_dir = os.path.join(CONF.lxd.lxd_root_dir,
-                                              instance.uuid, 'rootfs')
+                                              instance.uuid, 'upper')
                 if not os.path.exists(self.upper_dir):
                     utils.execute('mkdir', '-p', self.upper_dir,
                                   run_as_root=True)
 
+                self.work_dir = os.path.join(CONF.lxd.lxd_root_dir,
+                                             instance.uuid, 'workdir')
                 if not os.path.exists(self.work_dir):
-                    utils.execute('mkdir', '-p', self.workd_dir,
+                    utils.execute('mkdir', '-p', self.work_dir,
                                   run_as_root=True)
 
                 utils.execute('mount', '-t', 'overlay', 'overlay',
@@ -136,10 +138,10 @@ class ContainerImage(object):
                                  self.work_dir),
                                  self.rootfs_dir,
                                  run_as_root=True)
-
                 (user, group) = self.idmap.get_user()
                 utils.execute('chown', '-R', '%s:%s' % (user, group),
-                              self.rootfs_dir, run_as_root=True)
+                               self.rootfs_dir, run_as_root=True)
+
         except Exception:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Failed to create rootfs %(instance)s"),
