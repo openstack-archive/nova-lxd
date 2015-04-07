@@ -234,7 +234,7 @@ class Container(object):
     def container_destroy(
         self, context, instance, network_info, block_device_info,
                 destroy_disks, migrate_data):
-        if not self.client.container_defined(instance):
+        if not self.client.container_defined(instance.uuid):
             return
         
         try:
