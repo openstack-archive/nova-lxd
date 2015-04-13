@@ -166,17 +166,6 @@ class Container(object):
                                                      oid)
         timer.start(interval=0.5).wait()
 
-        try:
-            (status, resp) = self.client.container_update(
-                instance.uuid, container_config)
-            if resp.get('status') != 'OK':
-                raise exception.NovaException
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to update container: %(instance)s. LXD response %(response)s'),
-                          {'instance': instance.uuid,
-                           'response': resp})
-
     def config_container(self, instance, network_info):
         if not self.client.container_defined(instance.uuid):
             msg = _('Container doesnt exist.')
@@ -189,7 +178,7 @@ class Container(object):
         else:
             network_devices = self._get_container_devices(network_info)
             container_config = {'config': {'raw.lxc': 'lxc.console.logfile=%s\n'
-                                           % console.log},
+                                           % console_log},
                                 'devices':  network_devices}
 
         try:
