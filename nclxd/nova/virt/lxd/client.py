@@ -81,31 +81,31 @@ class Client(object):
         return (status, data)
 
     def container_start(self, name):
-        action = {'action': 'start', 'force': True}
+        action = {'action': 'start', 'timeout': 30, 'force': True}
         (status, data) = self._make_request('PUT', '/1.0/containers/%s/state'
                                             % name, json.dumps(action))
         return (status, data)
 
     def container_restart(self, name):
-        action = {'action': 'restart', 'force': True}
+        action = {'action': 'restart', 'timeout': 30, 'force': True}
         (status, data) = self._make_request('PUT', '/1.0/containers/%s/state'
                                             % name, json.dumps(action))
         return (status, data)
 
     def container_stop(self, name):
-        action = {'action': 'stop', 'force': True}
+        action = {'action': 'stop', 'timeout': 30, 'force': True}
         (status, data) = self._make_request('PUT', '/1.0/containers/%s/state'
                                             % name, json.dumps(action))
         return (status, data)
 
     def container_suspend(self, name):
-        action = {'action': 'freeze', 'force': True}
+        action = {'action': 'freeze', 'timeout': 30, 'force': True}
         (status, data) = self._make_request('PUT', '/1.0/containers/%s/state'
                                             % name, json.dumps(action))
         return (status, data)
 
     def container_resume(self, name):
-        action = {'action': 'unfreeze', 'force': True}
+        action = {'action': 'unfreeze', 'timeout': 30, 'force': True}
         (status, data) = self._make_request('PUT', '/1.0/containers/%s/state'
                                             % name, json.dumps(action))
         return (status, data)

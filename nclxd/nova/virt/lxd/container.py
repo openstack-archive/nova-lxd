@@ -78,7 +78,7 @@ class Container(object):
             raise exception.InstanceExists(name=instance.uuid)
 
         try:
-            LOG.debug(_('Fetching image from Glance.'))
+            LOG.debug('Fetching image from Glance.')
             self.image.fetch_image(context, instance, image_meta)
         except Exception:
             with excutils.save_and_reraise_exception():
@@ -89,7 +89,7 @@ class Container(object):
                                        destroy_disks=None, migrate_data=None)
 
         try:
-            LOG.debug(_('Setting up container profiles'))
+            LOG.debug('Setting up container profiles')
             self.setup_container(instance, network_info)
         except Exception:
             with excutils.save_and_reraise_exception():
@@ -100,7 +100,18 @@ class Container(object):
                                        destroy_disks=None, migrate_data=None)
 
         try:
-            LOG.debug(_('Setup Networking'))
+            LOG.debug('Configurting container')
+            self.config_container(instance, network_info)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to configure container for: %s(instnace)s'),
+                          {'instance': instance.uuid})
+                self.container_destroy(context, instance, network_info,
+                                       block_device_info,
+                                       destroy_disks=None, migrate_data=None)
+
+        try:
+            LOG.debug('Setup Networking')
             self._start_network(instance, network_info)
         except Exception:
             with excutils.save_and_reraise_exception():
@@ -111,7 +122,7 @@ class Container(object):
                                        destroy_disks=None, migrate_data=None)
 
         try:
-            LOG.debug(_('Start container'))
+            LOG.debug('Start container')
             self._start_container(instance, network_info)
         except Exception:
             with excutils.save_and_reraise_exception():
@@ -133,8 +144,6 @@ class Container(object):
 
 
     def setup_container(self, instance, network_info):
-        console_log = self._get_console_path(instance)
-        container_log = self._get_container_log(instance)
         container_rootfs = self._get_container_rootfs(instance)
         container = {'name': instance.uuid,
                      'source': {'type': 'none', 'path': container_rootfs}}
@@ -157,13 +166,6 @@ class Container(object):
                                                      oid)
         timer.start(interval=0.5).wait()
 
-        network_type = self._get_container_devices(network_info)
-        container_config = {'config': {'raw.lxc': 'lxc.logfile = %s\nlxc.console.logfile=%s\n'
-                                                  % (container_log, console_log)},
-                            'devices': {'eth0': {'nictype': 'bridged',
-                                                 'parent': network_type['parent'],
-                                                 'hwaddr': network_type['hwaddr'],
-                                                 'type': 'nic'}}}
         try:
             (status, resp) = self.client.container_update(
                 instance.uuid, container_config)
@@ -174,6 +176,35 @@ class Container(object):
                 LOG.error(_LE('Failed to update container: %(instance)s. LXD response %(response)s'),
                           {'instance': instance.uuid,
                            'response': resp})
+
+    def config_container(self, instance, network_info):
+        if not self.client.container_defined(instance.uuid):
+            msg = _('Container doesnt exist.')
+            raise exception.NovaException(msg)
+
+        console_log = self._get_console_path(instance)
+        if not network_info:
+            container_config =  {'config': {'raw.lxc': 'lxc.console.logfile=%s\n'
+                                            % console_log}}
+        else:
+            network_devices = self._get_container_devices(network_info)
+            container_config = {'config': {'raw.lxc': 'lxc.console.logfile=%s\n'
+                                           % console.log},
+                                'devices':  network_devices}
+
+        try:
+            (status, resp) = self.client.container_update(
+                                instance.uuid, container_config)
+            (status, resp) = self.client.container_update(instance.uuid, container_config)
+            if resp.get('status') != 'OK':
+                raise exception.NovaException
+        except Exception as e:
+            LOG.debug(_('Failed to update container: %s') % resp)
+            msg = _('Container update failed: {0}')
+            raise exception.NovaException(msg.format(e),
+                                          instance_id=instance.name)
+
+
 
     def container_restart(self, context, instance, network_info, reboot_type,
                           block_device_info=None, bad_volumes_callback=None):
@@ -234,6 +265,7 @@ class Container(object):
     def container_destroy(
         self, context, instance, network_info, block_device_info,
                 destroy_disks, migrate_data):
+
         if not self.client.container_defined(instance.uuid):
             return
         
@@ -317,7 +349,6 @@ class Container(object):
         self._teardown_network(instance, network_info)
         try:
             rootfs = self._get_container_rootfs(instance)
-            LOG.info(_('!!! %s') % rootfs)
             utils.execute('umount', rootfs,
                          attempts=3, run_as_root=True)
         except processutils.ProcessExecutionError as exc:
@@ -354,9 +385,6 @@ class Container(object):
     def _get_console_path(self, instance):
         return os.path.join(CONF.lxd.lxd_root_dir, instance.uuid, 'console.log')
 
-    def _get_container_log(self, instance):
-        return os.path.join(CONF.lxd.lxd_root_dir, instance.uuid, 'container.log')
-
     def _get_container_devices(self, network_info):
         for vif in network_info:
             vif_id = vif['id'][:11]
@@ -367,8 +395,7 @@ class Container(object):
         if vif_type == 'ovs':
             bridge = 'qbr%s' % vif_id
 
-        return {
-            'type': 'nic',
-            'parent': bridge,
-            'hwaddr': mac,
-        }
+        return {'eth0': {'nictype': 'bridged',
+                         'parent': bridge,
+                         'hwaddr': mac,
+                         'type': 'nic'}}
