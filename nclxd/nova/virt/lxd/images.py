@@ -99,7 +99,7 @@ class ContainerImage(object):
                                   run_as_root=True)
 
                 self.upper_dir = os.path.join(CONF.lxd.lxd_root_dir,
-                                              instance.uuid, 'rootfs')
+                                              instance.uuid, 'upperdir')
                 if not os.path.exists(self.upper_dir):
                     utils.execute('mkdir', '-p', self.upper_dir,
                               run_as_root=True)
@@ -110,7 +110,7 @@ class ContainerImage(object):
                     utils.execute('mkdir', '-p', self.work_dir,
                               run_as_root=True)
 
-                utils.execute('mount', '-t', 'overlayfs', 'overlayfs',
+                utils.execute('mount', '-t', 'overlay', 'overlay',
                               '-o',
                               'lowerdir=%s,upperdir=%s,workdir=%s'
                               % (self.image_dir, self.upper_dir, self.work_dir),

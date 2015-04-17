@@ -140,31 +140,31 @@ class Container(object):
                 raise loopingcall.LoopingCallDone()
 
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_boot)
-        timer.start(interval=0.5).wait()
+        timer.start(interval=0.6).wait()
 
 
     def setup_container(self, instance, network_info):
+        if self.client.container_defined(instance.uuid):
+            return
+
         container_rootfs = self._get_container_rootfs(instance)
         container = {'name': instance.uuid,
                      'source': {'type': 'none', 'path': container_rootfs}}
-        try:
-            (status, resp) = self.client.container_init(container)
-            if resp.get('status') != 'OK':
-                raise exception.NovaException
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to setup container %(instance)s. LXD response %(response)s'),
-                            {'instance': instance.uuid,
-                            'response': resp})
 
-        oid = resp.get('operation').split('/')[3]
-        if not oid:
-            msg = _('Unable to determine resource id')
+        (status, resp) = self.client.container_init(container)
+        if resp.get('status') != 'OK':
+            msg = _('Failed to setup container: %(instance)s - %(reason)s') % \
+                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
             raise exception.NovaException(msg)
+        else:
+            oid = resp.get('operation').split('/')[3]
+            if not oid:
+                msg = _('Unable to determine resource id')
+                raise exception.NovaException(msg)
 
-        timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_operation,
-                                                     oid)
-        timer.start(interval=0.5).wait()
+            timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_operation,
+                                                         oid)
+            timer.start(interval=0.6).wait()
 
     def config_container(self, instance, network_info):
         if not self.client.container_defined(instance.uuid):
@@ -181,75 +181,67 @@ class Container(object):
                                            % console_log},
                                 'devices':  network_devices}
 
-        try:
-            (status, resp) = self.client.container_update(
-                                instance.uuid, container_config)
-            (status, resp) = self.client.container_update(instance.uuid, container_config)
-            if resp.get('status') != 'OK':
-                raise exception.NovaException
-        except Exception as e:
-            LOG.debug(_('Failed to update container: %s') % resp)
-            msg = _('Container update failed: {0}')
-            raise exception.NovaException(msg.format(e),
-                                          instance_id=instance.name)
 
+        (status, resp) = self.client.container_update(
+                                instance.uuid, container_config)
+        if resp.get('status') != 'OK':
+            msg = _('Container update failed: %(instance)s - %(reason)') % \
+                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
+            raise exception.NovaException(msg)
 
 
     def container_restart(self, context, instance, network_info, reboot_type,
                           block_device_info=None, bad_volumes_callback=None):
-        try:
-            (status, resp) = self.client.container_restart(instance.uuid)
-            if resp.get('status') != 'OK':
-                raise exception.NovaException
-        except Exception as e:
-            LOG.debug(_('Failed to restart container: %s') % resp)
-            msg = _('Cannot restart container: {0}')
-            raise exception.NovaException(msg.format(e),
-                                          instance_id=instance.name)
+        if self.client.container_defind(instance.uuid):
+            return
+
+        (status, resp) = self.client.container_restart(instance.uuid)
+        if resp.get('status') != 'OK':
+            msg = _('Container restart failed: %(instance)s - %(reason)') % \
+                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
+            raise exception.NovaException(msg)
 
     def container_power_on(self, instance, shutdown_timeout=0, shutdown_attempts=0):
-        try:
-            (status, resp) = self.client.container_stop(instance.uuid)
-            if resp.get('status') != 'OK':
-                raise exception.NovaException
-        except Exception as e:
-            LOG.debug(_('Failed to power on container: %s') % resp)
-            msg = _('Cannot power on container: {0}')
-            raise exception.NovaException(msg.format(e),
-                                          instance_id=instance.name)
+        if self.client.container_defind(instance.uuid):
+            return
+
+        (status, resp) = self.client.container_stop(instance.uuid)
+        if resp.get('status') != 'OK':
+            msg = _('Container power on failed: %(instance)s - %(reason)') % \
+                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
+            raise exception.NovaException(msg)
 
     def container_power_off(self, instance):
-        try:
-            (status, resp) = self.client.container_stop(instance.uuid)
-            if resp.get('status') != 'OK':
-                raise exception.NovaException
-        except Exception as e:
-            LOG.debug(_('Failed to power off container: %s') % resp)
-            msg = _('Cannot power on  container: {0}')
-            raise exception.NovaException(msg.format(e),
-                                          instance_id=instance.name)
+        if self.client.container_defined(instance.uuid):
+            return
+
+        (status, resp) = self.client.container_stop(instance.uuid)
+        if resp.get('status') != 'OK':
+            msg = _('Container power off failed: %(instance)s - %(reason)') % \
+                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
+            raise exception.NovaException(msg)
+
 
     def container_suspend(self, instance):
-        try:
-            (status, resp) = self.client.container_suspend(instance.uuid)
-            if resp.get('status') != 'OK':
-                raise exception.NovaException
-        except Exception as e:
-            LOG.debug(_('Failed to suspend container: %s') % resp)
-            msg = _('Cannot suspend container: {0}')
-            raise exception.NovaException(msg.format(e),
-                                          instance_id=instance.name)
+        if self.client.container_defind(instance.uuid):
+            return
+
+        (status, resp) = self.client.container_suspend(instance.uuid)
+        if resp.get('status') != 'OK':
+            msg = _('Container suspend failed: %(instance)s - %(reason)') % \
+                  {'instance': instance.uuid, 'reason': resp.get('metadata')}
+            raise exception.NovaException(msg)
 
     def container_resume(self, context, instance, network_info, block_device_info=None):
-        try:
-            (status, resp) = self.client.container_resume(instance.uuid)
-            if resp.get('status') != 'OK':
-                raise exception.NovaException
-        except Exception as e:
-            LOG.debug(_('Failed to resume container: %s') % resp)
-            msg = _('Cannot suspend container: {0}')
-            raise exception.NovaException(msg.format(e),
-                                          instance_id=instance.name)
+        if self.client.container_defind(instance.uuid):
+            return
+
+        (status, resp) = self.client.container_resume(instance.uuid)
+        if resp.get('status') != 'OK':
+            msg = _('Container resume failed: %(instance)s - %(reason)') % \
+                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
+            raise exception.NovaException(msg)
+
 
     def container_destroy(
         self, context, instance, network_info, block_device_info,
@@ -257,17 +249,12 @@ class Container(object):
 
         if not self.client.container_defined(instance.uuid):
             return
-        
-        try:
-            (status, resp) = self.client.container_delete(instance.uuid)
-            if resp.get('status') != 'OK':
-                raise exception.NovaException
-        except Exception as e:
-            LOG.debug(_('Failed to delete instance: %s') %
-                      resp.get('metadata'))
-            msg = _('Cannot delete container: {0}')
-            raise exception.NovaException(msg.format(e),
-                                          instance_id=instance.name)
+
+        (status, resp) = self.client.container_delete(instance.uuid)
+        if resp.get('status') != 'OK':
+            msg = _('Container destroy failed: %(instance)s - %(reason)') % \
+                   {'instance': instance.uuid, 'reason': resp.get('metadata')}
+            raise exception.NovaException(msg)
 
         oid = resp.get('operation').split('/')[3]
         if not oid:
@@ -276,11 +263,14 @@ class Container(object):
 
         timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_operation,
                                                      oid)
-        timer.start(interval=0.5).wait()
+        timer.start(interval=0.6).wait()
 
         self.cleanup_container(instance, network_info)
 
     def get_console_log(self, instance):
+        if self.client.container_defind(instance.uuid):
+            return
+
         console_dir = os.path.join(CONF.lxd.lxd_root_dir, instance.uuid)
         console_log = self._get_console_path(instance)
         uid = pwd.getpwuid(os.getuid()).pw_uid
@@ -339,8 +329,9 @@ class Container(object):
         try:
             rootfs = self._get_container_rootfs(instance)
             utils.execute('umount', rootfs,
-                         attempts=3, run_as_root=True)
-        except processutils.ProcessExecutionError as exc:
+                         attempts=3, delay_on_retry=True,
+                         run_as_root=True)
+        except Exception as exc:
             LOG.exception(_LE("Couldn't unmount the share %s"),
                               exc)
 
