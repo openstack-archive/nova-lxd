@@ -100,17 +100,6 @@ class Container(object):
                                        destroy_disks=None, migrate_data=None)
 
         try:
-            LOG.debug('Configurting container')
-            self.config_container(instance, network_info)
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to configure container for: %s(instnace)s'),
-                          {'instance': instance.uuid})
-                self.container_destroy(context, instance, network_info,
-                                       block_device_info,
-                                       destroy_disks=None, migrate_data=None)
-
-        try:
             LOG.debug('Setup Networking')
             self._start_network(instance, network_info)
         except Exception:
@@ -151,41 +140,18 @@ class Container(object):
         container = {'name': instance.uuid,
                      'source': {'type': 'none', 'path': container_rootfs}}
 
+        console_log = self._get_console_path(instance)
+        container['config'] = {'raw.lxc': 'lxc.console.logfile=%s\n' % console_log}
+
+        if network_info:
+            network_devices = self._get_container_devices(network_info)
+            container['devices'] = network_devices
+
+        LOG.info(_('!! %s') % container)
         (status, resp) = self.client.container_init(container)
+        print resp
         if resp.get('status') != 'OK':
             msg = _('Failed to setup container: %(instance)s - %(reason)s') % \
-                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
-            raise exception.NovaException(msg)
-        else:
-            oid = resp.get('operation').split('/')[3]
-            if not oid:
-                msg = _('Unable to determine resource id')
-                raise exception.NovaException(msg)
-
-            timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_operation,
-                                                         oid)
-            timer.start(interval=0.6).wait()
-
-    def config_container(self, instance, network_info):
-        if not self.client.container_defined(instance.uuid):
-            msg = _('Container doesnt exist.')
-            raise exception.NovaException(msg)
-
-        console_log = self._get_console_path(instance)
-        if not network_info:
-            container_config =  {'config': {'raw.lxc': 'lxc.console.logfile=%s\n'
-                                            % console_log}}
-        else:
-            network_devices = self._get_container_devices(network_info)
-            container_config = {'config': {'raw.lxc': 'lxc.console.logfile=%s\n'
-                                           % console_log},
-                                'devices':  network_devices}
-
-
-        (status, resp) = self.client.container_update(
-                                instance.uuid, container_config)
-        if resp.get('status') != 'OK':
-            msg = _('Container update failed: %(instance)s - %(reason)') % \
                     {'instance': instance.uuid, 'reason': resp.get('metadata')}
             raise exception.NovaException(msg)
 
@@ -268,7 +234,7 @@ class Container(object):
         self.cleanup_container(instance, network_info)
 
     def get_console_log(self, instance):
-        if self.client.container_defind(instance.uuid):
+        if self.client.container_defined(instance.uuid):
             return
 
         console_dir = os.path.join(CONF.lxd.lxd_root_dir, instance.uuid)

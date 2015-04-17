@@ -77,16 +77,10 @@ class ContainerImage(object):
 
         fileutils.ensure_tree(self.image_dir)
         (user, group) = self.idmap.get_user()
-        utils.execute('chown', '-R', '%s:%s' % (user, group),
-                      self.image_dir, run_as_root=True)
-        tar = ['tar', '--directory', self.image_dir,
-               '--anchored', '--numeric-owner', '-xpzf', image]
-        nsexec = (['lxc-usernsexec'] +
-                  self.idmap.usernsexec_margs(with_read="user") +
-                  ['--'])
-        args = tuple(nsexec + tar)
-        utils.execute(*args, check_exit_code=[0, 2])
-        utils.execute(*tuple(nsexec + ['chown', '0:0', self.image_dir]))
+        utils.execute('tar', '-C', self.image_dir, '--anchored', '--numeric-owner', 
+                      '-xpzf', image, run_as_root=True)
+        utils.execute('chown', '-R', '%s:%s' % (user, group), self.image_dir,
+                      run_as_root=True)
 
     def _create_rootfs(self, instance):
         LOG.debug(_('Creating container rootfs'))
