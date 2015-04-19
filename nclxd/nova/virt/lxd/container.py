@@ -147,7 +147,6 @@ class Container(object):
             network_devices = self._get_container_devices(network_info)
             container['devices'] = network_devices
 
-        LOG.info(_('!! %s') % container)
         (status, resp) = self.client.container_init(container)
         print resp
         if resp.get('status') != 'OK':
