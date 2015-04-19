@@ -2,5 +2,4 @@
 # This file should be owned by (and only-writable by) the root user
 
 [Filters]
-lxc-usernet-manage: CommandFilter, lxc-usernet-manage, root
-btrfs: CommandFilter, btrfs, root
+tar: CommandFilter, tar, root
