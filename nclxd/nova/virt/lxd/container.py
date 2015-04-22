@@ -145,9 +145,6 @@ class Container(object):
                      'profiles': ['%s' % instance.uuid],
                      'source': {'type': 'none', 'path': container_rootfs}}
 
-        console_log = self._get_console_path(instance)
-        container['config'] = {'raw.lxc': 'lxc.console.logfile=%s\n' % console_log}
-
         if network_info:
             network_devices = self._get_container_devices(network_info)
             container['devices'] = network_devices
@@ -182,7 +179,7 @@ class Container(object):
 
         (status, resp) = self.client.container_restart(instance.uuid)
         if resp.get('status') != 'OK':
-            msg = _('Container restart failed: %(instance)s - %(reason)') % \
+            msg = _('Container restart failed: %(instance)s - %(reason)s') % \
                     {'instance': instance.uuid, 'reason': resp.get('metadata')}
             raise exception.NovaException(msg)
 
@@ -190,9 +187,9 @@ class Container(object):
         if self.client.container_defind(instance.uuid):
             return
 
-        (status, resp) = self.client.container_stop(instance.uuid)
+        (status, resp) = self.client.container_start(instance.uuid)
         if resp.get('status') != 'OK':
-            msg = _('Container power on failed: %(instance)s - %(reason)') % \
+            msg = _('Container power on failed: %(instance)s - %(reason)s') % \
                     {'instance': instance.uuid, 'reason': resp.get('metadata')}
             raise exception.NovaException(msg)
 
@@ -202,7 +199,7 @@ class Container(object):
 
         (status, resp) = self.client.container_stop(instance.uuid)
         if resp.get('status') != 'OK':
-            msg = _('Container power off failed: %(instance)s - %(reason)') % \
+            msg = _('Container power off failed: %(instance)s - %(reason)s') % \
                     {'instance': instance.uuid, 'reason': resp.get('metadata')}
             raise exception.NovaException(msg)
 
@@ -213,7 +210,7 @@ class Container(object):
 
         (status, resp) = self.client.container_suspend(instance.uuid)
         if resp.get('status') != 'OK':
-            msg = _('Container suspend failed: %(instance)s - %(reason)') % \
+            msg = _('Container suspend failed: %(instance)s - %(reason)s') % \
                   {'instance': instance.uuid, 'reason': resp.get('metadata')}
             raise exception.NovaException(msg)
 
@@ -223,7 +220,7 @@ class Container(object):
 
         (status, resp) = self.client.container_resume(instance.uuid)
         if resp.get('status') != 'OK':
-            msg = _('Container resume failed: %(instance)s - %(reason)') % \
+            msg = _('Container resume failed: %(instance)s - %(reason)s') % \
                     {'instance': instance.uuid, 'reason': resp.get('metadata')}
             raise exception.NovaException(msg)
 
@@ -237,7 +234,7 @@ class Container(object):
 
         (status, resp) = self.client.container_delete(instance.uuid)
         if resp.get('status') != 'OK':
-            msg = _('Container destroy failed: %(instance)s - %(reason)') % \
+            msg = _('Container destroy failed: %(instance)s - %(reason)s') % \
                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
             raise exception.NovaException(msg)
 
