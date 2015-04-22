@@ -136,8 +136,13 @@ class Container(object):
         if self.client.container_defined(instance.uuid):
             return
 
+        if not self.client.profile_defined(instance.uuid):
+            self._create_container_profile(instance, network_info)
+
         container_rootfs = self._get_container_rootfs(instance)
         container = {'name': instance.uuid,
+                     'ephemeral': True,
+                     'profiles': ['%s' % instance.uuid],
                      'source': {'type': 'none', 'path': container_rootfs}}
 
         console_log = self._get_console_path(instance)
@@ -154,6 +159,21 @@ class Container(object):
                     {'instance': instance.uuid, 'reason': resp.get('metadata')}
             raise exception.NovaException(msg)
 
+    def _create_container_profile(self, instance, network_info):
+        console_log = self._get_console_path(instance)
+
+        profile = {'name': instance.uuid,
+                   'config': {'raw.lxc': 'lxc.console.logfile=%s\n' % console_log},}
+
+        if network_info:
+            network_devices = self._get_container_devices(network_info)
+            profile['devices'] = network_devices
+
+        (status, resp) = self.client.profile_create(profile)
+        if resp.get('status') != 'Success':
+            msg = _('Failed to create profile: %(instance)s - %(reason)s') % \
+                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
+            raise exception.NovaException(msg)
 
     def container_restart(self, context, instance, network_info, reboot_type,
                           block_device_info=None, bad_volumes_callback=None):
@@ -341,6 +361,6 @@ class Container(object):
             bridge = 'qbr%s' % vif_id
 
         return {'eth0': {'nictype': 'bridged',
-                         'parent': bridge,
                          'hwaddr': mac,
+                         'parent': bridge,
                          'type': 'nic'}}

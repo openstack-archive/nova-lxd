@@ -126,6 +126,13 @@ class Client(object):
         return [profile.split('/1.0/profiles/')[-1]
                 for profile in data['metadata']]
 
+    def profile_defined(self, name):
+        (status, data) = self._make_request('GET', '/1.0/profiles/%s' % name)
+        profile_defined = True
+        if data.get('type') == 'error':
+            profile_defined = False
+        return profile_defined
+
     def profile_create(self, config):
         (status, data) = self._make_request('POST', '/1.0/profiles',
                                             json.dumps(config))
