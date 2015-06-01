@@ -1,0 +1,119 @@
+nclxd todo list
+
+Taken from http://docs.openstack.org/developer/nova/support-matrix.html
+
+Feature         Status      Kilo            Liberty
+Attach block    optional     X              not started
+volume to 
+instance
+------------------------------------------------------
+Detach block    optional     X              not started
+volume from
+instance
+------------------------------------------------------
+Evacuate        optional     X              not started
+instances
+from host
+--------------------------------------------------------
+Guest instance  mandatory   started         started
+status
+--------------------------------------------------------
+Gust host       optional    started         started
+status
+--------------------------------------------------------
+Live migrate    optional    X               not started
+instance
+across hosts
+---------------------------------------------------------
+Launch          mandatory   complete        complete
+instance
+--------------------------------------------------------
+Stop instance   optional    complete        complete
+CPUs
+--------------------------------------------------------
+Reboot          optional    complete        complete
+instance
+--------------------------------------------------------
+Rescue          optional    X               not started
+instance
+--------------------------------------------------------
+Resize          optional    X               not started
+instance
+--------------------------------------------------------
+Restore         optional    X               not started
+instance
+--------------------------------------------------------
+Service         optional    X               not started
+control                                       (??)
+--------------------------------------------------------
+Set instance    optional    X               not started
+admin
+password
+--------------------------------------------------------
+Save snapshot   optional    X               not started
+of instance disk
+--------------------------------------------------------
+Swap block      optional    X               not applicable
+volumes
+-----------------------------------------------------------
+Shutdown        mandatory   complete        complete
+instance
+-----------------------------------------------------------
+Resume          optional    X               not applicable
+insance
+CPUs
+----------------------------------------------------------
+Config drive    choice      X               not started
+support
+----------------------------------------------------------
+inject files    optional    X               not started
+into disk
+image
+---------------------------------------------------------
+inject guest    optional    X               not started
+networking
+config
+---------------------------------------------------------
+Remote          choice      X               not applicable
+desktop over
+RDP
+----------------------------------------------------------
+View serial     choice     complete         complete
+console logs
+----------------------------------------------------------
+Remote          choice     X                not applicable
+desktp over
+SPICE
+-----------------------------------------------------------
+Remote          choice      X               not applicable
+desktop over
+VNC
+----------------------------------------------------------
+Block storage   optional    X               not started
+support
+---------------------------------------------------------
+Block storage   optional    X               not started
+over iSCSI
+---------------------------------------------------------
+CHAP            optional    X               not started
+authenication
+for iSCIS
+---------------------------------------------------------
+Image storage   mandatory   complete        complete
+support
+---------------------------------------------------------
+Network         optional    X               not started
+firewall rules
+---------------------------------------------------------
+Network         optional    complete        complete
+routing
+---------------------------------------------------------
+Network         optional    X               complete
+security
+groups
+---------------------------------------------------------
+Flat            choice      complete        complete
+networking
+--------------------------------------------------------
+VLAN            choice      complete        complete
+networking
