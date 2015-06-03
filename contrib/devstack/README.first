@@ -2,7 +2,7 @@ contrib/devstack/ directory contains the files necessary to integrate Granite dr
 
 To install:
 
-git clone https://github.com/zulcss/nova-compute-lxd /opt/stack/nova-compute-lxd
+git clone https://github.com/lxc/nova-compute-lxd /opt/stack/nova-compute-lxd
 git clone https://github.com/openstack-dev/devstack /opt/stack/devstack
 
 cd /opt/stack/nova-compute-lxd
