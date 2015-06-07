@@ -12,4 +12,5 @@ cp $NOVAGRANITEDIR/contrib/devstack/lib/nova_plugins/hypervisor-lxd $INSTALLDIR/
 cp $NOVAGRANITEDIR/contrib/devstack/lib/lxd $INSTALLDIR/devstack/lib/lxd
 cat - <<-EOF >> $INSTALLDIR/devstack/localrc
 VIRT_DRIVER=lxd
+export NON_STANDARD_REQS=1
 EOF
