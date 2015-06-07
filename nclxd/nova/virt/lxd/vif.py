@@ -12,20 +12,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import getpass
-
-import os
-
-from oslo.config import cfg
-from oslo_log import log as logging
 from oslo_concurrency import processutils
+from oslo_config import cfg
+from oslo_log import log as logging
 
 
-from nova.i18n import _LW, _
+from nova.i18n import _LE, _
 from nova import exception
-from nova import utils
 from nova.network import linux_net
 from nova.network import model as network_model
+from nova import utils
 
 
 CONF = cfg.CONF
@@ -104,7 +100,7 @@ class LXDOpenVswitchDriver(object):
                 utils.execute('ip', 'link', 'set', v2_name, 'down',
                               run_as_root=True)
         except processutils.ProcessExecutionError:
-            LOG.exception(_("Failed while unplugging vif"),
+            LOG.exception(_LE("Failed while unplugging vif"),
                           instance=instance)
 
     def _get_bridge_name(self, vif):

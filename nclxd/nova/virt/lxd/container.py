@@ -1,4 +1,9 @@
-# Copyright (c) 2015 Canonical Ltd
+# Copyright 2010 United States Government as represented by the
+# Administrator of the National Aeronautics and Space Administration.
+# Copyright (c) 2010 Citrix Systems, Inc.
+# Copyright 2011 Justin Santa Barbara
+# Copyright 2015 Canonical Ltd
+# All Rights Reserved.
 #
 #    Licensed under the Apache License, Version 2.0 (the "License"); you may
 #    not use this file except in compliance with the License. You may obtain
@@ -12,25 +17,26 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+
 import os
 import pwd
 
-from oslo.config import cfg
+from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import units
 
-from nova.openstack.common import loopingcall
-
-from nova.i18n import _, _LW, _LE, _LI
-from nova import utils
-from nova import exception
+from nova.i18n import _, _LE, _LI, _LW
 from nova.compute import power_state
+from nova import exception
+from nova import utils
 
+import image
+import profile
+import vif
 
-from . import vif
-from . import images
-from . import utils as container_utils
+import container_utils
+
 
 CONF = cfg.CONF
 CONF.import_opt('vif_plugging_timeout', 'nova.virt.driver')
@@ -43,245 +49,244 @@ MAX_CONSOLE_BYTES = 100 * units.Ki
 LXD_POWER_STATES = {
     'RUNNING': power_state.RUNNING,
     'STOPPED': power_state.SHUTDOWN,
-    'STARTING': power_state.BUILDING,
+    'STARTING': power_state.NOSTATE,
     'STOPPING': power_state.SHUTDOWN,
     'ABORTING': power_state.CRASHED,
     'FREEZING': power_state.PAUSED,
     'FROZEN': power_state.SUSPENDED,
     'THAWED': power_state.PAUSED,
-    'PENDING': power_state.BUILDING,
+    'PENDING': power_state.NOSTATE,
     'UNKNOWN': power_state.NOSTATE
 }
 
 
 class Container(object):
-
-    def __init__(self, client, virtapi):
-        self.client = client
+    def __init__(self, lxd, virtapi):
+        self.lxd = lxd
         self.virtapi = virtapi
-        self.idmap = container_utils.LXCUserIdMap()
-        self.image = images.ContainerImage(self.client,
-                                           self.idmap)
+
+        self.image_driver = image.load_driver(CONF.lxd.lxd_image_type,
+                                              self.lxd)
+        self.profile = profile.LXDProfile(self.lxd)
         self.vif_driver = vif.LXDGenericDriver()
 
-    def init_host(self):
-        (status, resp) = self.client.ping()
-        if resp['status'] != 'Success':
-            msg = _('LXD is not available')
-            raise exception.HypervisorUnavailable(msg)
+    def container_rebuild(self, context, instance, image_meta, injected_files,
+                admin_password, bdms, detach_block_devices,
+                attach_block_devices, network_info, recreate,
+                block_device_info,
+                preserve_ephemeral):
+        raise NotImplemented()
 
     def container_start(self, context, instance, image_meta, injected_files,
-                        admin_password, network_info=None, block_device_info=None,
-                        flavor=None):
-        LOG.info(_LI('Spawning new instance'), instance=instance)
-        if self.client.container_defined(instance.uuid):
-            raise exception.InstanceExists(name=instance.uuid)
-
+              admin_password, network_info, block_device_info):
         try:
-            LOG.debug('Fetching image from Glance.')
-            self.image.fetch_image(context, instance, image_meta)
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to create image for: %(instance)s'),
-                          {'instance': instance.uuid})
-                self.container_destroy(context, instance, network_info,
-                                       block_device_info,
-                                       destroy_disks=None, migrate_data=None)
+            LOG.info(_LI('Starting container'), instance=instance)
+            if self.lxd.container_defined(instance.uuid):
+                raise exception.InstanceExists(name=instance.uuid)
 
-        try:
-            LOG.debug('Setting up container profiles')
-            self.setup_container(instance, network_info)
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to setup container for: %(instance)s'),
-                          {'instance': instance.uuid})
-                self.container_destroy(context, instance, network_info,
-                                       block_device_info,
-                                       destroy_disks=None, migrate_data=None)
-
-        try:
-            LOG.debug('Setup Networking')
-            self._start_network(instance, network_info)
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to setup container for: %(instance)s'),
-                          {'instance': instance.uuid})
-                self.container_destroy(context, instance, network_info,
-                                       block_device_info,
-                                       destroy_disks=None, migrate_data=None)
-
-        try:
-            LOG.debug('Start container')
+            self.image_driver.setup_container(context, instance, image_meta)
+            self.profile.profile_create(instance, network_info)
+            self._setup_container(instance)
             self._start_container(instance, network_info)
         except Exception:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to setup container for: %(instance)s'),
-                          {'instance': instance.uuid})
                 self.container_destroy(context, instance, network_info,
-                                       block_device_info,
-                                       destroy_disks=None, migrate_data=None)
+                                       block_device_info, destroy_disks=None,
+                                       migrate_data=None)
 
-        def _wait_for_boot():
-            state = self.container_info(instance)
-            if state == power_state.RUNNING:
-                LOG.info(_LI("Instance spawned successfully."),
-                         instance=instance)
-                raise loopingcall.LoopingCallDone()
-
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_boot)
-        timer.start(interval=0.6).wait()
-
-
-    def setup_container(self, instance, network_info):
-        if self.client.container_defined(instance.uuid):
-            return
-
-        if not self.client.profile_defined(instance.uuid):
-            self._create_container_profile(instance, network_info)
-
-        container_rootfs = self._get_container_rootfs(instance)
-        container = {'name': instance.uuid,
-                     'ephemeral': True,
-                     'profiles': ['%s' % instance.uuid],
-                     'source': {'type': 'none', 'path': container_rootfs}}
-
-        if network_info:
-            network_devices = self._get_container_devices(network_info)
-            container['devices'] = network_devices
-
-        (status, resp) = self.client.container_init(container)
-        print resp
-        if resp.get('status') != 'OK':
-            msg = _('Failed to setup container: %(instance)s - %(reason)s') % \
-                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
-            raise exception.NovaException(msg)
-
-    def _create_container_profile(self, instance, network_info):
-        console_log = self._get_console_path(instance)
-
-        profile = {'name': instance.uuid,
-                   'config': {'raw.lxc': 'lxc.console.logfile=%s\n' % console_log},}
-
-        if network_info:
-            network_devices = self._get_container_devices(network_info)
-            profile['devices'] = network_devices
-
-        (status, resp) = self.client.profile_create(profile)
-        if resp.get('status') != 'Success':
-            msg = _('Failed to create profile: %(instance)s - %(reason)s') % \
-                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
-            raise exception.NovaException(msg)
-
-    def container_restart(self, context, instance, network_info, reboot_type,
-                          block_device_info=None, bad_volumes_callback=None):
-        if self.client.container_defind(instance.uuid):
-            return
-
-        (status, resp) = self.client.container_restart(instance.uuid)
-        if resp.get('status') != 'OK':
-            msg = _('Container restart failed: %(instance)s - %(reason)s') % \
-                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
-            raise exception.NovaException(msg)
-
-    def container_power_on(self, instance, shutdown_timeout=0, shutdown_attempts=0):
-        if self.client.container_defind(instance.uuid):
-            return
-
-        (status, resp) = self.client.container_start(instance.uuid)
-        if resp.get('status') != 'OK':
-            msg = _('Container power on failed: %(instance)s - %(reason)s') % \
-                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
-            raise exception.NovaException(msg)
-
-    def container_power_off(self, instance):
-        if self.client.container_defined(instance.uuid):
-            return
-
-        (status, resp) = self.client.container_stop(instance.uuid)
-        if resp.get('status') != 'OK':
-            msg = _('Container power off failed: %(instance)s - %(reason)s') % \
-                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
-            raise exception.NovaException(msg)
-
-
-    def container_suspend(self, instance):
-        if self.client.container_defind(instance.uuid):
-            return
-
-        (status, resp) = self.client.container_suspend(instance.uuid)
-        if resp.get('status') != 'OK':
-            msg = _('Container suspend failed: %(instance)s - %(reason)s') % \
-                  {'instance': instance.uuid, 'reason': resp.get('metadata')}
-            raise exception.NovaException(msg)
-
-    def container_resume(self, context, instance, network_info, block_device_info=None):
-        if self.client.container_defind(instance.uuid):
-            return
-
-        (status, resp) = self.client.container_resume(instance.uuid)
-        if resp.get('status') != 'OK':
-            msg = _('Container resume failed: %(instance)s - %(reason)s') % \
-                    {'instance': instance.uuid, 'reason': resp.get('metadata')}
-            raise exception.NovaException(msg)
-
-
-    def container_destroy(
-        self, context, instance, network_info, block_device_info,
-                destroy_disks, migrate_data):
-
-        if not self.client.container_defined(instance.uuid):
-            return
-
-        (status, resp) = self.client.container_delete(instance.uuid)
-        if resp.get('status') != 'OK':
-            msg = _('Container destroy failed: %(instance)s - %(reason)s') % \
-                   {'instance': instance.uuid, 'reason': resp.get('metadata')}
-            raise exception.NovaException(msg)
-
-        oid = resp.get('operation').split('/')[3]
-        if not oid:
-            msg = _('Unable to determine resource id')
-            raise exception.NovaException(msg)
-
-        timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_operation,
-                                                     oid)
-        timer.start(interval=0.6).wait()
-
-        self.cleanup_container(instance, network_info)
-
-    def get_console_log(self, instance):
-        if self.client.container_defined(instance.uuid):
-            return
-
-        console_dir = os.path.join(CONF.lxd.lxd_root_dir, instance.uuid)
-        console_log = self._get_console_path(instance)
-        uid = pwd.getpwuid(os.getuid()).pw_uid
-        utils.execute('chown', '%s:%s' %
-                      (uid, uid), console_log, run_as_root=True)
-        utils.execute('chmod', '755', console_dir, run_as_root=True)
-        with open(console_log, 'rb') as fp:
-            log_data, remaining = utils.last_bytes(fp, MAX_CONSOLE_BYTES)
-            if remaining > 0:
-                LOG.info(_('Truncated console log returned, '
-                           '%d bytes ignored'),
-                         remaining, instance=instance)
-        return log_data
-
-    def container_info(self, instance):
+    def container_destroy(self, context, instance, network_info,
+                block_device_info, destroy_disks, migrate_data):
+        LOG.info(_LI('Destroying container'))
         try:
-            (status, resp) = self.client.container_info(instance.uuid)
-            metadata = resp.get('metadata')
-            container_state = metadata['status']['status']
+            if not self.lxd.container_defined(instance.uuid):
+                return
+
+            self.lxd.container_destroy(instance.uuid)
+            self.container_cleanup(context, instance, network_info,
+                               block_device_info, destroy_disks=None,
+                               migrate_data=None)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Unable to destroy instance: %s ') % ex)
+
+    def container_reboot(self, context, instance, network_info, reboot_type,
+               block_device_info=None, bad_volumes_callback=None):
+
+        try:
+            if not self.lxd.container_defined(instance.uuid):
+                msg = _('Container does not exist')
+                raise exception.NovaException(msg)
+
+            return self.lxd.container_reboot(instance.uuid, 20)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Unable to destroy instance: %s ') % ex)
+
+    def get_console_output(self, context, instance):
+        try:
+            if not self.lxd.container_defined(instance.uuid):
+                msg = _('Container does not exist')
+                raise exception.NovaException(msg)
+
+            console_log = container_utils.get_console_path(instance)
+            uid = pwd.getpwuid(os.getuid()).pw_uid
+            utils.execute('chown', '%s:%s' % (uid, uid),
+                          console_log, run_as_root=True)
+            utils.execute('chmod', '755',
+                          container_utils.get_container_dir(instance),
+                          run_as_root=True)
+            with open(console_log , 'rb') as fp:
+                log_data, remaning = utils.last_bytes(fp,
+                                                       MAX_CONSOLE_BYTES)
+                return log_data
+
+
+        except Exception as ex:
+            LOG.exception(_LE('Failed container: %s') % ex)
+            return ""
+
+    def container_cleanup(self, context, instance, network_info,
+                block_device_info, destroy_disks, migrate_data,
+                destroy_vifs=True):
+        LOG.info(_LI('Cleaning up container'))
+        try:
+            self.profile.profile_delete(instance)
+            self.unplug_vifs(instance, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.excpetion(_LE('Unable to clean up instance: %s') % ex)
+
+    def container_state(self, instance):
+        try:
+            container_state = self.lxd.container_state(instance.uuid)
             state = LXD_POWER_STATES[container_state]
         except Exception:
             state = power_state.NOSTATE
         return state
 
+    def container_pause(self, instance):
+
+        raise NotImplementedError()
+
+    def container_unpause(self, instance):
+        raise NotImplementedError()
+
+    def container_suspend(self, context, instance):
+        try:
+            if not self.lxd.container_defined(instance.uuid):
+                msg = _("Container is not defined")
+                raise exception.NovaException(msg)
+
+            self.lxd.container_suspend(instance.uuid, 20)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE("Unable to suspend container"))
+
+    def container_resume(self, context, instance, network_info,
+                         block_device_info=None):
+        try:
+            if not self.lxd.container_defined(instance.uuid):
+                msg = _('Container does not exist.')
+                raise exception.NovaException(msg)
+
+            self.lxd.container_resume(instance.uuid, 20)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE("Unable to resume container"))
+
+    def container_rescue(self, context, instance, network_info, image_meta,
+               rescue_password):
+        raise NotImplementedError()
+
+    def container_unrescue(self, instance, network_info):
+        raise NotImplementedError()
+
+    def container_power_off(self, instance, timeout=0, retry_interval=0):
+        try:
+            if not self.lxd.container_defined(instance.uuid):
+                msg = _('Container is not defined')
+                raise exception.NovaException(msg)
+
+            self.lxd.container_stop(instance.uuid, 20)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.execption(_LE("Unable to power off container"))
+
+        raise NotImplementedError()
+
+    def container_power_on(self, context, instance, network_info,
+                 block_device_info):
+        try:
+            if not self.lxd.container_defined(instance.uuid):
+                msg = _('Container is not defined')
+                raise exception.NovaException(msg)
+
+            self.lxd.container_start(instance.uuid, 20)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE("Unable to power on conatainer"))
+
+    def container_soft_delete(self, instance):
+        raise NotImplementedError()
+
+    def container_restore(self, instance):
+        raise NotImplementedError()
+
+    def container_get_resource(self, nodename):
+        raise NotImplementedError()
+
+    def container_inject_file(self, instance, b64_path, b64_contents):
+        raise NotImplementedError()
+
+    def container_inject_network_info(self, instance, nw_info):
+        pass
+
+    def container_poll_rebooting_instances(self, timeout, instances):
+        raise NotImplementedError()
+
+    def container_attach_interface(self, instance, image_meta, vif):
+        raise NotImplementedError()
+
+    def container_detach_interface(self, instance, vif):
+        raise NotImplementedError()
+
+    def container_snapshot(self, context, instance, image_id,
+                           update_task_state):
+        raise NotImplementedError()
+
+    def post_interrupted_snapshot_cleanup(self, context, instance):
+        pass
+
+    def container_quiesce(self, context, instance, image_meta):
+        raise NotImplementedError()
+
+    def container_unquiesce(self, context, instance, image_meta):
+        raise NotImplementedError()
+
+    def _setup_container(self, instance):
+        LOG.debug('Setting up container')
+
+        if not os.path.exists(
+                container_utils.get_container_image(instance)):
+            msg = _('Container image doesnt exist.')
+            raise exception.NovaException(msg)
+
+        if instance.uuid:
+            container = {}
+            container['name'] = instance.uuid
+            container['profiles'] = ['%s' % instance.uuid]
+            container['source'] = {
+                'type': 'image',
+                'alias': instance.image_ref
+            }
+            (state, data) = self.lxd.container_init(container)
+            self._wait_for_container(data.get('operation').split('/')[3])
+
     def _start_container(self, instance, network_info):
         timeout = CONF.vif_plugging_timeout
         # check to see if neutron is ready before
         # doing anything else
-        if (not self.client.container_running(instance.uuid) and
+        if (not self.lxd.container_running(instance.uuid) and
                 utils.is_neutron() and timeout):
             events = self._get_neutron_events(network_info)
         else:
@@ -289,46 +294,40 @@ class Container(object):
 
         try:
             with self.virtapi.wait_for_instance_event(
-                instance, events, deadline=timeout,
+                    instance, events, deadline=timeout,
                     error_callback=self._neutron_failed_callback):
-                self._start_network(instance, network_info)
+                self.plug_vifs(instance, network_info)
         except exception.VirtualInterfaceCreateException:
-            LOG.info(_LW('Failed'))
+            LOG.info(_LW('Failed to connect networking to instance'))
 
-        try:
-            (status, resp) = self.client.container_start(instance.uuid)
-            if resp.get('status') != 'OK':
-                raise exception.NovaException
-        except Exception as e:
-            LOG.debug(_('Failed to container instance: %s') %
-                      resp.get('metadata'))
-            msg = _('Cannot container container: {0}')
-            raise exception.NovaException(msg.format(e),
-                                          instance_id=instance.name)
+        (state, data) = self.lxd.container_start(instance.uuid, 20)
+        self._wait_for_container(data.get('operation').split('/')[3])
 
-    def cleanup_container(self, instance, network_info):
-        self._teardown_network(instance, network_info)
-        try:
-            rootfs = self._get_container_rootfs(instance)
-            utils.execute('umount', rootfs,
-                         attempts=3, delay_on_retry=True,
-                         run_as_root=True)
-        except Exception as exc:
-            LOG.exception(_LE("Couldn't unmount the share %s"),
-                              exc)
+    def _destroy_container(self, context, instance, network_info,
+                           block_device_info,
+                destroy_disks, migrate_data):
+        if self.lxd.container_defined(instance.uuid):
+            msg = _('Unable to find container')
+            raise exception.NovaException(msg)
 
-    def _start_network(self, instance, network_info):
-        for vif in network_info:
-            self.vif_driver.plug(instance, vif)
+        self.lxd.container_destroy(instance.uuid)
 
-    def _teardown_network(self, instance, network_info):
-        for vif in network_info:
-            self.vif_driver.unplug(instance, vif)
+    def plug_vifs(self, instance, network_info):
+        for _vif in network_info:
+            self.vif_driver.plug(instance, _vif)
 
-    def _wait_for_operation(self, oid):
-        containers = self.client.operation_list()
-        if oid not in containers:
-            raise loopingcall.LoopingCallDone()
+    def unplug_vifs(self, instance, network_info):
+        for _vif in network_info:
+            self.vif_driver.unplug(instance, _vif)
+
+    def _wait_for_container(self, oid):
+        if not oid:
+            msg = _('Unable to determine container operation')
+            raise exception.NovaException(msg)
+
+        if not self.lxd.wait_container_operation(oid, 200, 20):
+            msg = _('Container creation timed out')
+            raise exception.NovaException(msg)
 
     def _get_neutron_events(self, network_info):
         return [('network-vif-plugged', vif['id'])
@@ -340,24 +339,3 @@ class Container(object):
                   {'event': event_name, 'uuid': instance.uuid})
         if CONF.vif_plugging_is_fatal:
             raise exception.VirtualInterfaceCreateException()
-
-    def _get_container_rootfs(self, instance):
-        return os.path.join(CONF.lxd.lxd_root_dir, instance.uuid, 'rootfs')
-
-    def _get_console_path(self, instance):
-        return os.path.join(CONF.lxd.lxd_root_dir, instance.uuid, 'console.log')
-
-    def _get_container_devices(self, network_info):
-        for vif in network_info:
-            vif_id = vif['id'][:11]
-            vif_type = vif['type']
-            bridge = vif['network']['bridge']
-            mac = vif['address']
-
-        if vif_type == 'ovs':
-            bridge = 'qbr%s' % vif_id
-
-        return {'eth0': {'nictype': 'bridged',
-                         'hwaddr': mac,
-                         'parent': bridge,
-                         'type': 'nic'}}
