@@ -1,4 +1,4 @@
-# lib/flex
+# lib/lxd
 
 # Dependencies:
 # ``functions`` file
@@ -13,7 +13,7 @@ set +o xtrace
 PYLXD_REPO=${LXC_REPO:-${GIT_BASE}/lxc/pylxd}
 PYLXD_DIR=$DEST/pylxd
 
-LXD_DIR=${FLEX_DIR:-${DEST}/nova-compute-flex}
+LXD_DIR=${FLEX_DIR:-${DEST}/nova-compute-lxd}
 
 
 function configure_lxd {
