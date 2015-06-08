@@ -10,11 +10,10 @@
 XTRACE=$(set +o | grep xtrace)
 set +o xtrace
 
-LXD_DIR=$DEST/nova-compute-lxd
-LXD_BIN_DIR=$GOPATH/src/github.com/lxc/lxd
+PYLXD_REPO=${LXC_REPO:-${GIT_BASE}/lxc/pylxd}
+PYLXD_DIR=$DEST/pylxd
 
-#LXC_REPO=${LXC_REPO:-${GIT_BASE}/zulcss/pylxd}
-#LXC_DIR=$DEST/pylxd
+LXD_DIR=${FLEX_DIR:-${DEST}/nova-compute-flex}
 
 
 function configure_lxd {
@@ -28,6 +27,9 @@ function configure_lxd {
 }
 
 function install_lxd {
+	git_clone $PYLXD_REPO $PYLXD_DIR
+	setup_develop $PYLXD_DIR
+
 	setup_develop $LXD_DIR
 	mkdir -p /etc/nova/rootwrap.d
 	sudo cp $LXD_DIR/etc/nova/rootwrap.d/* /etc/nova/rootwrap.d
