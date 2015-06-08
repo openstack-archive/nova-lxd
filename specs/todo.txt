@@ -102,7 +102,7 @@ for iSCIS
 Image storage   mandatory   complete        complete
 support
 ---------------------------------------------------------
-Network         optional    X               not started
+Network         optional    X               complete
 firewall rules
 ---------------------------------------------------------
 Network         optional    complete        complete

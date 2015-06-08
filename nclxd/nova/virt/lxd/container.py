@@ -61,9 +61,10 @@ LXD_POWER_STATES = {
 
 
 class Container(object):
-    def __init__(self, lxd, virtapi):
+    def __init__(self, lxd, virtapi, firewall):
         self.lxd = lxd
         self.virtapi = virtapi
+        self.firewall_driver = firewall
 
         self.image_driver = image.load_driver(CONF.lxd.lxd_image_type,
                                               self.lxd)
@@ -315,10 +316,14 @@ class Container(object):
     def plug_vifs(self, instance, network_info):
         for _vif in network_info:
             self.vif_driver.plug(instance, _vif)
+        self.firewall_driver.setup_basic_filtering(instance, network_info)
+        self.firewall_driver.prepare_instance_filter(instance, network_info)
+        self.firewall_driver.apply_instance_filter(instance, network_info)
 
     def unplug_vifs(self, instance, network_info):
         for _vif in network_info:
             self.vif_driver.unplug(instance, _vif)
+        self.firewall_driver.unfilter_instance(instance, network_info)
 
     def _wait_for_container(self, oid):
         if not oid:

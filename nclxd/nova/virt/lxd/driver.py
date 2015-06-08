@@ -32,6 +32,7 @@ from nova import exception
 from nova.i18n import _, _LE
 from nova.virt import driver
 from nova.virt import event as virtevent
+from nova.virt import firewall
 from nova.virt import hardware
 
 import container
@@ -63,9 +64,14 @@ class LXDDriver(driver.ComputeDriver):
     def __init__(self, virtapi):
         self.virtapi = virtapi
 
+        self.firewall_driver = firewall.load_driver(
+            default='nova.virt.firewall.NoopFirewallDriver')
+
         self.lxd = api.API()
 
-        self.container = container.Container(self.lxd, self.virtapi)
+        self.container = container.Container(self.lxd,
+                                             self.virtapi,
+                                             self.firewall_driver)
         self.migration = migration.Migration()
         self.host = host.Host(self.lxd)
 
@@ -321,28 +327,23 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def refresh_security_group_rules(self, security_group_id):
-        raise NotImplementedError()
+        self.firewall_driver.refresh_security_group_rules(security_group_id)
 
     def refresh_security_group_members(self, security_group_id):
-        raise NotImplementedError()
+        self.firewall_driver.refresh_security_group_members(security_group_id)
 
     def refresh_provider_fw_rules(self):
-        raise NotImplementedError()
+        self.firewall_driver.refresh_provider_fw_rules()
 
     def refresh_instance_security_rules(self, instance):
-        raise NotImplementedError()
+        self.firewall_driver.refresh_instance_security_rules(instance)
 
     def ensure_filtering_rules_for_instance(self, instance, network_info):
-        raise NotImplementedError()
-
-    def filter_defer_apply_on(self):
-        pass
-
-    def filter_defer_apply_off(self):
-        pass
+        self.firewall_driver.setup_basic_filtering(instance, network_info)
+        self.firewall_driver.prepare_instance_filter(instance, network_info)
 
     def unfilter_instance(self, instance, network_info):
-        raise NotImplementedError()
+        self.firewall_driver.unfilter_instance(instance, network_info)
 
     def inject_file(self, instance, b64_path, b64_contents):
         raise NotImplementedError()
