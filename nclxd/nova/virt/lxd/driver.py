@@ -43,7 +43,7 @@ lxd_opts = [
                default='/var/lib/lxd/',
                help='Default LXD directory'),
     cfg.StrOpt('lxd_image_type',
-               default='nova.virt.lxd.image.DefaultContainerImage',
+               default='nclxd.nova.virt.lxd.image.DefaultContainerImage',
                help='Default image')
 ]
 
