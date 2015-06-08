@@ -154,7 +154,7 @@ class Container(object):
             self.unplug_vifs(instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.excpetion(_LE('Unable to clean up instance: %s') % ex)
+                LOG.exception(_LE('Unable to clean up instance: %s') % ex)
 
     def container_state(self, instance):
         try:
