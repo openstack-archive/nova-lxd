@@ -6,7 +6,7 @@ from oslo_config import cfg
 from nova import test
 from nova.network import linux_net
 from nova.network import model as network_model
-from nova.virt.lxd import driver as lxd_driver
+from nclxd.nova.virt.lxd import driver as lxd_driver
 from nova import exception
 from nova import utils
 
