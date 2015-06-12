@@ -23,9 +23,20 @@ class LXDOperations(object):
         """ Make sure that the LXD daemon is starting
         before trying to run a container
         """
+        LOG.debug('Running container init_host.')
         try:
             self.lxd.host_ping()
         except Exception as ex:
             msg = _('Unable to connect to LXD host')
             raise exception.NovaException(msg)
 
+    def container_list(self):
+        """Return the names of all the instances known to the
+        LXD daemon.
+        """
+        LOG.debug('Running continer_list')
+        try:
+            return self.lxd.container_list()
+        except Exception as ex:
+            msg = _('Unable to list containers.')
+            raise exception.NovaException(msg)

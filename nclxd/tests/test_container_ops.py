@@ -43,12 +43,17 @@ class LXDTestDriver(test.NoDBTestCase):
         self.container = container_ops.LXDOperations(fake.FakeVirtAPI())
 
     @mock.patch.object(pylxd.api.API, 'host_ping')
-    def tst_init_host_fail(self, mock_ping):
-        mock_ping.side_affect = True
+    def tst_init_host(self, mock_ping):
+        mock_ping.return_value = True
         self.assertTrue(self.container.container_init_host("fakehost"))
 
     @mock.patch.object(pylxd.api.API, 'host_ping')
-    def test_init_host_fail(self, mock_ping):
-        mock_ping.side_affect = False
-        self.assertFalse(self.container.container_init_host("fakehost"))
+    def tst_init_host(self, mock_ping):
+        mock_ping.return_value = False
+        self.assertTrue(self.container.container_init_host("fakehost"))
 
+    @mock.patch.object(container_ops.LXDOperations, 'container_list')
+    def test_container_list(self, mock_container_list):
+        mock_container_list.return_value = ['instance-0001',
+                                           'instance-0002']
+        self.assertEqual(len(self.container.container_list()), 2)

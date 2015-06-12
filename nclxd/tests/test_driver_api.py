@@ -49,10 +49,11 @@ class LXDTestDriver(test.NoDBTestCase):
 
     @mock.patch.object(container_ops.LXDOperations, 'container_init_host')
     def test_init_host(self, mock_container_init):
-        mock_container_init.side_affect = True
+        mock_container_init.return_value = True
         self.assertTrue(self.connection.init_host("fakehost"))
 
-    @mock.patch.object(container_ops.LXDOperations, 'container_init_host')
-    def test_init_host_fail(self, mock_container_init):
-        mock_container_init.side_affect = False
-        self.assertFalse(self.connection.init_host("fakehost"))
+    @mock.patch.object(container_ops.LXDOperations, 'container_list')
+    def test_list_instances(self, mock_container_list):
+        mock_container_list.return_value = ['instance-0001',
+                                            'instance-0002']
+        self.assertEquals(len(self.connection.list_instances()), 2)
