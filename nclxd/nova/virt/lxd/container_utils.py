@@ -1,13 +1,6 @@
-import sys
-
-from oslo_config import cfg
-from oslo_log import log as logging
-
-
-from nova.i18n import _, _LE, _LI
-from nova import exception
-from nova import utils
-from nova.virt import driver
-
-CONF = cfg.CONF
-LOG = logging.getLogger(__name__)
+def get_container_cgroups_path():
+    with open('/proc/mounts') as f:
+        for line in f.readlines():
+            fields = line.split(' ')
+            if fields[2] == 'cgroup' and 'devices' in fields[3].split(','):
+                return fields[1]

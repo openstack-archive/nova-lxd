@@ -29,12 +29,22 @@ from nova import exception
 from nova import utils
 from nova.virt import driver
 
-CONF = cfg.CONF
-LOG = logging.getLogger(__name__)
-
-from pylxd import api
-
 import container_ops
+import host
+
+
+lxd_opts = [
+    cfg.StrOpt('lxd_root_dir',
+               default='/var/lib/lxd/',
+               help='Default LXD directory'),
+    cfg.StrOpt('lxd_image_type',
+               default='nclxd.nova.virt.lxd.image.DefaultContainerImage',
+               help='Default image')
+]
+
+CONF = cfg.CONF
+CONF.register_opts(lxd_opts, 'lxd')
+LOG = logging.getLogger(__name__)
 
 class LXDDriver(driver.ComputeDriver):
     capabilities = {
@@ -49,6 +59,7 @@ class LXDDriver(driver.ComputeDriver):
 
         self.container_ops = container_ops.LXDOperations(
                                 self.virtapi)
+        self.host = host.LXDHost()
 
     def init_host(self, host):
         """Initialize anything that is necessary for the driver to function,
@@ -328,10 +339,7 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def get_host_ip_addr(self):
-        """Retrieves the IP address of the dom0
-        """
-        # TODO(Vek): Need to pass context in for access to auth_token
-        raise NotImplementedError()
+        return self.host.get_host_ip_addr()
 
     def attach_volume(self, context, connection_info, instance, mountpoint,
                       disk_bus=None, device_type=None, encryption=None):
@@ -543,17 +551,7 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def get_available_resource(self, nodename):
-        """Retrieve resource information.
-
-        This method is called when nova-compute launches, and
-        as part of a periodic task that records the results in the DB.
-
-        :param nodename:
-            node which the caller want to get resources from
-            a driver that manages only one node can safely ignore this
-        :returns: Dictionary describing resources
-        """
-        raise NotImplementedError()
+        return self.host.get_available_resource(nodename)
 
     def pre_live_migration(self, context, instance, block_device_info,
                            network_info, disk_info, migrate_data=None):
@@ -921,9 +919,7 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def get_host_uptime(self):
-        """Returns the result of calling "uptime" on the target host."""
-        # TODO(Vek): Need to pass context in for access to auth_token
-        raise NotImplementedError()
+        return self.host.get_host_uptime()
 
     def plug_vifs(self, instance, network_info):
         """Plug VIFs into networks.
@@ -941,26 +937,7 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def get_host_cpu_stats(self):
-        """Get the currently known host CPU stats.
-
-        :returns: a dict containing the CPU stat info, eg:
-
-            | {'kernel': kern,
-            |  'idle': idle,
-            |  'user': user,
-            |  'iowait': wait,
-            |   'frequency': freq},
-
-                  where kern and user indicate the cumulative CPU time
-                  (nanoseconds) spent by kernel and user processes
-                  respectively, idle indicates the cumulative idle CPU time
-                  (nanoseconds), wait indicates the cumulative I/O wait CPU
-                  time (nanoseconds), since the host is booting up; freq
-                  indicates the current CPU frequency (MHz). All values are
-                  long integers.
-
-        """
-        raise NotImplementedError()
+        return self.host.get_host_cpu_stats()
 
     def block_stats(self, instance, disk_id):
         """Return performance counters associated with the given disk_id on the
