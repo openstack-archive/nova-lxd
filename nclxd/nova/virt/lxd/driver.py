@@ -116,10 +116,17 @@ class LXDDriver(driver.ComputeDriver):
         return {'memory_mb': 0}
 
     def list_instances(self):
-        return self.container_ops.container_list()
+        """Return the names of all the instances known to the virtualization
+        layer, as a list.
+        """
+        # TODO(Vek): Need to pass context in for access to auth_token
+        raise NotImplementedError()
 
     def list_instance_uuids(self):
-        return self.container_ops.container_list()
+        """Return the UUIDS of all the instances known to the virtualization
+        layer, as a list.
+        """
+        raise NotImplementedError()
 
     def rebuild(self, context, instance, image_meta, injected_files,
                 admin_password, bdms, detach_block_devices,
