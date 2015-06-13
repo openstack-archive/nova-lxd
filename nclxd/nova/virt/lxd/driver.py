@@ -18,7 +18,6 @@ LXD lightervisor
 """
 
 import sys
-import socket
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -1103,8 +1102,7 @@ class LXDDriver(driver.ComputeDriver):
         by the service. Otherwise, this method should return
         [hypervisor_hostname].
         """
-        hostname = socket.gethostname()
-        return [hostname]
+        raise NotImplementedError()
 
     def node_is_available(self, nodename):
         """Return whether this compute service manages a particular node."""
