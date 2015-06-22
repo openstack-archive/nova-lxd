@@ -21,9 +21,9 @@ function configure_lxd {
 	apt_get update
 
 	sudo apt-add-repository -y ppa:ubuntu-lxc/lxc-git-master
-	sudo apt-add-repository -y ppa:ubuntu-lxc/lxd-git-master
+#	sudo apt-add-repository -y ppa:ubuntu-lxc/lxd-git-master
 	apt_get update
-	install_package lxd lxc-dev lxd
+	install_package lxc lxc-dev
 }
 
 function install_lxd {

@@ -30,27 +30,30 @@ from nova.compute import arch
 from nova.compute import hv_type
 from nova.compute import utils as compute_utils
 from nova.compute import vm_mode
-from nova.i18n import _LW
+from nova.i18n import _LW, _
+from nova import exception
 from nova import utils
 
-from cpuinfo import cpuinfo
+from pylxd import api
 import psutil
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 
-class Host(object):
-    def __init__(self, lxd):
-        self.lxd = lxd
-        self.host_cpu_info = cpuinfo.get_cpu_info()
+class LXDHost(object):
+
+    def __init__(self):
+        self.lxd = api.API()
 
     def get_available_resource(self, nodename):
-        local_cpu_info = self._get_cpu_info()
+        LOG.debug('In get_available_resource')
+
+        local_cpu_info = self._get_cpuinfo()
         cpu_topology = local_cpu_info['topology']
-        vcpus = (cpu_topology['cores'] *
-                 cpu_topology['sockets'] *
-                 cpu_topology['threads'])
+        vcpus = (int(cpu_topology['cores']) *
+                 int(cpu_topology['sockets']) *
+                 int(cpu_topology['threads']))
 
         local_memory_info = self._get_memory_mb_usage()
         local_disk_info = self._get_fs_info(CONF.lxd.lxd_root_dir)
@@ -63,20 +66,22 @@ class Host(object):
             'local_gb_used': local_disk_info['used'] / units.Gi,
             'vcpus_used': 0,
             'hypervisor_type': 'lxd',
-            'hypervisor_version': 1,
+            'hypervisor_version': '011',
+            'cpu_info': jsonutils.dumps(local_cpu_info),
             'hypervisor_hostname': platform.node(),
             'supported_instances': jsonutils.dumps(
-                   [(arch.I686, hv_type.LXC, vm_mode.EXE),
+                [(arch.I686, hv_type.LXC, vm_mode.EXE),
                     (arch.X86_64, hv_type.LXC, vm_mode.EXE)]),
             'numa_topology': None,
         }
+
         return data
 
     def get_host_ip_addr(self):
         ips = compute_utils.get_machine_ips()
         if CONF.my_ip not in ips:
             LOG.warn(_LW('my_ip address (%(my_ip)s) was not found on '
-                     'any of the interfaces: %(ifaces)s'),
+                         'any of the interfaces: %(ifaces)s'),
                      {'my_ip': CONF.my_ip, 'ifaces': ", ".join(ips)})
         return CONF.my_ip
 
@@ -120,33 +125,53 @@ class Host(object):
             'used': (total - avail) * 1024
         }
 
-    def _get_cpu_info(self):
+    def _get_cpuinfo(self):
+        cpuinfo = self._get_cpu_info()
+
         cpu_info = dict()
 
         cpu_info['arch'] = platform.uname()[5]
-        cpu_info['model'] = self.host_cpu_info['brand']
-        cpu_info['vendor'] = self.host_cpu_info['vendor_id']
+        cpu_info['model'] = cpuinfo.get('model name', 'unknown')
+        cpu_info['vendor'] = cpuinfo.get('vendor id', 'unknown')
 
         topology = dict()
-        topology['sockets'] = self._get_cpu_sockets()
-        topology['cores'] = self._get_cpu_cores()
-        topology['threads'] = 1  # fixme
+        topology['sockets'] = cpuinfo.get('socket(s)', 1)
+        topology['cores'] = cpuinfo.get('core(s) per socket', 1)
+        topology['threads'] = cpuinfo.get('thread(s) per core', 1)
         cpu_info['topology'] = topology
-        cpu_info['features'] = self.host_cpu_info['flags']
+        cpu_info['features'] = cpuinfo.get('flags', 'unknown')
 
         return cpu_info
 
-    def _get_cpu_cores(self):
-        try:
-            return psutil.cpu_count()
-        except Exception:
-            return psutil.NUM_CPUS
+    def _get_cpu_info(self):
+        ''' Parse the output of lscpu. '''
+        cpuinfo = {}
+        out, err = utils.execute('lscpu')
+        if err:
+            msg = _('Unable to parse lscpu output.')
+            exception.NovaException(msg)
 
-    def _get_cpu_sockets(self):
-        try:
-            return psutil.cpu_count(Logical=False)
-        except Exception:
-            return psutil.NUM_CPUS
+        cpu = [line.strip('\n') for line in out.splitlines()]
+        for line in cpu:
+            if line.strip():
+                name, value = line.split(':', 1)
+                name = name.strip().lower()
+                cpuinfo[name] = value.strip()
+
+        f = open('/proc/cpuinfo', 'r')
+        features = [line.strip('\n') for line in f.readlines()]
+        for line in features:
+            if line.strip():
+                if line.startswith('flags'):
+                    name, value = line.split(':', 1)
+                    name = name.strip().lower()
+                    cpuinfo[name] = value.strip()
+
+        return cpuinfo
+
+    def _get_hypersivor_version(self):
+        version = self.lxd.get_lxd_version()
+        return '.'.join(str(v) for v in version)
 
     def get_host_cpu_stats(self):
         return {

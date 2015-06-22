@@ -1,6 +1,3 @@
-# Copyright 2010 United States Government as represented by the
-# Administrator of the National Aeronautics and Space Administration.
-# Copyright (c) 2010 Citrix Systems, Inc.
 # Copyright 2011 Justin Santa Barbara
 # Copyright 2015 Canonical Ltd
 # All Rights Reserved.
@@ -18,46 +15,181 @@
 #    under the License.
 
 import os
+import shutil
 
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from nova.i18n import _LE
-from nova.virt import images
+from pylxd import api
+from pylxd import exceptions as lxd_exceptions
 
+from nova.i18n import _
+from nova import exception
+from nova.compute import power_state
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
+LXD_POWER_STATES = {
+    'RUNNING': power_state.RUNNING,
+    'STOPPED': power_state.SHUTDOWN,
+    'STARTING': power_state.NOSTATE,
+    'STOPPING': power_state.SHUTDOWN,
+    'ABORTING': power_state.CRASHED,
+    'FREEZING': power_state.PAUSED,
+    'FROZEN': power_state.SUSPENDED,
+    'THAWED': power_state.PAUSED,
+    'PENDING': power_state.NOSTATE,
+    'Success': power_state.NOSTATE,
+    'UNKNOWN': power_state.NOSTATE
+}
 
-def get_base_dir():
-    return os.path.join(CONF.instances_path,
-                        CONF.image_cache_subdirectory_name)
+
+class LXDContainerDirectories(object):
+
+    def __init__(self):
+        self.base_dir = os.path.join(CONF.instances_path,
+                                     CONF.image_cache_subdirectory_name)
+
+    def get_base_dir(self):
+        return self.base_dir
+
+    def get_instance_dir(self, instance):
+        return os.path.join(CONF.instances_path,
+                            instance.uuid)
+
+    def get_container_image(self, instance):
+        return os.path.join(self.base_dir,
+                            '%s.tar.gz' % instance.image_ref)
+
+    def get_container_configdirve(self, instance):
+        return os.path.join(CONF.instances_path,
+                            instance.uuid,
+                            'config-drive')
+
+    def get_console_path(self, instance):
+        return os.path.join(CONF.lxd.lxd_root_dir,
+                            'lxc',
+                            instance.uuid,
+                            'console.log')
+
+    def get_container_dir(self, instance):
+        return os.path.join(CONF.lxd.lxd_root_dir,
+                            'lxc',
+                            instance.uuid)
+
+    def get_container_rootfs(self, instance):
+        return os.path.join(CONF.lxd.lxd_root_dir,
+                            'lxc',
+                            instance.uuid,
+                            'rootfs')
 
 
-def get_container_image(instance):
-    base_dir = get_base_dir()
-    return os.path.join(base_dir,
-                        '%s.tar.gz' % instance.image_ref)
+class LXDContainerUtils(object):
 
+    def __init__(self):
+        self.lxd = api.API()
+        self.container_dir = LXDContainerDirectories()
 
-def fetch_image(context, image, instance, max_size=0):
-    try:
-        images.fetch(context, instance.image_ref, image,
-                     instance.user_id, instance.project_id,
-                     max_size=max_size)
-    except Exception:
-        LOG.exception(_LE("Image %(image_id)s doesn't exist anymore on"),
-                              {'image_id': instance.image_ref})
+    def init_lxd_host(self, host):
+        LOG.debug('Host check')
+        try:
+            return self.lxd.host_ping()
+        except lxd_exceptions.APIError as ex:
+            msg = _('Unable to connect to LXD daemon: %s' % ex)
+            exception.HostNotFound(msg)
 
-def get_console_path(instance):
-    return os.path.join(CONF.lxd.lxd_root_dir,
-                        'lxc',
-                        instance.uuid,
-                        'console.log')
+    def list_containers(self):
+        try:
+            return self.lxd.container_list()
+        except lxd_exceptions.APIError as ex:
+            msg = _('Unable to list instances: %s' % ex)
+            exception.NovaException(msg)
 
-def get_container_dir(instance):
-    return os.path.join(CONF.lxd.lxd_root_dir,
-                        'lxc',
-                        instance.uuid)
+    def container_defined(self, instance):
+        LOG.debug('Container defined')
+        try:
+            self.lxd.container_defined(instance.uuid)
+        except lxd_exceptions.APIError as ex:
+            if ex.status_code == 404:
+                return False
+            else:
+                return True
 
+    def container_running(self, instance):
+        LOG.debug('container running')
+        if self.lxd.container_running(instance.uuid):
+            return True
+        else:
+            return False
+
+    def container_start(self, instance):
+        LOG.debug('container start')
+        try:
+            return self.lxd.container_start(instance.uuid,
+                                            CONF.lxd.lxd_timeout)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to start container: %s' % ex)
+            raise exception.NovaException(msg)
+
+    def container_destroy(self, instance):
+        LOG.debug('Container destroy')
+        try:
+            return self.lxd.container_destroy(instance.uuid)
+        except lxd_exceptions.APIError as ex:
+            if ex.status_code == 404:
+                return
+            else:
+                msg = _('Failed to destroy container: %s' % ex)
+                raise exception.NovaException(msg)
+
+    def container_cleanup(self, instance, network_info, block_device_info):
+        LOG.debug('continer cleanup')
+        container_dir = self.container_dir.get_instance_dir(instance)
+        if os.path.exists(container_dir):
+            shutil.rmtree(container_dir)
+        self.profile_delete(instance)
+
+    def container_info(self, instance):
+        LOG.debug('container info')
+        try:
+            container_state = self.lxd.container_state(instance.uuid)
+            state = LXD_POWER_STATES[container_state]
+        except lxd_exceptions.APIError:
+            state = power_state.NOSTATE
+        return state
+
+    def container_init(self, container_config):
+        LOG.debug('container init')
+        try:
+            self.lxd.container_init(container_config)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to destroy container: %s' % ex)
+            raise exception.NovaException(msg)
+
+    def container_definfed(self, instance):
+        LOG.debug('container defined')
+        try:
+            self.lxd.container_defined(instance.uuid)
+        except lxd_exceptions.APIError as ex:
+            if e.status_code == 404:
+                return False
+            else:
+                return True
+
+    def profile_delete(self, instance):
+        LOG.debug('profile delete')
+        try:
+            self.lxd.profile_delete(instance.uuid)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to delete profile: %s' % ex)
+            raise exception.NovaException(msg)
+
+    def wait_for_container(self, oid):
+        if not oid:
+            msg = _('Unable to determine container operation')
+            raise exception.NovaException(msg)
+
+        if not self.lxd.wait_container_operation(oid, 200, 20):
+            msg = _('Container creation timed out')
+            raise exception.NovaException(msg)

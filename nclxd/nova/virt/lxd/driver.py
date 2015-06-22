@@ -1,6 +1,3 @@
-# Copyright 2010 United States Government as represented by the
-# Administrator of the National Aeronautics and Space Administration.
-# Copyright (c) 2010 Citrix Systems, Inc.
 # Copyright 2011 Justin Santa Barbara
 # Copyright 2015 Canonical Ltd
 # All Rights Reserved.
@@ -17,35 +14,24 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-"""
-LXD Driver
-"""
-
 import socket
 
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from pylxd import api
-
-from nova import exception
-from nova.i18n import _, _LE
+from nova.i18n import _
 from nova.virt import driver
-from nova.virt import event as virtevent
-from nova.virt import firewall
-from nova.virt import hardware
 
-import container
+import container_ops
 import host
-import migration
 
 lxd_opts = [
     cfg.StrOpt('lxd_root_dir',
                default='/var/lib/lxd/',
                help='Default LXD directory'),
-    cfg.StrOpt('lxd_image_type',
-               default='nclxd.nova.virt.lxd.image.DefaultContainerImage',
-               help='Default image')
+    cfg.IntOpt('lxd_timeout',
+               default=5,
+               help='Default LXD timeout')
 ]
 
 CONF = cfg.CONF
@@ -54,6 +40,8 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDDriver(driver.ComputeDriver):
+    """ LXD Lightervisor
+    """
 
     capabilities = {
         "has_imagecache": False,
@@ -64,31 +52,14 @@ class LXDDriver(driver.ComputeDriver):
     def __init__(self, virtapi):
         self.virtapi = virtapi
 
-        self.firewall_driver = firewall.load_driver(
-            default='nova.virt.firewall.NoopFirewallDriver')
-
-        self.lxd = api.API()
-
-        self.container = container.Container(self.lxd,
-                                             self.virtapi,
-                                             self.firewall_driver)
-        self.migration = migration.Migration()
-        self.host = host.Host(self.lxd)
+        self.container_ops = container_ops.LXDContainerOperations(virtapi)
+        self.host = host.LXDHost()
 
     def init_host(self, host):
-        try:
-            self.lxd.host_ping()
-        except Exception as ex:
-            LOG.exception(_LE('Unable to connect to LXD daemon: %s') % ex)
-            raise
+        return self.container_ops.init_host(host)
 
     def get_info(self, instance):
-        istate = self.container.container_state(instance)
-        return hardware.InstanceInfo(state=istate,
-                                     max_mem_kb=0,
-                                     mem_kb=0,
-                                     num_cpu=1,
-                                     cpu_time_ns=0)
+        return self.container_ops.get_info(instance)
 
     def instance_exists(self, instance):
         try:
@@ -96,80 +67,47 @@ class LXDDriver(driver.ComputeDriver):
         except NotImplementedError:
             return instance.name in self.list_instances()
 
+    def estimate_instance_overhead(self, instance_info):
+        return {'memory_mb': 0}
+
     def list_instances(self):
-        return self.lxd.container_list()
+        return self.container_ops.list_instances()
 
     def list_instance_uuids(self):
-        return self.lxd.container_list()
-
-    def plug_vifs(self, instance, network_info):
-        for vif in network_info:
-            self.container.plug_vifs(instance, network_info)
-
-    def unplug_vifs(self, instance, network_info, ignore_errors):
-        try:
-            for vif in network_info:
-                self.container.unplug_vifs(instance, network_info)
-        except exception.Exception:
-            if not ignore_errors:
-                raise
+        return self.container_ops.list_instances()
 
     def rebuild(self, context, instance, image_meta, injected_files,
                 admin_password, bdms, detach_block_devices,
                 attach_block_devices, network_info=None,
                 recreate=False, block_device_info=None,
                 preserve_ephemeral=False):
-        return self.container.container_rebuild(context, instance, image_meta,
-                injected_files, admin_password, bdms, detach_block_devices,
-                attach_block_devices, network_info=None,
-                recreate=False, block_device_info=None,
-                preserve_ephemeral=False)
+        raise NotImplementedError()
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
-        return self.container.container_start(context, instance, image_meta,
-                                              injected_files, admin_password,
-                                              network_info, block_device_info)
+        return self.container_ops.spawn(context, instance, image_meta,
+                                        injected_files, admin_password, network_info,
+                                        block_device_info)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        return self.container.container_destroy(context, instance,
-                                                network_info,
-                                                block_device_info,
-                                                destroy_disks,
-                                                migrate_data)
+        return self.container_ops.destroy(context, instance, network_info,
+                                          block_device_info, destroy_disks,
+                                          migrate_data)
+        self.cleanup(context, instance, network_info, block_device_info)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
-        return self.container.container_cleanup(context, instance,
-                                         network_info, block_device_info,
-                                         destroy_disks, migrate_data,
-                                         destroy_vifs)
+        return self.container_ops.cleanup(context, instance, network_info,
+                                          block_device_info, destroy_disks,
+                                          migrate_data, destroy_vifs)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
-        return self.container.container_reboot(context, instance,
-                                               network_info,
-                                               reboot_type, block_device_info,
-                                               bad_volumes_callback)
-
-    def get_console_pool_info(self, console_type):
         raise NotImplementedError()
 
     def get_console_output(self, context, instance):
-        return self.container.get_console_output(context, instance)
-
-    def get_vnc_console(self, context, instance):
-        raise NotImplementedError()
-
-    def get_spice_console(self, context, instance):
-        raise NotImplementedError()
-
-    def get_rdp_console(self, context, instance):
-        raise NotImplementedError()
-
-    def get_serial_console(self, context, instance):
-        raise NotImplementedError()
+        return self.container_ops.get_console_output(context, instance)
 
     def get_diagnostics(self, instance):
         raise NotImplementedError()
@@ -188,22 +126,21 @@ class LXDDriver(driver.ComputeDriver):
 
     def attach_volume(self, context, connection_info, instance, mountpoint,
                       disk_bus=None, device_type=None, encryption=None):
-        return self.volume.container_attach(context, connection_info,
-                                            instance, mountpoint,
-                                            disk_bus, device_type,
-                                            encryption)
+        raise NotImplemented()
 
     def detach_volume(self, connection_info, instance, mountpoint,
                       encryption=None):
-        return self.volume.container_detach_volume(connection_info, instance,
-                                                   mountpoint, encryption)
+        raise NotImplemented()
+
+    def swap_volume(self, old_connection_info, new_connection_info,
+                    instance, mountpoint, resize_to):
+        raise NotImplementedError()
 
     def attach_interface(self, instance, image_meta, vif):
-        return self.container.container_attach_interface(instance, image_meta,
-                                                         vif)
+        raise NotImplementedError()
 
     def detach_interface(self, instance, vif):
-        return self.container.containre_detach_interface(instance, vif)
+        raise NotImplementedError()
 
     def migrate_disk_and_power_off(self, context, instance, dest,
                                    flavor, network_info,
@@ -212,8 +149,7 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def snapshot(self, context, instance, image_id, update_task_state):
-        return self.container.snapshot(context, instance, image_id,
-                                       update_task_state)
+        raise NotImplementedError()
 
     def post_interrupted_snapshot_cleanup(self, context, instance):
         pass
@@ -231,43 +167,40 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def pause(self, instance):
-        return self.container.container_pause(instance)
+        raise NotImplementedError()
 
     def unpause(self, instance):
-        return self.container.container_unpause(instance)
+        raise NotImplementedError()
 
     def suspend(self, context, instance):
-        return self.container.container_suspend(context, instance)
+        raise NotImplementedError()
 
     def resume(self, context, instance, network_info, block_device_info=None):
-        return self.container.container_resume(context, instance,
-                                               network_info,
-                                               block_device_info)
+        raise NotImplementedError()
+
+    def resume_state_on_host_boot(self, context, instance, network_info,
+                                  block_device_info=None):
+        raise NotImplementedError()
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
-        return self.container.container_rescue(context, instance,
-                                               network_info, image_meta,
-                                               rescue_password)
+        raise NotImplementedError()
 
     def unrescue(self, instance, network_info):
-        return self.container.container_unrescue(instance, network_info)
+        raise NotImplementedError()
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        return self.container.container_power_off(instance, timeout,
-                                                  retry_interval)
+        raise NotImplementedError()
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
-        return self.container.container_power_on(context, instance,
-                                                 network_info,
-                                                 block_device_info)
+        raise NotImplementedError()
 
     def soft_delete(self, instance):
-        return self.container.container_soft_deelte(instance)
+        raise NotImplementedError()
 
     def restore(self, instance):
-        return self.container.container_restore(instance)
+        raise NotImplementedError()
 
     def get_available_resource(self, nodename):
         return self.host.get_available_resource(nodename)
@@ -322,31 +255,48 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def check_can_live_migrate_source(self, context, instance,
-                                      dest_check_data,
-                                      block_device_info=None):
+                                      dest_check_data, block_device_info=None):
+        raise NotImplementedError()
+
+    def get_instance_disk_info(self, instance,
+                               block_device_info=None):
         raise NotImplementedError()
 
     def refresh_security_group_rules(self, security_group_id):
-        self.firewall_driver.refresh_security_group_rules(security_group_id)
+        raise NotImplementedError()
 
     def refresh_security_group_members(self, security_group_id):
-        self.firewall_driver.refresh_security_group_members(security_group_id)
+        raise NotImplementedError()
 
     def refresh_provider_fw_rules(self):
-        self.firewall_driver.refresh_provider_fw_rules()
+        raise NotImplementedError()
 
     def refresh_instance_security_rules(self, instance):
-        self.firewall_driver.refresh_instance_security_rules(instance)
+        raise NotImplementedError()
+
+    def reset_network(self, instance):
+        pass
 
     def ensure_filtering_rules_for_instance(self, instance, network_info):
-        self.firewall_driver.setup_basic_filtering(instance, network_info)
-        self.firewall_driver.prepare_instance_filter(instance, network_info)
+        raise NotImplementedError()
+
+    def filter_defer_apply_on(self):
+        pass
+
+    def filter_defer_apply_off(self):
+        pass
 
     def unfilter_instance(self, instance, network_info):
-        self.firewall_driver.unfilter_instance(instance, network_info)
+        raise NotImplementedError()
+
+    def set_admin_password(self, instance, new_pass):
+        raise NotImplementedError()
 
     def inject_file(self, instance, b64_path, b64_contents):
         raise NotImplementedError()
+
+    def change_instance_metadata(self, context, instance, diff):
+        pass
 
     def inject_network_info(self, instance, nw_info):
         pass
@@ -367,16 +317,30 @@ class LXDDriver(driver.ComputeDriver):
         return self.host.get_host_uptime()
 
     def get_host_cpu_stats(self):
-        return self.host.get_host_cpu_stats()
+        raise NotImplementedError()
 
     def block_stats(self, instance, disk_id):
-        return [0, 0, 0, 0, None]  # zulcss - fixme
+        raise NotImplementedError()
 
     def deallocate_networks_on_reschedule(self, instance):
+        """Does the driver want networks deallocated on reschedule?"""
         return False
+
+    def macs_for_instance(self, instance):
+        return None
 
     def manage_image_cache(self, context, all_instances):
         pass
+
+    def add_to_aggregate(self, context, aggregate, host, **kwargs):
+        raise NotImplementedError()
+
+    def remove_from_aggregate(self, context, aggregate, host, **kwargs):
+        raise NotImplementedError()
+
+    def undo_aggregate_operation(self, context, op, aggregate,
+                                  host, set_error=True):
+        raise NotImplementedError()
 
     def get_volume_connector(self, instance):
         raise NotImplementedError()
@@ -397,32 +361,6 @@ class LXDDriver(driver.ComputeDriver):
     def instance_on_disk(self, instance):
         return False
 
-    def register_event_listener(self, callback):
-        self._compute_event_callback = callback
-
-    def emit_event(self, event):
-        if not self._compute_event_callback:
-            LOG.debug("Discarding event %s", str(event))
-            return
-
-        if not isinstance(event, virtevent.Event):
-            raise ValueError(
-                _("Event must be an instance of nova.virt.event.Event"))
-
-        try:
-            LOG.debug("Emitting event %s", str(event))
-            self._compute_event_callback(event)
-        except Exception as ex:
-            LOG.error(_LE("Exception dispatching event %(event)s: %(ex)s"),
-                      {'event': event, 'ex': ex})
-
-    def delete_instance_files(self, instance):
-        return True
-
-    @property
-    def need_legacy_block_device_info(self):
-        return True
-
     def volume_snapshot_create(self, context, instance, volume_id,
                                create_info):
         raise NotImplementedError()
@@ -431,9 +369,15 @@ class LXDDriver(driver.ComputeDriver):
                                snapshot_id, delete_info):
         raise NotImplementedError()
 
+    def default_root_device_name(self, instance, image_meta, root_bdm):
+        raise NotImplementedError()
+
+    def default_device_names_for_instance(self, instance, root_device_name,
+                                          *block_device_lists):
+        raise NotImplementedError()
+
     def quiesce(self, context, instance, image_meta):
-        return self.container.container_quiesce(context, instance, image_meta)
+        raise NotImplementedError()
 
     def unquiesce(self, context, instance, image_meta):
-        return self.container.container_unquiesce(context, instance,
-                                                  image_meta)
+        raise NotImplementedError()
