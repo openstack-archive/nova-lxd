@@ -104,7 +104,9 @@ class LXDDriver(driver.ComputeDriver):
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
-        raise NotImplementedError()
+        return self.container_ops.reboot(context, instance, network_info,
+                                         reboot_type, block_device_info,
+                                         bad-volumes_callback)
 
     def get_console_output(self, context, instance):
         return self.container_ops.get_console_output(context, instance)

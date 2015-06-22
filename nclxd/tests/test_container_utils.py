@@ -109,3 +109,9 @@ class LXDTestContainerUtils(test.NoDBTestCase):
                                                   uuid='fake_uuid')
         self.assertTrue(self.container_utils.container_destroy(instance))
 
+    @mock.patch.object(pylxd.api.API, 'container_reboot')
+    def test_container_reboot(self, mock_container_reboot):
+        mock_container_reboot.return_value = True
+        instance = fake_instance.fake_instance_obj(None, name='fake_inst',
+                                                  uuid='fake_uuid')
+        self.assertTrue(self.container_utils.container_reboot(instance))

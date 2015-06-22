@@ -162,25 +162,35 @@ class LXDContainerUtils(object):
     def container_init(self, container_config):
         LOG.debug('container init')
         try:
-            self.lxd.container_init(container_config)
+            return self.lxd.container_init(container_config)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to destroy container: %s' % ex)
             raise exception.NovaException(msg)
 
-    def container_definfed(self, instance):
+    def container_defined(self, instance):
         LOG.debug('container defined')
         try:
-            self.lxd.container_defined(instance.uuid)
+            return self.lxd.container_defined(instance.uuid)
         except lxd_exceptions.APIError as ex:
             if e.status_code == 404:
                 return False
             else:
                 return True
 
+    def container_reboot(self, instance):
+        try:
+            return self.lxd.container_reboot(instance.uuid)
+        except lxd_exceptions.APIError as ex:
+            if e.status_code == 404:
+                pass
+            else:
+                msg = _('Failed to reboot container: %s' % ex)
+                raise exception.NovaException(msg)
+
     def profile_delete(self, instance):
         LOG.debug('profile delete')
         try:
-            self.lxd.profile_delete(instance.uuid)
+            return self.lxd.profile_delete(instance.uuid)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to delete profile: %s' % ex)
             raise exception.NovaException(msg)

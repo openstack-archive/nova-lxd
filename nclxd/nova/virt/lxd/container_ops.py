@@ -126,6 +126,11 @@ class LXDContainerOperations(object):
         self.container_utils.wait_for_container(
             data.get('operation').split('/')[3])
 
+    def reboot(self, context, instance, network_info, reboot_type,
+               block_device_info=None, bad_volumes_callback=None):
+        LOG.debug('container reboot')
+        return self.container_utils.container_reboot(instance)
+
     def plug_vifs(self, instance, network_info):
         for vif in network_info:
             self.vif_driver.plug(instance, vif)
