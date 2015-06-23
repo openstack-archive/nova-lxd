@@ -7,6 +7,7 @@ from oslo_config import cfg
 import pylxd
 
 from nova import test
+from nova.compute import power_state
 from nova.tests.unit import fake_instance
 
 from nclxd.nova.virt.lxd import container_utils
@@ -115,3 +116,12 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         instance = fake_instance.fake_instance_obj(None, name='fake_inst',
                                                   uuid='fake_uuid')
         self.assertTrue(self.container_utils.container_reboot(instance))
+
+    @mock.patch.object(pylxd.api.API, 'container_state')
+    def test_container_info(self, mock_container_state):
+        mock_container_state.return_value = 'RUNNING'
+        instance = fake_instance.fake_instance_obj(None, name='fake_inst',
+                                                  uuid='fake_uuid')
+        self.assertTrue(self.container_utils.container_info(instance), power_state.RUNNING)
+
+
