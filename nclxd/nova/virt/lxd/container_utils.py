@@ -132,6 +132,18 @@ class LXDContainerUtils(object):
             msg = _('Failed to start container: %s' % ex)
             raise exception.NovaException(msg)
 
+    def container_stop(self, instance):
+        LOG.debug('container stop')
+        try:
+            return self.lxd.container_stop(instance.uuid,
+                                            CONF.lxd.lxd_timeout)
+        except lxd_exceptions.APIError as ex:
+            if ex.status_code == 404:
+                return
+            else:
+                msg = _('Failed to start container: %s' % ex)
+                raise exception.NovaException(msg)
+
     def container_destroy(self, instance):
         LOG.debug('Container destroy')
         try:

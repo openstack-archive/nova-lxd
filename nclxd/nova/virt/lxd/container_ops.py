@@ -144,6 +144,14 @@ class LXDContainerOperations(object):
         self.container_utils.container_destroy(instance)
         self.cleanup(context, instance, network_info, block_device_info)
 
+    def power_off(self, instance, timeout=0, retry_interval=0):
+        return self.container_utils.container_stop(instance)
+
+    def power_on(self, context, instance, network_info,
+                 block_device_info=None):
+        return self.container_utils.container_start(instance)
+
+
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
         return self.container_utils.container_cleanup(instance, network_info,

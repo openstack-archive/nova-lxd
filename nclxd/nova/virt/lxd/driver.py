@@ -180,10 +180,6 @@ class LXDDriver(driver.ComputeDriver):
     def resume(self, context, instance, network_info, block_device_info=None):
         raise NotImplementedError()
 
-    def resume_state_on_host_boot(self, context, instance, network_info,
-                                  block_device_info=None):
-        raise NotImplementedError()
-
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
         raise NotImplementedError()
@@ -192,11 +188,12 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        raise NotImplementedError()
+        return self.container_ops.power_off(instance, timeout=0, retry_interval=0)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
-        raise NotImplementedError()
+        return self.container_ops.power_on(context, instance, network_info,
+                                           block_device_info)
 
     def soft_delete(self, instance):
         raise NotImplementedError()
