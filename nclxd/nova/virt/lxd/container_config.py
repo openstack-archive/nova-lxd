@@ -22,6 +22,7 @@ from pylxd import api
 from pylxd import exceptions as lxd_exceptions
 
 from nova.i18n import _
+from nova import exception
 
 import container_image
 import container_utils
@@ -38,27 +39,36 @@ class LXDContainerConfig(object):
         self.container_utils = container_utils.LXDContainerUtils()
         self.container_image = container_image.LXDContainerImage()
 
-    def create_container(self, context, instance, image_meta, injected_files,
-                         admin_password, network_info, block_device_info):
+    def create_container(self, context, instance, image_meta, network_info, rescue,
+                         injected_files=None, admin_password=None,
+                         block_device_info=None):
         LOG.debug('creating container')
 
         self.create_container_profile(instance, image_meta, injected_files,
-                                      admin_password, network_info, block_device_info)
+                                      admin_password, network_info, block_device_info,
+                                      rescue)
         container_config = self.create_container_config(context, instance, image_meta,
                                                         injected_files, admin_password,
-                                                        network_info, block_device_info)
+                                                        network_info, block_device_info,
+                                                        rescue)
 
         return container_config
 
     def create_container_profile(self, instance, image_meta, injected_files,
-                                 admin_password, network_info, block_device_info):
+                                 admin_password, network_info, block_device_info,
+                                 rescue):
         LOG.debug('Creating profile config')
-        container_profile = {'name': instance.uuid}
+
+        name = instance.uuid
+        if rescue:
+            name = '%s-rescue' % name
+
+        container_profile = {'name': name}
         self.add_value_to_config(container_profile, 'config',
                                  {'raw.lxc':
                                   'lxc.console.logfile = %s\n'
                                   % self.container_dir.get_console_path(
-                                      instance)})
+                                      instance.uuid)})
 
         if network_info:
             self.add_value_to_config(container_profile, 'devices',
@@ -71,13 +81,17 @@ class LXDContainerConfig(object):
             raise exception.NovaException(msg)
 
     def create_container_config(self, context, instance, image_meta, injected_files,
-                                admin_password, network_info, block_device_info):
+                                admin_password, network_info, block_device_info, rescue):
         LOG.debug('Creating container config')
 
         ''' Generate the initial config '''
-        container_config = {'name': instance.uuid}
+        name = instance.uuid
+        if rescue:
+            name = '%s-rescue' % name
+
+        container_config = {'name': name}
         self.add_value_to_config(container_config, 'profiles', ['%s' %
-                                                                instance.uuid])
+                                                                name])
         self.add_value_to_config(
             container_config, 'hostname', instance.hostname)
 

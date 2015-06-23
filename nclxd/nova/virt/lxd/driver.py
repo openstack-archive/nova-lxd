@@ -40,6 +40,7 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDDriver(driver.ComputeDriver):
+
     """ LXD Lightervisor
     """
 
@@ -106,7 +107,7 @@ class LXDDriver(driver.ComputeDriver):
                block_device_info=None, bad_volumes_callback=None):
         return self.container_ops.reboot(context, instance, network_info,
                                          reboot_type, block_device_info,
-                                         bad-volumes_callback)
+                                         bad - volumes_callback)
 
     def get_console_output(self, context, instance):
         return self.container_ops.get_console_output(context, instance)
@@ -182,10 +183,11 @@ class LXDDriver(driver.ComputeDriver):
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
-        raise NotImplementedError()
+        return self.container_ops.rescue(context, instance, network_info, image_meta,
+                                         rescue_password)
 
     def unrescue(self, instance, network_info):
-        raise NotImplementedError()
+        return self.container_ops.unrescue(instance, network_info)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
         return self.container_ops.power_off(instance, timeout=0, retry_interval=0)
@@ -338,7 +340,7 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def undo_aggregate_operation(self, context, op, aggregate,
-                                  host, set_error=True):
+                                 host, set_error=True):
         raise NotImplementedError()
 
     def get_volume_connector(self, instance):

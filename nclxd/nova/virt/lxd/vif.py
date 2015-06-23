@@ -132,8 +132,8 @@ class LXDNetworkBridgeDriver(object):
                           instance=instance)
                 linux_net.LinuxBridgeInterfaceDriver.ensure_vlan_bridge(
                     network.get_meta('vlan'),
-                     vif['network']['bridge'],
-                     iface)
+                    vif['network']['bridge'],
+                    iface)
             else:
                 iface = CONF.flat_interface or \
                     network.get_meta('bridge_interface')

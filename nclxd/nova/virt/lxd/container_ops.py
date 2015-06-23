@@ -70,18 +70,20 @@ class LXDContainerOperations(object):
         LOG.debug(msg, instance=instance)
 
         name = instance.uuid
-        if self.container_utils.container_defined(instance):
+        if self.container_utils.container_defined(instance.uuid):
             raise exception.InstanceExists(instance=name)
 
         self.create_instance(context, instance, image_meta, injected_files,
-                             admin_password, network_info, block_device_info)
+                             admin_password, network_info, block_device_info,
+                             rescue=False)
 
     def create_instance(self, context, instance, image_meta, injected_files,
-                        admin_password, network_info, block_device_info):
+                        admin_password, network_info, block_device_info, rescue):
         LOG.debug('Creating instance')
 
         # Ensure the directory exists and is writable
-        fileutils.ensure_tree(self.container_dir.get_instance_dir(instance))
+        fileutils.ensure_tree(
+            self.container_dir.get_instance_dir(instance.uuid))
 
         # Check to see if we are using swap.
         swap = driver.block_device_info_get_swap(block_device_info)
@@ -97,18 +99,25 @@ class LXDContainerOperations(object):
 
         container_config = self.container_config.create_container(context,
                                                                   instance, image_meta,
-                                                                  injected_files, admin_password,
-                                                                  network_info, block_device_info)
+                                                                  network_info,
+                                                                  rescue,
+                                                                  injected_files,
+                                                                  admin_password,
+                                                                  block_device_info)
         LOG.debug(container_config)
         self.container_utils.container_init(container_config)
-        self.start_instance(instance, network_info)
+        self.start_instance(instance, network_info, rescue=False)
 
-    def start_instance(self, instance, network_info):
+    def start_instance(self, instance, network_info, rescue):
         LOG.debug('Staring instance')
+        name = instance.uuid
+        if rescue:
+            name = '%s-rescue'
+
         timeout = CONF.vif_plugging_timeout
         # check to see if neutron is ready before
         # doing anything else
-        if (not self.container_utils.container_running(instance) and
+        if (not self.container_utils.container_running(instance.uuid) and
                 utils.is_neutron() and timeout):
             events = self._get_neutron_events(network_info)
         else:
@@ -122,14 +131,14 @@ class LXDContainerOperations(object):
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed to connect networking to instance'))
 
-        (state, data) = self.container_utils.container_start(instance)
+        (state, data) = self.container_utils.container_start(name)
         self.container_utils.wait_for_container(
             data.get('operation').split('/')[3])
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
         LOG.debug('container reboot')
-        return self.container_utils.container_reboot(instance)
+        return self.container_utils.container_reboot(instance.uuid)
 
     def plug_vifs(self, instance, network_info):
         for vif in network_info:
@@ -141,27 +150,34 @@ class LXDContainerOperations(object):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        self.container_utils.container_destroy(instance)
+        self.container_utils.container_destroy(instance.uuid)
         self.cleanup(context, instance, network_info, block_device_info)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        return self.container_utils.container_stop(instance)
+        return self.container_utils.container_stop(instance.uuid)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
-        return self.container_utils.container_start(instance)
+        return self.container_utils.container_start(instance.uuid)
 
     def pause(self, instance):
-        return self.container_utils.container_pause(instance)
+        return self.container_utils.container_pause(instance.uuid)
 
     def unpause(self, instance):
-        return self.container_utils.container_unpause(instance)
+        return self.container_utils.container_unpause(instance.uuid)
 
     def suspend(self, context, instance):
-        return self.container_utils.container_pause(instance)
+        return self.container_utils.container_pause(instance.uuid)
 
     def resume(self, context, instance, network_info, block_device_info=None):
-        return self.container_utils.containe_unpause(instance)
+        return self.container_utils.container_unpause(instance.uuid)
+
+    def rescue(self, context, instance, network_info, image_meta,
+               rescue_password):
+        pass
+
+    def unrescue(self, instance, network_info):
+        pass
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
@@ -169,7 +185,7 @@ class LXDContainerOperations(object):
                                                       block_device_info)
 
     def get_info(self, instance):
-        container_info = self.container_utils.container_info(instance)
+        container_info = self.container_utils.container_info(instance.uuid)
         return hardware.InstanceInfo(state=container_info,
                                      max_mem_kb=0,
                                      mem_kb=0,
@@ -179,12 +195,12 @@ class LXDContainerOperations(object):
     def get_console_output(self, context, instance):
         LOG.debug('in console output')
 
-        console_log = self.container_dir.get_console_path(instance)
+        console_log = self.container_dir.get_console_path(instance.uuid)
         uid = pwd.getpwuid(os.getuid()).pw_uid
         utils.execute('chown', '%s:%s' % (uid, uid),
                       console_log, run_as_root=True)
         utils.execute('chmod', '755',
-                      self.container_dir.get_container_dir(instance),
+                      self.container_dir.get_container_dir(instance.uuid),
                       run_as_root=True)
         with open(console_log, 'rb') as fp:
             log_data, remaning = utils.last_bytes(fp,

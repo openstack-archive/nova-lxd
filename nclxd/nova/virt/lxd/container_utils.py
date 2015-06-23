@@ -56,7 +56,7 @@ class LXDContainerDirectories(object):
 
     def get_instance_dir(self, instance):
         return os.path.join(CONF.instances_path,
-                            instance.uuid)
+                            instance)
 
     def get_container_image(self, instance):
         return os.path.join(self.base_dir,
@@ -64,24 +64,24 @@ class LXDContainerDirectories(object):
 
     def get_container_configdirve(self, instance):
         return os.path.join(CONF.instances_path,
-                            instance.uuid,
+                            instance,
                             'config-drive')
 
     def get_console_path(self, instance):
         return os.path.join(CONF.lxd.lxd_root_dir,
                             'lxc',
-                            instance.uuid,
+                            instance,
                             'console.log')
 
     def get_container_dir(self, instance):
         return os.path.join(CONF.lxd.lxd_root_dir,
                             'lxc',
-                            instance.uuid)
+                            instance)
 
     def get_container_rootfs(self, instance):
         return os.path.join(CONF.lxd.lxd_root_dir,
                             'lxc',
-                            instance.uuid,
+                            instance,
                             'rootfs')
 
 
@@ -109,7 +109,7 @@ class LXDContainerUtils(object):
     def container_defined(self, instance):
         LOG.debug('Container defined')
         try:
-            self.lxd.container_defined(instance.uuid)
+            self.lxd.container_defined(instance)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return False
@@ -118,7 +118,7 @@ class LXDContainerUtils(object):
 
     def container_running(self, instance):
         LOG.debug('container running')
-        if self.lxd.container_running(instance.uuid):
+        if self.lxd.container_running(instance):
             return True
         else:
             return False
@@ -126,7 +126,7 @@ class LXDContainerUtils(object):
     def container_start(self, instance):
         LOG.debug('container start')
         try:
-            return self.lxd.container_start(instance.uuid,
+            return self.lxd.container_start(instance,
                                             CONF.lxd.lxd_timeout)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to start container: %s' % ex)
@@ -135,8 +135,8 @@ class LXDContainerUtils(object):
     def container_stop(self, instance):
         LOG.debug('container stop')
         try:
-            return self.lxd.container_stop(instance.uuid,
-                                            CONF.lxd.lxd_timeout)
+            return self.lxd.container_stop(instance,
+                                           CONF.lxd.lxd_timeout)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return
@@ -147,8 +147,8 @@ class LXDContainerUtils(object):
     def container_pause(self, instance):
         LOG.debug('container pause')
         try:
-            return self.lxd.container_freeze(instance.uuid,
-                                            CONF.lxd.lxd_timeout)
+            return self.lxd.container_freeze(instance,
+                                             CONF.lxd.lxd_timeout)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return
@@ -159,8 +159,8 @@ class LXDContainerUtils(object):
     def container_unpause(self, instance):
         LOG.debug('container unpause')
         try:
-            return self.lxd.container_unfreeze(instance.uuid,
-                                            CONF.lxd.lxd_timeout)
+            return self.lxd.container_unfreeze(instance,
+                                               CONF.lxd.lxd_timeout)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return
@@ -171,7 +171,7 @@ class LXDContainerUtils(object):
     def container_destroy(self, instance):
         LOG.debug('Container destroy')
         try:
-            return self.lxd.container_destroy(instance.uuid)
+            return self.lxd.container_destroy(instance)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return
@@ -181,15 +181,15 @@ class LXDContainerUtils(object):
 
     def container_cleanup(self, instance, network_info, block_device_info):
         LOG.debug('continer cleanup')
-        container_dir = self.container_dir.get_instance_dir(instance)
+        container_dir = self.container_dir.get_instance_dir(instance.uuid)
         if os.path.exists(container_dir):
             shutil.rmtree(container_dir)
-        self.profile_delete(instance)
+        self.profile_delete(instance.uuid)
 
     def container_info(self, instance):
         LOG.debug('container info')
         try:
-            container_state = self.lxd.container_state(instance.uuid)
+            container_state = self.lxd.container_state(instance)
             state = LXD_POWER_STATES[container_state]
         except lxd_exceptions.APIError:
             state = power_state.NOSTATE
@@ -206,16 +206,16 @@ class LXDContainerUtils(object):
     def container_defined(self, instance):
         LOG.debug('container defined')
         try:
-            return self.lxd.container_defined(instance.uuid)
+            return self.lxd.container_defined(instance)
         except lxd_exceptions.APIError as ex:
-            if e.status_code == 404:
+            if ex.status_code == 404:
                 return False
             else:
                 return True
 
     def container_reboot(self, instance):
         try:
-            return self.lxd.container_reboot(instance.uuid)
+            return self.lxd.container_reboot(instance)
         except lxd_exceptions.APIError as ex:
             if e.status_code == 404:
                 pass
@@ -226,7 +226,7 @@ class LXDContainerUtils(object):
     def profile_delete(self, instance):
         LOG.debug('profile delete')
         try:
-            return self.lxd.profile_delete(instance.uuid)
+            return self.lxd.profile_delete(instance)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to delete profile: %s' % ex)
             raise exception.NovaException(msg)
