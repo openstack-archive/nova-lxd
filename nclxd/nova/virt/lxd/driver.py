@@ -169,7 +169,7 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def pause(self, instance):
-        raise NotImplementedError()
+        return self.container_ops.pause(instance)
 
     def unpause(self, instance):
         raise NotImplementedError()

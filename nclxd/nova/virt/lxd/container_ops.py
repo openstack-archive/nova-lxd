@@ -151,6 +151,17 @@ class LXDContainerOperations(object):
                  block_device_info=None):
         return self.container_utils.container_start(instance)
 
+    def pause(self, instance):
+        return self.container_utils.container_pause(instance)
+
+    def unpause(self, instance):
+        return self.container_utils.container_unpause(instance)
+
+    def suspend(self, context, instance):
+        return self.container_utils.container_pause(instance)
+
+    def resume(self, context, instance, network_info, block_device_info=None):
+        return self.container_utils.containe_unpause(instance)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):

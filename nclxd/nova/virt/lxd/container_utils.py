@@ -141,7 +141,31 @@ class LXDContainerUtils(object):
             if ex.status_code == 404:
                 return
             else:
-                msg = _('Failed to start container: %s' % ex)
+                msg = _('Failed to stop container: %s' % ex)
+                raise exception.NovaException(msg)
+
+    def container_pause(self, instance):
+        LOG.debug('container pause')
+        try:
+            return self.lxd.container_freeze(instance.uuid,
+                                            CONF.lxd.lxd_timeout)
+        except lxd_exceptions.APIError as ex:
+            if ex.status_code == 404:
+                return
+            else:
+                msg = _('Failed to pause container: %s' % ex)
+                raise exception.NovaException(msg)
+
+    def container_unpause(self, instance):
+        LOG.debug('container unpause')
+        try:
+            return self.lxd.container_unfreeze(instance.uuid,
+                                            CONF.lxd.lxd_timeout)
+        except lxd_exceptions.APIError as ex:
+            if ex.status_code == 404:
+                return
+            else:
+                msg = _('Failed to unpause container: %s' % ex)
                 raise exception.NovaException(msg)
 
     def container_destroy(self, instance):
