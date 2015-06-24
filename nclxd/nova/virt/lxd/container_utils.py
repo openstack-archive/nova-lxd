@@ -223,6 +223,15 @@ class LXDContainerUtils(object):
                 msg = _('Failed to reboot container: %s' % ex)
                 raise exception.NovaException(msg)
 
+    def profile_create(self, instance):
+        LOG.debug('profile create')
+        try:
+            return self.lxd.profile_create(instance)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to create profile: %s' % ex)
+            raise exception.NovaException(msg)
+        
+
     def profile_delete(self, instance):
         LOG.debug('profile delete')
         try:

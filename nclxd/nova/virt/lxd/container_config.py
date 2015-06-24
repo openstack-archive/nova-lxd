@@ -63,22 +63,20 @@ class LXDContainerConfig(object):
         if rescue:
             name = '%s-rescue' % name
 
-        container_profile = {'name': name}
-        self.add_value_to_config(container_profile, 'config',
-                                 {'raw.lxc':
-                                  'lxc.console.logfile = %s\n'
-                                  % self.container_dir.get_console_path(
-                                      instance.uuid)})
+        container_profile = {}
+        self.add_config(container_profile, 'name', name)
+        self.add_config(container_profile, 'config', 
+                        {'raw.lxc':
+                         'lxc.console.logfile = %s\n'
+                         % self.container_dir.get_console_path(
+                            instance.uuid)})
 
+        self.add_config(container_profile, 'devices', {})
         if network_info:
-            self.add_value_to_config(container_profile, 'devices',
-                                     self._get_network_devices(instance, network_info))
+            self.get_network_devices(container_profile, instance, 
+                                     network_info)
 
-        try:
-            self.lxd.profile_create(container_profile)
-        except lxd_exceptions.APIError as ex:
-            msg = _('Creating profile: %s' % ex)
-            raise exception.NovaException(msg)
+        self.container_utils.profile_create(container_profile)
 
     def create_container_config(self, context, instance, image_meta, injected_files,
                                 admin_password, network_info, block_device_info, rescue):
@@ -89,20 +87,24 @@ class LXDContainerConfig(object):
         if rescue:
             name = '%s-rescue' % name
 
-        container_config = {'name': name}
-        self.add_value_to_config(container_config, 'profiles', ['%s' %
-                                                                name])
-        self.add_value_to_config(
-            container_config, 'hostname', instance.hostname)
+        container_config = {}
+        self.add_config(container_config, 'name', name)
+        self.add_config(container_config, 'profiles',  ['%s' % name])
 
         ''' Fetch the image from glance and configure it '''
         self.container_image.fetch_image(context, instance)
-        self.add_value_to_config(container_config, 'source', self.get_lxd_image(instance,
-                                                                                image_meta))
+        self.add_config(container_config, 'source', 
+                        self.get_lxd_image(instance, image_meta))
 
         return container_config
 
-    def _get_lxd_config(self, instance, image_meta, container_profile):
+    def get_lxd_profiles(self, instance):
+        LOG.debug('get lxd profiles')
+        profiles = []
+        return profiles.append(instance.uuid)
+
+
+    def get_lxd_config(self, instance, image_meta, container_profile):
         LOG.debug('get_lxd_limits')
 
         flavor = instance.get_flavor()
@@ -125,29 +127,26 @@ class LXDContainerConfig(object):
             return {'type': 'image',
                     'alias': instance.image_ref}
 
-    def _get_network_devices(self, instance, network_info):
+    def get_network_devices(self, container_profile, instance, network_info):
         LOG.debug('Get network devices')
 
         ''' ugh this is ugly'''
-        container_network = {}
-        interface_count = 0
         for vif in network_info:
             vif_id = vif['id'][:11]
             mac = vif['address']
 
             bridge = 'qbr%s' % vif_id
 
-            container_network.update({
-                'eth%s' % interface_count: {'nictype': 'bridged',
-                                            'hwaddr': mac,
-                                            'parent': bridge,
-                                            'type': 'nic'}})
-            interface_count = interface_count + 1
+            self.add_config(container_profile, 'devices', bridge,
+                                {'nictype': 'bridged',
+                                     'hwaddr': mac,
+                                     'parent': bridge,
+                                     'type': 'nic'})
 
-        return container_network
-
-    def add_value_to_config(self, container_config, key, value):
-        if container_config.__contains__(key):
-            container_config.append(value)
+    def add_config(self, config, key, value, devices=None):
+        if not key in config:
+            config.setdefault(key, value)
         else:
-            container_config[key] = value
+            if key == 'devices':
+                config.setdefault('devices', {}).\
+                    setdefault(value, devices)
