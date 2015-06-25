@@ -24,6 +24,7 @@ from oslo_utils import units
 from nova.i18n import _, _LW
 from nova import exception
 from nova.openstack.common import fileutils
+from nova.virt import configdrive
 from nova.virt import driver
 from nova.virt import hardware
 from nova import utils
@@ -111,6 +112,10 @@ class LXDContainerOperations(object):
                                                                   injected_files,
                                                                   admin_password,
                                                                   block_device_info)
+        if configdrive.required_by(instance):
+            self.container_config.configure_container_configdrive(container_profile,
+                                                                  instance, injected_files,
+                                                                  admin_password)
 
         self._create_instance(container_profile, container_config)
         self.start_instance(instance, network_info, rescue=False)

@@ -16,13 +16,14 @@
 
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo.utils import excutils
 from oslo_utils import units
 
-from pylxd import api
-from pylxd import exceptions as lxd_exceptions
-
-from nova.i18n import _
+from nova.api.metadata import base as instance_metadata
+from nova.i18n import _, _LI, _LE
+from nova.openstack.common import fileutils
 from nova import exception
+from nova.virt import configdrive
 
 import container_image
 import container_utils
@@ -34,7 +35,6 @@ LOG = logging.getLogger(__name__)
 class LXDContainerConfig(object):
 
     def __init__(self):
-        self.lxd = api.API()
         self.container_dir = container_utils.LXDContainerDirectories()
         self.container_utils = container_utils.LXDContainerUtils()
         self.container_image = container_image.LXDContainerImage()
@@ -51,7 +51,10 @@ class LXDContainerConfig(object):
         container_profile = self._init_container_config()
         self.add_config(container_profile, 'name', instance.uuid)
         self.configure_profile_config(container_profile, instance)
-        self.configure_network_devices(container_profile, instance, network_info)
+
+        ''' Configure devices '''
+        if network_info:
+            self.configure_network_devices(container_profile, instance, network_info)
 
         return container_profile
 
@@ -120,6 +123,42 @@ class LXDContainerConfig(object):
                                      'hwaddr': mac,
                                      'parent': bridge,
                                      'type': 'nic'})
+
+    def configure_disk_path(self, container_profile, vfs_type, instance):
+        LOG.debug('Create disk path')
+        config_drive = \
+            self.container_dir.get_container_configdirve(instance.uuid)
+        self.add_config(container_profile, 'devices', str(vfs_type),
+                        data={'path': 'mnt',
+                              'source': config_drive,
+                              'type': 'disk'})
+
+    def configure_container_configdrive(self, container_profile, instance, injected_files,
+                                        admin_password):
+        LOG.debug('Crate config drive')
+        if CONF.config_drive_format not in ('fs', None):
+            msg = _('Invalid config drive format: %s' 
+                     % CONF.config_drive_format)
+            raise exception.InstancePowerOnFailure(reason=msg)
+
+        LOG.info(_LI('Using config drive for instance'), instance=instance)
+        extra_md = {}
+        
+        inst_md = instance_metadata.InstanceMetadata(instance,
+                                                         content=injected_files,
+                                                         extra_md=extra_md)
+        name = instance.uuid
+        try:
+            with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
+                container_configdrive = \
+                    self.container_dir.get_container_configdirve(name)
+                cdb.make_drive(container_configdrive)
+                self.configure_disk_path(container_profile, 'configdrive',
+                                         instance)
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Creating config drive failed with error: %s'),
+                           e, instance=instance)
 
     def add_config(self, config, key, value, data=None):
         if not key in config:
