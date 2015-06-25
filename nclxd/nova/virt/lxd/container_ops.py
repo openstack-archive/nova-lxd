@@ -104,7 +104,7 @@ class LXDContainerOperations(object):
                                                                            block_device_info,
                                                                            rescue)
 
-        container_config = self.container_config.create_container(context,
+        container_config = self.container_config.create_container_config(context,
                                                                   instance, image_meta,
                                                                   network_info,
                                                                   rescue,
@@ -118,10 +118,12 @@ class LXDContainerOperations(object):
     def _create_instance(self, container_profile, container_config):
         LOG.debug('Initializing container')
         try:
+            LOG.debug(container_profile)
+            LOG.debug(container_config)
             self.container_utils.profile_create(container_profile)
             self.container_utils.container_init(container_config)
-        except:
-            msg = _("Failed to initialize container.")
+        except Exception as ex:
+            msg = _("Failed to initialize container: %s" % ex)
             raise exception.NovaException(msg)
 
     def start_instance(self, instance, network_info, rescue):

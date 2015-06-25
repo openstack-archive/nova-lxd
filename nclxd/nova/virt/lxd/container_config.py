@@ -39,21 +39,6 @@ class LXDContainerConfig(object):
         self.container_utils = container_utils.LXDContainerUtils()
         self.container_image = container_image.LXDContainerImage()
 
-    def create_container(self, context, instance, image_meta, network_info, rescue,
-                         injected_files=None, admin_password=None,
-                         block_device_info=None):
-        LOG.debug('creating container')
-
-        self.create_container_profile(instance, image_meta, injected_files,
-                                      admin_password, network_info, block_device_info,
-                                      rescue)
-        container_config = self.create_container_config(context, instance, image_meta,
-                                                        injected_files, admin_password,
-                                                        network_info, block_device_info,
-                                                        rescue)
-
-        return container_config
-
     def create_container_profile(self, instance, image_meta, injected_files,
                                  admin_password, network_info, block_device_info,
                                  rescue):
@@ -63,18 +48,10 @@ class LXDContainerConfig(object):
         if rescue:
             name = '%s-rescue' % name
 
-        container_profile = {}
-        self.add_config(container_profile, 'name', name)
-        self.add_config(container_profile, 'config',
-                        {'raw.lxc':
-                         'lxc.console.logfile = %s\n'
-                         % self.container_dir.get_console_path(
-                            instance.uuid)})
-
-        self.add_config(container_profile, 'devices', {})
-        if network_info:
-            self.get_network_devices(container_profile, instance,
-                                     network_info)
+        container_profile = self._init_container_config()
+        self.add_config(container_profile, 'name', instance.uuid)
+        self.configure_profile_config(container_profile, instance)
+        self.configure_network_devices(container_profile, instance, network_info)
 
         return container_profile
 
@@ -87,47 +64,48 @@ class LXDContainerConfig(object):
         if rescue:
             name = '%s-rescue' % name
 
-        container_config = {}
-        self.add_config(container_config, 'name', name)
-        self.add_config(container_config, 'profiles',  ['%s' % name])
-
-        ''' Fetch the image from glance and configure it '''
-        self.container_image.fetch_image(context, instance)
-        self.add_config(container_config, 'source', 
-                        self.get_lxd_image(instance, image_meta))
+        container_config = self._init_container_config()
+        self.add_config(container_config, 'name', instance.uuid)
+        self.add_config(container_config, 'profiles', ['%s' % instance.uuid])
+        self.configure_lxd_image(container_config, instance, image_meta)
 
         return container_config
 
-    def get_lxd_profiles(self, instance):
-        LOG.debug('get lxd profiles')
-        profiles = []
-        return profiles.append(instance.uuid)
+    def _init_container_config(self):
+        config = {}
+        config.setdefault('config', {})
+        config.setdefault('devices', {})
+        return config
 
+    def configure_profile_config(self, container_profile, instance):
+        LOG.debug('Configure LXD profile')
 
-    def get_lxd_config(self, instance, image_meta, container_profile):
-        LOG.debug('get_lxd_limits')
-
-        flavor = instance.get_flavor()
+        ''' Set the limits. '''
+        flavor = instance.flavor
         mem = flavor.memory_mb * units.Mi
-        vpcus = flavor.vcpus
-        if vcpus >= 1:
-            self.add_value_to_config(container_profile, 'config',
-                                     {'limits.cpus': '%s' % vcpus})
+        vcpus = flavor.vcpus
         if mem >= 0:
-            self.add_value_to_config(container_profile, 'config',
-                                     {'limits.memory': '%s' % mem})
+            self.add_config(container_profile, 'config', 'limits.memory',
+                            data='%s' % mem)
+        if vcpus >= 1:
+            self.add_config(container_profile, 'config', 'limits.cpus',
+                            data='%s' % vcpus)
 
-    def get_lxd_image(self, instance, image_meta):
+        ''' Basic container configuration. '''
+        self.add_config(container_profile, 'config', 'raw.lxc',
+                        data='lxc.console.logfile=%s\n'
+                            % self.container_dir.get_console_path(instance.uuid))
+
+
+    def configure_lxd_image(self, container_config, instance, image_meta):
         LOG.debug('Getting LXD image')
 
-        img_meta_prop = image_meta.get('properties', {}) if image_meta else {}
-        img_type = img_meta_prop.get('image_type', 'default')
+        self.add_config(container_config, 'source', 
+                        {'type': 'image',
+                         'alias': instance.image_ref
+                        })
 
-        if img_type == 'default':
-            return {'type': 'image',
-                    'alias': instance.image_ref}
-
-    def get_network_devices(self, container_profile, instance, network_info):
+    def configure_network_devices(self, container_profile, instance, network_info):
         LOG.debug('Get network devices')
 
         ''' ugh this is ugly'''
@@ -137,16 +115,19 @@ class LXDContainerConfig(object):
 
             bridge = 'qbr%s' % vif_id
 
-            self.add_config(container_profile, 'devices', bridge,
+            self.add_config(container_profile, 'devices', str(bridge),
                                 {'nictype': 'bridged',
                                      'hwaddr': mac,
                                      'parent': bridge,
                                      'type': 'nic'})
 
-    def add_config(self, config, key, value, devices=None):
+    def add_config(self, config, key, value, data=None):
         if not key in config:
             config.setdefault(key, value)
-        else:
-            if key == 'devices':
-                config.setdefault('devices', {}).\
-                    setdefault(value, devices)
+        elif key == 'config':
+            config.setdefault('config', {}).\
+                setdefault(value, data)
+        elif key == 'devices':
+            config.setdefault('devices', {}).\
+                setdefault(value, data)
+        return config
