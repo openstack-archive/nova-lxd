@@ -63,7 +63,7 @@ Resume          optional    X               not applicable
 insance
 CPUs
 ----------------------------------------------------------
-Config drive    choice      X               not started
+Config drive    choice      X               complete
 support
 ----------------------------------------------------------
 inject files    optional    X               not started

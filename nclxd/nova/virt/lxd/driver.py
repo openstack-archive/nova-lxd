@@ -135,10 +135,6 @@ class LXDDriver(driver.ComputeDriver):
                       encryption=None):
         raise NotImplemented()
 
-    def swap_volume(self, old_connection_info, new_connection_info,
-                    instance, mountpoint, resize_to):
-        raise NotImplementedError()
-
     def attach_interface(self, instance, image_meta, vif):
         raise NotImplementedError()
 
@@ -290,14 +286,8 @@ class LXDDriver(driver.ComputeDriver):
     def unfilter_instance(self, instance, network_info):
         raise NotImplementedError()
 
-    def set_admin_password(self, instance, new_pass):
-        raise NotImplementedError()
-
     def inject_file(self, instance, b64_path, b64_contents):
         raise NotImplementedError()
-
-    def change_instance_metadata(self, context, instance, diff):
-        pass
 
     def inject_network_info(self, instance, nw_info):
         pass
@@ -368,13 +358,6 @@ class LXDDriver(driver.ComputeDriver):
 
     def volume_snapshot_delete(self, context, instance, volume_id,
                                snapshot_id, delete_info):
-        raise NotImplementedError()
-
-    def default_root_device_name(self, instance, image_meta, root_bdm):
-        raise NotImplementedError()
-
-    def default_device_names_for_instance(self, instance, root_device_name,
-                                          *block_device_lists):
         raise NotImplementedError()
 
     def quiesce(self, context, instance, image_meta):
