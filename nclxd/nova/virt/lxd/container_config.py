@@ -65,7 +65,7 @@ class LXDContainerConfig(object):
 
         container_profile = {}
         self.add_config(container_profile, 'name', name)
-        self.add_config(container_profile, 'config', 
+        self.add_config(container_profile, 'config',
                         {'raw.lxc':
                          'lxc.console.logfile = %s\n'
                          % self.container_dir.get_console_path(
@@ -73,10 +73,10 @@ class LXDContainerConfig(object):
 
         self.add_config(container_profile, 'devices', {})
         if network_info:
-            self.get_network_devices(container_profile, instance, 
+            self.get_network_devices(container_profile, instance,
                                      network_info)
 
-        self.container_utils.profile_create(container_profile)
+        return container_profile
 
     def create_container_config(self, context, instance, image_meta, injected_files,
                                 admin_password, network_info, block_device_info, rescue):
