@@ -45,7 +45,7 @@ class LXDContainerConfig(object):
         config.setdefault('devices', {})
         return config
 
-    def configure_profile_config(self, container_config, instance):
+    def configure_container_config(self, container_config, instance):
         LOG.debug('Configure LXD profile')
 
         ''' Set the limits. '''
