@@ -126,12 +126,12 @@ class LXDContainerConfig(object):
                            e, instance=instance)
 
     def add_config(self, config, key, value, data=None):
-        if not key in config:
-            config.setdefault(key, value)
-        elif key == 'config':
+        if key == 'config':
             config.setdefault('config', {}).\
                 setdefault(value, data)
         elif key == 'devices':
             config.setdefault('devices', {}).\
                 setdefault(value, data)
+        elif not key in config:
+            config.setdefault(key, value)
         return config
