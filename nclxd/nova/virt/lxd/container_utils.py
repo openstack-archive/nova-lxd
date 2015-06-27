@@ -94,7 +94,16 @@ class LXDContainerUtils(object):
     def init_lxd_host(self, host):
         LOG.debug('Host check')
         try:
-            return self.lxd.host_ping()
+            if not CONF.lxd.lxd_default_profile in self.lxd.profile_list():
+                msg = _('Default LXD profile is not available - %s'
+                        % CONF.lxd.lxd_default_profile)
+                raise exception.HostNotFound(msg)
+
+            if not self.lxd.host_ping():
+                msg = _('Unable to connect to LXD daemon')
+                raise exception.HostNotFound(msg)
+
+            return True
         except lxd_exceptions.APIError as ex:
             msg = _('Unable to connect to LXD daemon: %s' % ex)
             exception.HostNotFound(msg)

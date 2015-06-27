@@ -31,7 +31,10 @@ lxd_opts = [
                help='Default LXD directory'),
     cfg.IntOpt('lxd_timeout',
                default=5,
-               help='Default LXD timeout')
+               help='Default LXD timeout'),
+    cfg.StrOpt('lxd_default_profile',
+              default='nclxd-profile',
+              help='Default LXD profile')
 ]
 
 CONF = cfg.CONF
