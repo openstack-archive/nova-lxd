@@ -39,48 +39,13 @@ class LXDContainerConfig(object):
         self.container_utils = container_utils.LXDContainerUtils()
         self.container_image = container_image.LXDContainerImage()
 
-    def create_container_profile(self, instance, image_meta, injected_files,
-                                 admin_password, network_info, block_device_info,
-                                 rescue):
-        LOG.debug('Creating profile config')
-
-        name = instance.uuid
-        if rescue:
-            name = '%s-rescue' % name
-
-        container_profile = self._init_container_config()
-        self.add_config(container_profile, 'name', instance.uuid)
-        self.configure_profile_config(container_profile, instance)
-
-        ''' Configure devices '''
-        if network_info:
-            self.configure_network_devices(container_profile, instance, network_info)
-
-        return container_profile
-
-    def create_container_config(self, context, instance, image_meta, injected_files,
-                                admin_password, network_info, block_device_info, rescue):
-        LOG.debug('Creating container config')
-
-        ''' Generate the initial config '''
-        name = instance.uuid
-        if rescue:
-            name = '%s-rescue' % name
-
-        container_config = self._init_container_config()
-        self.add_config(container_config, 'name', instance.uuid)
-        self.add_config(container_config, 'profiles', ['%s' % instance.uuid])
-        self.configure_lxd_image(container_config, instance, image_meta)
-
-        return container_config
-
     def _init_container_config(self):
         config = {}
         config.setdefault('config', {})
         config.setdefault('devices', {})
         return config
 
-    def configure_profile_config(self, container_profile, instance):
+    def configure_profile_config(self, container_config, instance):
         LOG.debug('Configure LXD profile')
 
         ''' Set the limits. '''
@@ -88,14 +53,14 @@ class LXDContainerConfig(object):
         mem = flavor.memory_mb * units.Mi
         vcpus = flavor.vcpus
         if mem >= 0:
-            self.add_config(container_profile, 'config', 'limits.memory',
+            self.add_config(container_config, 'config', 'limits.memory',
                             data='%s' % mem)
         if vcpus >= 1:
-            self.add_config(container_profile, 'config', 'limits.cpus',
+            self.add_config(container_config, 'config', 'limits.cpus',
                             data='%s' % vcpus)
 
         ''' Basic container configuration. '''
-        self.add_config(container_profile, 'config', 'raw.lxc',
+        self.add_config(container_config, 'config', 'raw.lxc',
                         data='lxc.console.logfile=%s\n'
                             % self.container_dir.get_console_path(instance.uuid))
 
@@ -108,7 +73,7 @@ class LXDContainerConfig(object):
                          'alias': instance.image_ref
                         })
 
-    def configure_network_devices(self, container_profile, instance, network_info):
+    def configure_network_devices(self, container_config, instance, network_info):
         LOG.debug('Get network devices')
 
         ''' ugh this is ugly'''
@@ -118,22 +83,22 @@ class LXDContainerConfig(object):
 
             bridge = 'qbr%s' % vif_id
 
-            self.add_config(container_profile, 'devices', str(bridge),
+            self.add_config(container_config, 'devices', str(bridge),
                                 {'nictype': 'bridged',
                                      'hwaddr': mac,
                                      'parent': bridge,
                                      'type': 'nic'})
 
-    def configure_disk_path(self, container_profile, vfs_type, instance):
+    def configure_disk_path(self, container_config, vfs_type, instance):
         LOG.debug('Create disk path')
         config_drive = \
             self.container_dir.get_container_configdirve(instance.uuid)
-        self.add_config(container_profile, 'devices', str(vfs_type),
+        self.add_config(container_config, 'devices', str(vfs_type),
                         data={'path': 'mnt',
                               'source': config_drive,
                               'type': 'disk'})
 
-    def configure_container_configdrive(self, container_profile, instance, injected_files,
+    def configure_container_configdrive(self, container_config, instance, injected_files,
                                         admin_password):
         LOG.debug('Crate config drive')
         if CONF.config_drive_format not in ('fs', None):
@@ -153,7 +118,7 @@ class LXDContainerConfig(object):
                 container_configdrive = \
                     self.container_dir.get_container_configdirve(name)
                 cdb.make_drive(container_configdrive)
-                self.configure_disk_path(container_profile, 'configdrive',
+                self.configure_disk_path(container_config, 'configdrive',
                                          instance)
         except Exception as e:
             with excutils.save_and_reraise_exception():

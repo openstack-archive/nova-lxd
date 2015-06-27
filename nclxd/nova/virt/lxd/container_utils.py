@@ -193,7 +193,6 @@ class LXDContainerUtils(object):
         container_dir = self.container_dir.get_instance_dir(instance.uuid)
         if os.path.exists(container_dir):
             shutil.rmtree(container_dir)
-        self.profile_delete(instance.uuid)
 
     def container_info(self, instance):
         LOG.debug('container info')
@@ -231,23 +230,6 @@ class LXDContainerUtils(object):
             else:
                 msg = _('Failed to reboot container: %s' % ex)
                 raise exception.NovaException(msg)
-
-    def profile_create(self, instance):
-        LOG.debug('profile create')
-        try:
-            return self.lxd.profile_create(instance)
-        except lxd_exceptions.APIError as ex:
-            msg = _('Failed to create profile: %s' % ex)
-            raise exception.NovaException(msg)
-        
-
-    def profile_delete(self, instance):
-        LOG.debug('profile delete')
-        try:
-            return self.lxd.profile_delete(instance)
-        except lxd_exceptions.APIError as ex:
-            msg = _('Failed to delete profile: %s' % ex)
-            raise exception.NovaException(msg)
 
     def wait_for_container(self, oid):
         if not oid:

@@ -99,37 +99,12 @@ class LXDContainerOperations(object):
             raise exception.NovaException(msg)
 
 
-        container_profile = self.container_config.create_container_profile(instance, image_meta,
-                                                                           injected_files,admin_password,
-                                                                           network_info,
-                                                                           block_device_info,
-                                                                           rescue)
-
-        container_config = self.container_config.create_container_config(context,
-                                                                  instance, image_meta,
-                                                                  network_info,
-                                                                  rescue,
-                                                                  injected_files,
-                                                                  admin_password,
-                                                                  block_device_info)
         if configdrive.required_by(instance):
-            self.container_config.configure_container_configdrive(container_profile,
+            self.container_config.configure_container_configdrive(container_config,
                                                                   instance, injected_files,
                                                                   admin_password)
 
-        self._create_instance(container_profile, container_config)
         self.start_instance(instance, network_info, rescue=False)
-
-    def _create_instance(self, container_profile, container_config):
-        LOG.debug('Initializing container')
-        try:
-            LOG.debug(container_profile)
-            LOG.debug(container_config)
-            self.container_utils.profile_create(container_profile)
-            self.container_utils.container_init(container_config)
-        except Exception as ex:
-            msg = _("Failed to initialize container: %s" % ex)
-            raise exception.NovaException(msg)
 
     def start_instance(self, instance, network_info, rescue):
         LOG.debug('Staring instance')
