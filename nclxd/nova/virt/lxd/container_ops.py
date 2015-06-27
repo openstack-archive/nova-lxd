@@ -15,6 +15,7 @@
 #    under the License.
 
 import os
+import pprint
 import pwd
 
 from oslo_config import cfg
@@ -98,11 +99,25 @@ class LXDContainerOperations(object):
             msg = _('Ephemeral block devices is not supported.')
             raise exception.NovaException(msg)
 
+        container_config = self.container_config.configure_container(context,
+                instance, network_info, image_meta)
+
+        LOG.debug(pprint.pprint(container_config))
+        self.container_utils.container_init(container_config)
 
         if configdrive.required_by(instance):
-            self.container_config.configure_container_configdrive(container_config,
-                                                                  instance, injected_files,
-                                                                  admin_password)
+            container_configdrive = self.container_config.configure_container_configdrive(
+                                            container_config,
+                                            instance, injected_files,
+                                            admin_password)
+            LOG.debug(pprint.pprint(container_configdrive))
+            self.continaer_utils.container_update(instance.uuid, containe_configdrive)
+
+        if network_info:
+            container_network_devices = self.container_config.configure_network_devices(
+                                    container_config, instance, network_info)
+            LOG.debug(pprint.pprint(container_network_devices))
+            self.container_utils.container_update(instance.uuid, container_network_devices)
 
         self.start_instance(instance, network_info, rescue=False)
 

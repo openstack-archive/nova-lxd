@@ -45,8 +45,27 @@ class LXDContainerConfig(object):
         config.setdefault('devices', {})
         return config
 
+    def configure_container(self, context, instance, network_info, image_meta,
+                            rescue=None):
+        LOG.debug('Creating LXD container')
+
+        container_config = self._init_container_config()
+        container_config = self.add_config(container_config, 'name', 
+                                           instance.uuid)
+        container_config = self.add_config(container_config, 'profiles',
+                                           ['%s' % CONF.lxd.lxd_default_profile])
+        container_config = self.configure_container_config(container_config, instance)
+
+        ''' Create an LXD image '''
+        self.container_image.fetch_image(context, instance)
+        container_config = self.add_config(container_config, 'source',
+                                self.configure_lxd_image(container_config,
+                                    instance, image_meta))
+
+        return container_config
+
     def configure_container_config(self, container_config, instance):
-        LOG.debug('Configure LXD profile')
+        LOG.debug('Configure LXD container')
 
         ''' Set the limits. '''
         flavor = instance.flavor
@@ -63,6 +82,7 @@ class LXDContainerConfig(object):
         self.add_config(container_config, 'config', 'raw.lxc',
                         data='lxc.console.logfile=%s\n'
                             % self.container_dir.get_console_path(instance.uuid))
+        return container_config
 
 
     def configure_lxd_image(self, container_config, instance, image_meta):
@@ -70,8 +90,9 @@ class LXDContainerConfig(object):
 
         self.add_config(container_config, 'source', 
                         {'type': 'image',
-                         'alias': instance.image_ref
+                         'alias': str(instance.image_ref)
                         })
+        return container_config
 
     def configure_network_devices(self, container_config, instance, network_info):
         LOG.debug('Get network devices')
@@ -83,11 +104,13 @@ class LXDContainerConfig(object):
 
             bridge = 'qbr%s' % vif_id
 
-            self.add_config(container_config, 'devices', str(bridge),
-                                {'nictype': 'bridged',
-                                     'hwaddr': mac,
-                                     'parent': bridge,
-                                     'type': 'nic'})
+            self.add_config(container_config, 'devices', bridge,
+                                data={'nictype': 'bridged',
+                                      'hwaddr': mac,
+                                      'parent': bridge,
+                                      'type': 'nic'})
+
+        return container_config
 
     def configure_disk_path(self, container_config, vfs_type, instance):
         LOG.debug('Create disk path')
@@ -97,6 +120,7 @@ class LXDContainerConfig(object):
                         data={'path': 'mnt',
                               'source': config_drive,
                               'type': 'disk'})
+        return container_config 
 
     def configure_container_configdrive(self, container_config, instance, injected_files,
                                         admin_password):
@@ -118,12 +142,14 @@ class LXDContainerConfig(object):
                 container_configdrive = \
                     self.container_dir.get_container_configdirve(name)
                 cdb.make_drive(container_configdrive)
-                self.configure_disk_path(container_config, 'configdrive',
+                container_config = self.configure_disk_path(container_config, 'configdrive',
                                          instance)
         except Exception as e:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Creating config drive failed with error: %s'),
                            e, instance=instance)
+
+        return container_config
 
     def add_config(self, config, key, value, data=None):
         if key == 'config':

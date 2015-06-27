@@ -211,6 +211,14 @@ class LXDContainerUtils(object):
             msg = _('Failed to destroy container: %s' % ex)
             raise exception.NovaException(msg)
 
+    def container_update(self, instance, config):
+        LOG.debug('Updating container')
+        try:
+            return self.lxd.container_update(instance, config)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to update container: %s' % ex)
+            raise exception.NovaException(msg)
+
     def container_defined(self, instance):
         LOG.debug('container defined')
         try:
