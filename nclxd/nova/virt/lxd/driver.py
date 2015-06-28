@@ -80,13 +80,6 @@ class LXDDriver(driver.ComputeDriver):
     def list_instance_uuids(self):
         return self.container_ops.list_instances()
 
-    def rebuild(self, context, instance, image_meta, injected_files,
-                admin_password, bdms, detach_block_devices,
-                attach_block_devices, network_info=None,
-                recreate=False, block_device_info=None,
-                preserve_ephemeral=False):
-        raise NotImplementedError()
-
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
         return self.container_ops.spawn(context, instance, image_meta,
@@ -197,9 +190,6 @@ class LXDDriver(driver.ComputeDriver):
                                            block_device_info)
 
     def soft_delete(self, instance):
-        raise NotImplementedError()
-
-    def restore(self, instance):
         raise NotImplementedError()
 
     def get_available_resource(self, nodename):
