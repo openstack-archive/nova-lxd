@@ -73,6 +73,8 @@ class LXDContainerOperations(object):
         LOG.debug(msg, instance=instance)
 
         name = instance.uuid
+        if rescue:
+            name = name_label
         if self.container_utils.container_defined(name):
             raise exception.InstanceExists(instance=name)
 
@@ -131,7 +133,7 @@ class LXDContainerOperations(object):
         LOG.debug('Staring instance')
         name = instance.uuid
         if rescue:
-            name = '%s-rescue'
+            name = '%s-rescue' % instance.uuid
 
         timeout = CONF.vif_plugging_timeout
         # check to see if neutron is ready before
@@ -193,10 +195,19 @@ class LXDContainerOperations(object):
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
-        pass
+        LOG.debug('Container rescue')
+        self.container_utils.container_stop(instance.uuid)
+        rescue_name_label = '%s-rescue' % instance.uuid
+        if self.container_utils.container_defined(rescue_name_label):
+            msg = _('Instace is arleady in Rescue mode: %s' 
+                     % instance.uuid)
+            raise exception.NovaException(msg)
+        self.spawn(context, instance, image_meta, [], rescue_password,
+                   network_info, name_label=rescue_name_label, rescue=True)
 
     def unrescue(self, instance, network_info):
-        pass
+        LOG.debug('Conainer unrescue')
+        self.container_utils.contianer_start(instance.uuid)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):

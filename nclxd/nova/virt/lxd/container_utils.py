@@ -134,6 +134,7 @@ class LXDContainerUtils(object):
 
     def container_start(self, instance):
         LOG.debug('container start')
+        LOG.info(_('!!! %s') % instance)
         try:
             return self.lxd.container_start(instance,
                                             CONF.lxd.lxd_timeout)
