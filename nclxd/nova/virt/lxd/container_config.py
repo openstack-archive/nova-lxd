@@ -46,12 +46,16 @@ class LXDContainerConfig(object):
         return config
 
     def configure_container(self, context, instance, network_info, image_meta,
-                            rescue=None):
+                            name_label=None, rescue=False):
         LOG.debug('Creating LXD container')
+
+        name = instance.uuid
+        if rescue:
+            name = name_label
 
         container_config = self._init_container_config()
         container_config = self.add_config(container_config, 'name', 
-                                           instance.uuid)
+                                           name)
         container_config = self.add_config(container_config, 'profiles',
                                            ['%s' % CONF.lxd.lxd_default_profile])
         container_config = self.configure_container_config(container_config, instance)

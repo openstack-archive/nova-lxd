@@ -59,7 +59,8 @@ class LXDContainerOperations(object):
         return self.container_utils.list_containers()
 
     def spawn(self, context, instance, image_meta, injected_files,
-              admin_password, network_info=None, block_device_info=None):
+              admin_password, network_info=None, block_device_info=None,
+              name_label=None, rescue=False):
         msg = ('Spawning container '
                'network_info=%(network_info)s '
                'image_meta=%(image_meta)s '
@@ -72,20 +73,25 @@ class LXDContainerOperations(object):
         LOG.debug(msg, instance=instance)
 
         name = instance.uuid
-        if self.container_utils.container_defined(instance.uuid):
+        if self.container_utils.container_defined(name):
             raise exception.InstanceExists(instance=name)
 
         self.create_instance(context, instance, image_meta, injected_files,
                              admin_password, network_info, block_device_info,
-                             rescue=False)
+                             name_label, rescue)
 
     def create_instance(self, context, instance, image_meta, injected_files,
-                        admin_password, network_info, block_device_info, rescue):
+                        admin_password, network_info, block_device_info, 
+                        name_label=None, rescue=False):
         LOG.debug('Creating instance')
+
+        name = instance.uuid
+        if rescue:
+            name = name_label
 
         # Ensure the directory exists and is writable
         fileutils.ensure_tree(
-            self.container_dir.get_instance_dir(instance.uuid))
+            self.container_dir.get_instance_dir(name))
 
         # Check to see if we are using swap.
         swap = driver.block_device_info_get_swap(block_device_info)
@@ -100,7 +106,7 @@ class LXDContainerOperations(object):
             raise exception.NovaException(msg)
 
         container_config = self.container_config.configure_container(context,
-                instance, network_info, image_meta)
+                instance, network_info, image_meta, name_label, rescue)
 
         LOG.debug(pprint.pprint(container_config))
         self.container_utils.container_init(container_config)
@@ -111,17 +117,17 @@ class LXDContainerOperations(object):
                                             instance, injected_files,
                                             admin_password)
             LOG.debug(pprint.pprint(container_configdrive))
-            self.contianer_utils.container_update(instance.uuid, containe_configdrive)
+            self.contianer_utils.container_update(name, containe_configdrive)
 
         if network_info:
             container_network_devices = self.container_config.configure_network_devices(
                                     container_config, instance, network_info)
             LOG.debug(pprint.pprint(container_network_devices))
-            self.container_utils.container_update(instance.uuid, container_network_devices)
+            self.container_utils.container_update(name, container_network_devices)
 
-        self.start_instance(instance, network_info, rescue=False)
+        self.start_instance(instance, network_info, rescue)
 
-    def start_instance(self, instance, network_info, rescue):
+    def start_instance(self, instance, network_info, rescue=False):
         LOG.debug('Staring instance')
         name = instance.uuid
         if rescue:
