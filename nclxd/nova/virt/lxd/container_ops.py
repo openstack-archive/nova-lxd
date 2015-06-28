@@ -111,7 +111,7 @@ class LXDContainerOperations(object):
                                             instance, injected_files,
                                             admin_password)
             LOG.debug(pprint.pprint(container_configdrive))
-            self.continaer_utils.container_update(instance.uuid, containe_configdrive)
+            self.contianer_utils.container_update(instance.uuid, containe_configdrive)
 
         if network_info:
             container_network_devices = self.container_config.configure_network_devices(
