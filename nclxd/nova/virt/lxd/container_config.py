@@ -49,7 +49,7 @@ class LXDContainerConfig(object):
                             name_label=None, rescue=False):
         LOG.debug('Creating LXD container')
 
-        name = instance.uuid
+        name = instance.name
         if rescue:
             name = name_label
 
@@ -65,6 +65,7 @@ class LXDContainerConfig(object):
         container_config = self.add_config(container_config, 'source',
                                 self.configure_lxd_image(container_config,
                                     instance, image_meta))
+
 
         return container_config
 
@@ -85,9 +86,8 @@ class LXDContainerConfig(object):
         ''' Basic container configuration. '''
         self.add_config(container_config, 'config', 'raw.lxc',
                         data='lxc.console.logfile=%s\n'
-                            % self.container_dir.get_console_path(instance.uuid))
+                            % self.container_dir.get_console_path(instance.name))
         return container_config
-
 
     def configure_lxd_image(self, container_config, instance, image_meta):
         LOG.debug('Getting LXD image')
@@ -119,16 +119,26 @@ class LXDContainerConfig(object):
     def configure_disk_path(self, container_config, vfs_type, instance):
         LOG.debug('Create disk path')
         config_drive = \
-            self.container_dir.get_container_configdirve(instance.uuid)
+            self.container_dir.get_container_configdirve(instance.name)
         self.add_config(container_config, 'devices', str(vfs_type),
                         data={'path': 'mnt',
                               'source': config_drive,
                               'type': 'disk'})
         return container_config 
 
+    def configure_container_rescuedisk(self, container_config, instance):
+        LOG.debug('Create rescue disk')
+        rescue_path = \
+            self.container_dir.get_container_rootfs(instance.name)
+        self.add_config(container_config, 'devices', 'rescue',
+                        data={'path': 'mnt',
+                              'source': rescue_path,
+                              'type': 'disk'})
+        return container_config
+
     def configure_container_configdrive(self, container_config, instance, injected_files,
                                         admin_password):
-        LOG.debug('Crate config drive')
+        LOG.debug('Create config drive')
         if CONF.config_drive_format not in ('fs', None):
             msg = _('Invalid config drive format: %s' 
                      % CONF.config_drive_format)
@@ -140,7 +150,7 @@ class LXDContainerConfig(object):
         inst_md = instance_metadata.InstanceMetadata(instance,
                                                          content=injected_files,
                                                          extra_md=extra_md)
-        name = instance.uuid
+        name = instance.name
         try:
             with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
                 container_configdrive = \
