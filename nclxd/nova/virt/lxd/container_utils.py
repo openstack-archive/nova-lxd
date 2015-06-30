@@ -40,7 +40,7 @@ LXD_POWER_STATES = {
     'FROZEN': power_state.SUSPENDED,
     'THAWED': power_state.PAUSED,
     'PENDING': power_state.NOSTATE,
-    'Success': power_state.NOSTATE,
+    'Success': power_state.RUNNING,
     'UNKNOWN': power_state.NOSTATE
 }
 
