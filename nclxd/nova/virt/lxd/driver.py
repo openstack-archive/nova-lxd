@@ -23,6 +23,7 @@ from nova.i18n import _
 from nova.virt import driver
 
 import container_ops
+import container_snapshot
 import host
 
 lxd_opts = [
@@ -57,6 +58,7 @@ class LXDDriver(driver.ComputeDriver):
         self.virtapi = virtapi
 
         self.container_ops = container_ops.LXDContainerOperations(virtapi)
+        self.container_snapshot = container_snapshot.LXDSnapshot()
         self.host = host.LXDHost()
 
     def init_host(self, host):
@@ -144,7 +146,8 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def snapshot(self, context, instance, image_id, update_task_state):
-        raise NotImplementedError()
+        return self.container_snapshot.snapshot(context, instance, image_id,
+                                    update_task_state)
 
     def post_interrupted_snapshot_cleanup(self, context, instance):
         pass

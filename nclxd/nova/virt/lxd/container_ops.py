@@ -31,6 +31,7 @@ from nova.virt import hardware
 from nova import utils
 
 import container_config
+import container_image
 import container_utils
 import vif
 
@@ -50,6 +51,7 @@ class LXDContainerOperations(object):
         self.container_config = container_config.LXDContainerConfig()
         self.container_utils = container_utils.LXDContainerUtils()
         self.container_dir = container_utils.LXDContainerDirectories()
+        self.container_image = container_image.LXDContainerImage()
         self.vif_driver = vif.LXDGenericDriver()
 
     def init_host(self, host):

@@ -25,6 +25,7 @@ from pylxd import exceptions as lxd_exceptions
 
 from nova.i18n import _
 from nova.openstack.common import fileutils
+from nova.compute import task_states
 from nova import image
 from nova import exception
 from nova import utils
@@ -85,6 +86,13 @@ class LXDContainerImage(object):
             except lxd_exceptions.APIError:
                 raise exception.ImageUnacceptable(image_id=instance.image_ref,
                                                   reason=_('Image already exists.'))
+
+    def _save_glance_image(self, context, iamge_id, data):
+        image_metadata = {"is_public": False,
+                          "disk_format": "raw",
+                          "container_format": "bare",
+                          "properties": {}}
+        IMAGE_API.upate(context, image_id, image_metadata, data)
 
     def get_container_image_md5(self, instance):
         container_image = self.container_dir.get_container_image(instance)
