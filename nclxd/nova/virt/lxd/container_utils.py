@@ -58,9 +58,9 @@ class LXDContainerDirectories(object):
         return os.path.join(CONF.instances_path,
                             instance)
 
-    def get_container_image(self, instance):
+    def get_container_image(self, image_meta):
         return os.path.join(self.base_dir,
-                            '%s.tar.gz' % instance.image_ref)
+                            '%s.tar.gz' % image_meta.get('name'))
 
     def get_container_configdirve(self, instance):
         return os.path.join(CONF.instances_path,

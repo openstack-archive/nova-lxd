@@ -44,14 +44,19 @@ class LXDContainerImage(object):
         self.lxd = api.API()
         self.container_dir = container_utils.LXDContainerDirectories()
 
-    def fetch_image(self, context, instance):
+    def fetch_image(self, context, instance, image_meta):
         LOG.debug("Downloading image file data %(image_ref)s to LXD",
                   {'image_ref': instance.image_ref})
+        
+        image_name = image_meta.get('name')
+        if image_name in self.lxd.alias_list():
+            return
+
         base_dir = self.container_dir.get_base_dir()
         if not os.path.exists(base_dir):
             fileutils.ensure_tree(base_dir)
 
-        container_image = self.container_dir.get_container_image(instance)
+        container_image = self.container_dir.get_container_image(image_meta)
         if os.path.exists(container_image):
             return
 
@@ -78,8 +83,8 @@ class LXDContainerImage(object):
                     reason=_('Image failed to upload: %s' % e))
 
             try:
-                alias_config = {'name': instance.image_ref,
-                                'target': self.get_container_image_md5(instance)
+                alias_config = {'name': image_name,
+                                'target': self.get_container_image_md5(image_meta)
                                 }
                 LOG.debug('Creating alias: %s' % alias_config)
                 self.lxd.alias_create(alias_config)
@@ -87,14 +92,7 @@ class LXDContainerImage(object):
                 raise exception.ImageUnacceptable(image_id=instance.image_ref,
                                                   reason=_('Image already exists.'))
 
-    def _save_glance_image(self, context, iamge_id, data):
-        image_metadata = {"is_public": False,
-                          "disk_format": "raw",
-                          "container_format": "bare",
-                          "properties": {}}
-        IMAGE_API.upate(context, image_id, image_metadata, data)
-
-    def get_container_image_md5(self, instance):
-        container_image = self.container_dir.get_container_image(instance)
+    def get_container_image_md5(self, image_meta):
+        container_image = self.container_dir.get_container_image(image_meta)
         with open(container_image, 'rb') as fd:
             return hashlib.sha256(fd.read()).hexdigest()

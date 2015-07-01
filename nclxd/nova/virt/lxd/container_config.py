@@ -61,7 +61,7 @@ class LXDContainerConfig(object):
         container_config = self.configure_container_config(container_config, instance)
 
         ''' Create an LXD image '''
-        self.container_image.fetch_image(context, instance)
+        self.container_image.fetch_image(context, instance, image_meta)
         container_config = self.add_config(container_config, 'source',
                                 self.configure_lxd_image(container_config,
                                     instance, image_meta))
@@ -94,7 +94,7 @@ class LXDContainerConfig(object):
 
         self.add_config(container_config, 'source', 
                         {'type': 'image',
-                         'alias': str(instance.image_ref)
+                         'alias': str(image_meta.get('name'))
                         })
         return container_config
 

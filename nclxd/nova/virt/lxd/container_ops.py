@@ -243,7 +243,7 @@ class LXDContainerOperations(object):
         utils.execute('chown', '%s:%s' % (uid, uid),
                       console_log, run_as_root=True)
         utils.execute('chmod', '755',
-                      self.container_dir.get_container_dir(instance.uuid),
+                      self.container_dir.get_container_dir(instance.name),
                       run_as_root=True)
         with open(console_log, 'rb') as fp:
             log_data, remaning = utils.last_bytes(fp,
