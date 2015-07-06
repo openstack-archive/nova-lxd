@@ -22,7 +22,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from pylxd import api
 
-import container_utils
+from nclxd.nova.virt.lxd import container_utils
 
 _ = i18n._
 

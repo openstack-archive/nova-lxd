@@ -21,9 +21,9 @@ from nova.virt import driver
 from oslo_config import cfg
 from oslo_log import log as logging
 
-import container_ops
-import container_snapshot
-import host
+from nclxd.nova.virt.lxd import container_ops
+from nclxd.nova.virt.lxd import container_snapshot
+from nclxd.nova.virt.lxd import host
 
 _ = i18n._
 

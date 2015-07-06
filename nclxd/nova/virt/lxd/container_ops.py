@@ -29,10 +29,10 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import units
 
-import container_config
-import container_image
-import container_utils
-import vif
+from nclxd.nova.virt.lxd import container_config
+from nclxd.nova.virt.lxd import container_image
+from nclxd.nova.virt.lxd import container_utils
+from nclxd.nova.virt.lxd import vif
 
 _ = i18n._
 _LE = i18n._LE

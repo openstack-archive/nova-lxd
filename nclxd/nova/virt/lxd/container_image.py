@@ -26,7 +26,7 @@ from oslo_log import log as logging
 from pylxd import api
 from pylxd import exceptions as lxd_exceptions
 
-import container_utils
+from nclxd.nova.virt.lxd import container_utils
 
 _ = i18n._
 
