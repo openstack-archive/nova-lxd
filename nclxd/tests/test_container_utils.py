@@ -28,24 +28,25 @@ class LXDTestContainerDirectory(test.NoDBTestCase):
     def test_get_container_dir(self):
         instance = fake_instance.fake_instance_obj(None, name='fake_inst',
                                                   uuid='fake_uuid')
-        path = self.container_dir.get_container_dir(instance)
+        path = self.container_dir.get_container_dir(instance.uuid)
         expected_path = os.path.join(CONF.instances_path,
                                      instance.uuid)
         self.assertEqual(expected_path, path)
 
     def test_get_container_image(self):
-        instance = fake_instance.fake_instance_obj(None, name='fake_inst',
-                                                  uuid='fake_uuid')
-        path = self.container_dir.get_container_image(instance)
+        image_meta = {
+            'name': 'fake_image'
+        }
+        path = self.container_dir.get_container_image(image_meta)
         expected_path = os.path.join(CONF.instances_path,
                                       CONF.image_cache_subdirectory_name,
-                                      '%s.tar.gz' % instance.image_ref)
+                                      '%s.tar.gz' % image_meta.get('name'))
         self.assertEqual(expected_path, path)
 
     def test_get_container_configdrive(self):
         instance = fake_instance.fake_instance_obj(None, name='fake_inst',
                                                   uuid='fake_uuid')
-        path = self.container_dir.get_container_configdirve(instance)
+        path = self.container_dir.get_container_configdirve(instance.uuid)
         expected_path = os.path.join(CONF.instances_path,
                                      instance.uuid,
                                      'config-drive')
@@ -54,7 +55,7 @@ class LXDTestContainerDirectory(test.NoDBTestCase):
     def test_get_console_path(self):
         instance = fake_instance.fake_instance_obj(None, name='fake_inst',
                                                   uuid='fake_uuid')
-        path = self.container_dir.get_console_path(instance)
+        path = self.container_dir.get_console_path(instance.uuid)
         expected_path = os.path.join(CONF.lxd.lxd_root_dir,
                                      'lxc',
                                       instance.uuid,
@@ -64,7 +65,7 @@ class LXDTestContainerDirectory(test.NoDBTestCase):
     def test_get_container_dir(self):
         instance = fake_instance.fake_instance_obj(None, name='fake_inst',
                                                   uuid='fake_uuid')
-        path = self.container_dir.get_container_dir(instance)
+        path = self.container_dir.get_container_dir(instance.uuid)
         expected_path = os.path.join(CONF.lxd.lxd_root_dir,
                                      'lxc',
                                      instance.uuid)
@@ -73,7 +74,7 @@ class LXDTestContainerDirectory(test.NoDBTestCase):
     def test_get_container_rootfs(self):
         instance = fake_instance.fake_instance_obj(None, name='fake_inst',
                                                   uuid='fake_uuid')
-        path = self.container_dir.get_container_rootfs(instance)
+        path = self.container_dir.get_container_rootfs(instance.uuid)
         expected_path = os.path.join(CONF.lxd.lxd_root_dir,
                                      'lxc',
                                      instance.uuid,
@@ -86,8 +87,10 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         self.container_utils = container_utils.LXDContainerUtils()
 
     @mock.patch.object(pylxd.api.API, 'host_ping')
-    def test_init_lxd_host(self, mock_ping):
+    @mock.patch.object(pylxd.api.API, 'profile_list')
+    def test_init_lxd_host(self, mock_profile, mock_ping):
         mock_ping.return_value = True
+        mock_profile.return_value = ['nclxd-profile']
         self.assertTrue(self.container_utils.init_lxd_host("fakehost"))
 
     @mock.patch.object(pylxd.api.API, 'container_list')
