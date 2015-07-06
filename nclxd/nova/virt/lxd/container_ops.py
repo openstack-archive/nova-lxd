@@ -18,11 +18,6 @@ import os
 import pprint
 import pwd
 
-from oslo_config import cfg
-from oslo_log import log as logging
-from oslo_utils import units
-import vif
-
 from nova import exception
 from nova import i18n
 from nova.openstack.common import fileutils
@@ -30,10 +25,14 @@ from nova import utils
 from nova.virt import configdrive
 from nova.virt import driver
 from nova.virt import hardware
+from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_utils import units
 
 import container_config
 import container_image
 import container_utils
+import vif
 
 _ = i18n._
 _LE = i18n._LE

@@ -17,15 +17,14 @@
 import hashlib
 import os
 
-from oslo_config import cfg
-from oslo_log import log as logging
-from pylxd import api
-from pylxd import exceptions as lxd_exceptions
-
 from nova import exception
 from nova import i18n
 from nova import image
 from nova.openstack.common import fileutils
+from oslo_config import cfg
+from oslo_log import log as logging
+from pylxd import api
+from pylxd import exceptions as lxd_exceptions
 
 import container_utils
 

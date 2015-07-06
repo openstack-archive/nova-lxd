@@ -13,10 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo_config import cfg
-
 from nova import test
 from nova.virt import fake
+from oslo_config import cfg
 
 from nclxd.nova.virt.lxd import driver
 

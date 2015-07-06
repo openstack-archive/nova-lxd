@@ -21,11 +21,6 @@
 import os
 import platform
 
-from oslo_config import cfg
-from oslo_log import log as logging
-from oslo_serialization import jsonutils
-from oslo_utils import units
-
 from nova.compute import arch
 from nova.compute import hv_type
 from nova.compute import utils as compute_utils
@@ -33,7 +28,10 @@ from nova.compute import vm_mode
 from nova import exception
 from nova import i18n
 from nova import utils
-
+from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_serialization import jsonutils
+from oslo_utils import units
 import psutil
 from pylxd import api
 

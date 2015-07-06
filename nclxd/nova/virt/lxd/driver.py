@@ -16,11 +16,10 @@
 
 import socket
 
-from oslo_config import cfg
-from oslo_log import log as logging
-
 from nova import i18n
 from nova.virt import driver
+from oslo_config import cfg
+from oslo_log import log as logging
 
 import container_ops
 import container_snapshot

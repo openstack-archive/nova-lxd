@@ -14,14 +14,13 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.from oslo_config import cfg
 
-from oslo_config import cfg
-from oslo_log import log as logging
-from pylxd import api
-
 from nova.compute import task_states
 from nova import exception
 from nova import i18n
 from nova import image
+from oslo_config import cfg
+from oslo_log import log as logging
+from pylxd import api
 
 import container_utils
 

@@ -16,12 +16,10 @@
 import os
 
 import mock
-from oslo_config import cfg
-
 from nova.compute import power_state
 from nova import test
 from nova.tests.unit import fake_instance
-
+from oslo_config import cfg
 import pylxd
 
 from nclxd.nova.virt.lxd import container_utils

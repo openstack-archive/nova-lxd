@@ -14,15 +14,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from oslo.utils import excutils
-from oslo_config import cfg
-from oslo_log import log as logging
-from oslo_utils import units
-
 from nova.api.metadata import base as instance_metadata
 from nova import exception
 from nova import i18n
 from nova.virt import configdrive
+from oslo.utils import excutils
+from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_utils import units
 
 import container_image
 import container_utils
