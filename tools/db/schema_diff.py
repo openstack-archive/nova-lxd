@@ -45,12 +45,12 @@ from __future__ import print_function
 
 import datetime
 import glob
+from nova import i18n
 import os
 import subprocess
 import sys
 
-from nova.i18n import _
-
+_ = i18n._
 
 # Dump
 
@@ -90,6 +90,7 @@ def diff_files(filename1, filename2):
 
 
 class Mysql(object):
+
     def create(self, name):
         subprocess.check_call(['mysqladmin', '-u', 'root', 'create', name])
 
@@ -98,12 +99,13 @@ class Mysql(object):
 
     def dump(self, name, dump_filename):
         subprocess.check_call(
-                'mysqldump -u root %(name)s > %(dump_filename)s'
-                % {'name': name, 'dump_filename': dump_filename},
-                shell=True)
+            'mysqldump -u root %(name)s > %(dump_filename)s'
+            % {'name': name, 'dump_filename': dump_filename},
+            shell=True)
 
 
 class Postgresql(object):
+
     def create(self, name):
         subprocess.check_call(['createdb', name])
 
@@ -112,9 +114,9 @@ class Postgresql(object):
 
     def dump(self, name, dump_filename):
         subprocess.check_call(
-                'pg_dump %(name)s > %(dump_filename)s'
-                % {'name': name, 'dump_filename': dump_filename},
-                shell=True)
+            'pg_dump %(name)s > %(dump_filename)s'
+            % {'name': name, 'dump_filename': dump_filename},
+            shell=True)
 
 
 def _get_db_driver_class(db_url):
@@ -136,7 +138,7 @@ def _migrate(db_url, migration_version):
     # NOTE(sirp): sqlalchemy-migrate currently cannot handle the skipping of
     # migration numbers.
     _migrate_cmd(
-            db_url, 'version_control', str(earliest_version - 1))
+        db_url, 'version_control', str(earliest_version - 1))
 
     upgrade_cmd = ['upgrade']
     if migration_version != 'latest':

@@ -21,19 +21,23 @@ import pwd
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import units
+import vif
 
-from nova.i18n import _, _LW
 from nova import exception
+from nova import i18n
 from nova.openstack.common import fileutils
+from nova import utils
 from nova.virt import configdrive
 from nova.virt import driver
 from nova.virt import hardware
-from nova import utils
 
 import container_config
 import container_image
 import container_utils
-import vif
+
+_ = i18n._
+_LE = i18n._LE
+_LW = i18n._LW
 
 CONF = cfg.CONF
 CONF.import_opt('vif_plugging_timeout', 'nova.virt.driver')
@@ -85,7 +89,7 @@ class LXDContainerOperations(object):
                              name_label, rescue)
 
     def create_instance(self, context, instance, image_meta, injected_files,
-                        admin_password, network_info, block_device_info, 
+                        admin_password, network_info, block_device_info,
                         name_label=None, rescue=False):
         LOG.debug('Creating instance')
 
@@ -109,34 +113,42 @@ class LXDContainerOperations(object):
             msg = _('Ephemeral block devices is not supported.')
             raise exception.NovaException(msg)
 
-        container_config = self.container_config.configure_container(context,
-                instance, network_info, image_meta, name_label, rescue)
+        container_config = self.container_config.configure_container(
+            context, instance, network_info, image_meta, name_label, rescue)
 
         LOG.debug(pprint.pprint(container_config))
         (state, data) = self.container_utils.container_init(container_config)
         self.container_utils.wait_for_container(
             data.get('operation').split('/')[3])
 
-
         if configdrive.required_by(instance):
-            container_configdrive = self.container_config.configure_container_configdrive(
-                                            container_config,
-                                            instance, injected_files,
-                                            admin_password)
+            container_configdrive = (
+                self.container_config.configure_container_configdrive(
+                    container_config,
+                    instance,
+                    injected_files,
+                    admin_password))
             LOG.debug(pprint.pprint(container_configdrive))
-            self.contianer_utils.container_update(name, containe_configdrive)
+            self.container_utils.container_update(name, container_configdrive)
 
         if network_info:
-            container_network_devices = self.container_config.configure_network_devices(
-                                    container_config, instance, network_info)
+            container_network_devices = (
+                self.container_config.configure_network_devices(
+                    container_config,
+                    instance,
+                    network_info))
             LOG.debug(pprint.pprint(container_network_devices))
-            self.container_utils.container_update(name, container_network_devices)
+            self.container_utils.container_update(
+                name, container_network_devices)
 
         if rescue:
-            container_rescue_devices = self.container_config.configure_container_rescuedisk(
-                        container_config, instance)
+            container_rescue_devices = (
+                self.container_config.configure_container_rescuedisk(
+                    container_config,
+                    instance))
             LOG.debug(pprint.pprint(container_rescue_devices))
-            self.container_utils.container_update(name, container_rescue_devices)
+            self.container_utils.container_update(
+                name, container_rescue_devices)
 
         self.start_instance(instance, network_info, rescue)
 
@@ -173,12 +185,12 @@ class LXDContainerOperations(object):
         return self.container_utils.container_reboot(instance.name)
 
     def plug_vifs(self, instance, network_info):
-        for vif in network_info:
-            self.vif_driver.plug(instance, vif)
+        for viface in network_info:
+            self.vif_driver.plug(instance, viface)
 
     def unplug_vifs(self, instance, network_info):
-        for vif in network_info:
-            self.vif_driver.plug(instance, vif)
+        for viface in network_info:
+            self.vif_driver.plug(instance, viface)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
@@ -210,8 +222,7 @@ class LXDContainerOperations(object):
         self.container_utils.container_stop(instance.name)
         rescue_name_label = '%s-rescue' % instance.name
         if self.container_utils.container_defined(rescue_name_label):
-            msg = _('Instace is arleady in Rescue mode: %s' 
-                     % instance.name)
+            msg = _('Instace is arleady in Rescue mode: %s') % instance.name
             raise exception.NovaException(msg)
         self.spawn(context, instance, image_meta, [], rescue_password,
                    network_info, name_label=rescue_name_label, rescue=True)

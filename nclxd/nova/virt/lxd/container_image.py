@@ -19,19 +19,17 @@ import os
 
 from oslo_config import cfg
 from oslo_log import log as logging
-
 from pylxd import api
 from pylxd import exceptions as lxd_exceptions
 
-from nova.i18n import _
-from nova.openstack.common import fileutils
-from nova.compute import task_states
-from nova import image
 from nova import exception
-from nova import utils
+from nova import i18n
+from nova import image
+from nova.openstack.common import fileutils
 
-import container_config
 import container_utils
+
+_ = i18n._
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -47,7 +45,7 @@ class LXDContainerImage(object):
     def fetch_image(self, context, instance, image_meta):
         LOG.debug("Downloading image file data %(image_ref)s to LXD",
                   {'image_ref': instance.image_ref})
-        
+
         image_name = image_meta.get('name')
         if image_name in self.lxd.alias_list():
             return
@@ -71,8 +69,9 @@ class LXDContainerImage(object):
                 if e.status_code == 404:
                     pass
                 else:
-                    raise exception.ImageUnacceptable(image_id=instance.image_ref,
-                                                      reason=_('Image already exists.'))
+                    raise exception.ImageUnacceptable(
+                        image_id=instance.image_ref,
+                        reason=_('Image already exists.'))
 
             try:
                 LOG.debug('Uploading image: %s' % container_image)
@@ -80,17 +79,19 @@ class LXDContainerImage(object):
             except lxd_exceptions.APIError as e:
                 raise exception.ImageUnacceptable(
                     image_id=instance.image_ref,
-                    reason=_('Image failed to upload: %s' % e))
+                    reason=_('Image failed to upload: %s') % e)
 
             try:
-                alias_config = {'name': image_name,
-                                'target': self.get_container_image_md5(image_meta)
-                                }
+                alias_config = {
+                    'name': image_name,
+                    'target': self.get_container_image_md5(image_meta)
+                }
                 LOG.debug('Creating alias: %s' % alias_config)
                 self.lxd.alias_create(alias_config)
             except lxd_exceptions.APIError:
-                raise exception.ImageUnacceptable(image_id=instance.image_ref,
-                                                  reason=_('Image already exists.'))
+                raise exception.ImageUnacceptable(
+                    image_id=instance.image_ref,
+                    reason=_('Image already exists.'))
 
     def get_container_image_md5(self, image_meta):
         container_image = self.container_dir.get_container_image(image_meta)

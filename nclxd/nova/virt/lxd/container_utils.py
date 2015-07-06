@@ -19,13 +19,14 @@ import shutil
 
 from oslo_config import cfg
 from oslo_log import log as logging
-
 from pylxd import api
 from pylxd import exceptions as lxd_exceptions
 
-from nova.i18n import _
-from nova import exception
 from nova.compute import power_state
+from nova import exception
+from nova import i18n
+
+_ = i18n._
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -94,9 +95,9 @@ class LXDContainerUtils(object):
     def init_lxd_host(self, host):
         LOG.debug('Host check')
         try:
-            if not CONF.lxd.lxd_default_profile in self.lxd.profile_list():
-                msg = _('Default LXD profile is not available - %s'
-                        % CONF.lxd.lxd_default_profile)
+            if CONF.lxd.lxd_default_profile not in self.lxd.profile_list():
+                msg = (_('Default LXD profile is not available - %s')
+                       % CONF.lxd.lxd_default_profile)
                 raise exception.HostNotFound(msg)
 
             if not self.lxd.host_ping():
@@ -105,25 +106,15 @@ class LXDContainerUtils(object):
 
             return True
         except lxd_exceptions.APIError as ex:
-            msg = _('Unable to connect to LXD daemon: %s' % ex)
+            msg = _('Unable to connect to LXD daemon: %s') % ex
             exception.HostNotFound(msg)
 
     def list_containers(self):
         try:
             return self.lxd.container_list()
         except lxd_exceptions.APIError as ex:
-            msg = _('Unable to list instances: %s' % ex)
+            msg = _('Unable to list instances: %s') % ex
             exception.NovaException(msg)
-
-    def container_defined(self, instance):
-        LOG.debug('Container defined')
-        try:
-            self.lxd.container_defined(instance)
-        except lxd_exceptions.APIError as ex:
-            if ex.status_code == 404:
-                return False
-            else:
-                return True
 
     def container_running(self, instance):
         LOG.debug('container running')
@@ -138,7 +129,7 @@ class LXDContainerUtils(object):
             return self.lxd.container_start(instance,
                                             CONF.lxd.lxd_timeout)
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to start container: %s' % ex)
+            msg = _('Failed to start container: %s') % ex
             raise exception.NovaException(msg)
 
     def container_stop(self, instance):
@@ -150,7 +141,7 @@ class LXDContainerUtils(object):
             if ex.status_code == 404:
                 return
             else:
-                msg = _('Failed to stop container: %s' % ex)
+                msg = _('Failed to stop container: %s') % ex
                 raise exception.NovaException(msg)
 
     def container_pause(self, instance):
@@ -162,7 +153,7 @@ class LXDContainerUtils(object):
             if ex.status_code == 404:
                 return
             else:
-                msg = _('Failed to pause container: %s' % ex)
+                msg = _('Failed to pause container: %s') % ex
                 raise exception.NovaException(msg)
 
     def container_unpause(self, instance):
@@ -174,7 +165,7 @@ class LXDContainerUtils(object):
             if ex.status_code == 404:
                 return
             else:
-                msg = _('Failed to unpause container: %s' % ex)
+                msg = _('Failed to unpause container: %s') % ex
                 raise exception.NovaException(msg)
 
     def container_destroy(self, instance):
@@ -185,7 +176,7 @@ class LXDContainerUtils(object):
             if ex.status_code == 404:
                 return
             else:
-                msg = _('Failed to destroy container: %s' % ex)
+                msg = _('Failed to destroy container: %s') % ex
                 raise exception.NovaException(msg)
 
     def container_cleanup(self, instance, network_info, block_device_info):
@@ -208,7 +199,7 @@ class LXDContainerUtils(object):
         try:
             return self.lxd.container_init(container_config)
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to destroy container: %s' % ex)
+            msg = _('Failed to destroy container: %s') % ex
             raise exception.NovaException(msg)
 
     def container_update(self, instance, config):
@@ -216,7 +207,7 @@ class LXDContainerUtils(object):
         try:
             return self.lxd.container_update(instance, config)
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to update container: %s' % ex)
+            msg = _('Failed to update container: %s') % ex
             raise exception.NovaException(msg)
 
     def container_defined(self, instance):
@@ -233,10 +224,10 @@ class LXDContainerUtils(object):
         try:
             return self.lxd.container_reboot(instance)
         except lxd_exceptions.APIError as ex:
-            if e.status_code == 404:
+            if ex.status_code == 404:
                 pass
             else:
-                msg = _('Failed to reboot container: %s' % ex)
+                msg = _('Failed to reboot container: %s') % ex
                 raise exception.NovaException(msg)
 
     def wait_for_container(self, oid):

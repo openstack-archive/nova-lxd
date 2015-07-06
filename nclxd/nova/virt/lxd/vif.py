@@ -16,13 +16,14 @@ from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_log import log as logging
 
-
-from nova.i18n import _LE, _
 from nova import exception
+from nova import i18n
 from nova.network import linux_net
 from nova.network import model as network_model
 from nova import utils
 
+_ = i18n._
+_LE = i18n._LE
 
 CONF = cfg.CONF
 
@@ -124,8 +125,8 @@ class LXDNetworkBridgeDriver(object):
         if (not network.get_meta('multi_host', False) and
                 network.get_meta('should_create_bridge', False)):
             if network.get_meta('should_create_vlan', False):
-                iface = CONF.vlan_interface or \
-                    network.get_meta('bridge_interface')
+                iface = (CONF.vlan_interface or
+                         network.get_meta('bridge_interface'))
                 LOG.debug('Ensuring vlan %(vlan)s and bridge %(bridge)s',
                           {'vlan': network.get_meta('vlan'),
                            'bridge': vif['network']['bridge']},
@@ -135,8 +136,8 @@ class LXDNetworkBridgeDriver(object):
                     vif['network']['bridge'],
                     iface)
             else:
-                iface = CONF.flat_interface or \
-                    network.get_meta('bridge_interface')
+                iface = (CONF.flat_interface or
+                         network.get_meta('bridge_interface'))
                 LOG.debug("Ensuring bridge %s",
                           vif['network']['bridge'], instance=instance)
                 linux_net.LinuxBridgeInterfaceDriver.ensure_bridge(

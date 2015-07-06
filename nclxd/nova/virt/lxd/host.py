@@ -30,13 +30,15 @@ from nova.compute import arch
 from nova.compute import hv_type
 from nova.compute import utils as compute_utils
 from nova.compute import vm_mode
-from nova.i18n import _LW, _
 from nova import exception
+from nova import i18n
 from nova import utils
 
-from pylxd import api
 import psutil
+from pylxd import api
 
+_ = i18n._
+_LW = i18n._LW
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
@@ -90,7 +92,8 @@ class LXDHost(object):
         return out
 
     def _get_fs_info(self, path):
-        """get free/used/total space info for a filesystem
+        """Get free/used/total space info for a filesystem
+
         :param path: Any dirent on the filesystem
         :returns: A dict containing
               :free: How much space is free (in bytes)
@@ -107,7 +110,8 @@ class LXDHost(object):
 
     def _get_memory_mb_usage(self):
         """Get the used memory size(MB) of the host.
-        "returns: the total usage of memory(MB)
+
+        :returns: the total usage of memory(MB)
         """
 
         with open('/proc/meminfo') as fp:
@@ -144,7 +148,7 @@ class LXDHost(object):
         return cpu_info
 
     def _get_cpu_info(self):
-        ''' Parse the output of lscpu. '''
+        '''Parse the output of lscpu.'''
         cpuinfo = {}
         out, err = utils.execute('lscpu')
         if err:
@@ -175,9 +179,9 @@ class LXDHost(object):
 
     def get_host_cpu_stats(self):
         return {
-            'kernel': long(psutil.cpu_times()[2]),
-            'idle': long(psutil.cpu_times()[3]),
-            'user': long(psutil.cpu_times()[0]),
-            'iowait': long(psutil.cpu_times()[4]),
+            'kernel': int(psutil.cpu_times()[2]),
+            'idle': int(psutil.cpu_times()[3]),
+            'user': int(psutil.cpu_times()[0]),
+            'iowait': int(psutil.cpu_times()[4]),
             'frequency': self.host_cpu_info['hz_advertised']
         }
