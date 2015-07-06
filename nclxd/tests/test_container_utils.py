@@ -54,7 +54,7 @@ class LXDTestContainerDirectory(test.NoDBTestCase):
     def test_get_container_configdrive(self):
         instance = fake_instance.fake_instance_obj(None, name='fake_inst',
                                                    uuid='fake_uuid')
-        path = self.container_dir.get_container_configdirve(instance.uuid)
+        path = self.container_dir.get_container_configdrive(instance.uuid)
         expected_path = os.path.join(CONF.instances_path,
                                      instance.uuid,
                                      'config-drive')

@@ -123,7 +123,7 @@ class LXDContainerConfig(object):
 
     def configure_disk_path(self, container_config, vfs_type, instance):
         LOG.debug('Create disk path')
-        config_drive = self.container_dir.get_container_configdirve(
+        config_drive = self.container_dir.get_container_configdrive(
             instance.name)
         self.add_config(container_config, 'devices', str(vfs_type),
                         data={'path': 'mnt',
@@ -158,7 +158,7 @@ class LXDContainerConfig(object):
         try:
             with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
                 container_configdrive = (
-                    self.container_dir.get_container_configdirve(name)
+                    self.container_dir.get_container_configdrive(name)
                 )
                 cdb.make_drive(container_configdrive)
                 container_config = self.configure_disk_path(container_config,
