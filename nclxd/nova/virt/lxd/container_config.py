@@ -14,19 +14,21 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from nova.api.metadata import base as instance_metadata
+from nova import exception
+from nova import i18n
+from nova.virt import configdrive
+from oslo.utils import excutils
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo.utils import excutils
 from oslo_utils import units
 
-from nova.api.metadata import base as instance_metadata
-from nova.i18n import _, _LI, _LE
-from nova.openstack.common import fileutils
-from nova import exception
-from nova.virt import configdrive
+from nclxd.nova.virt.lxd import container_image
+from nclxd.nova.virt.lxd import container_utils
 
-import container_image
-import container_utils
+_ = i18n._
+_LE = i18n._LE
+_LI = i18n._LI
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -54,18 +56,19 @@ class LXDContainerConfig(object):
             name = name_label
 
         container_config = self._init_container_config()
-        container_config = self.add_config(container_config, 'name', 
+        container_config = self.add_config(container_config, 'name',
                                            name)
         container_config = self.add_config(container_config, 'profiles',
-                                           ['%s' % CONF.lxd.lxd_default_profile])
-        container_config = self.configure_container_config(container_config, instance)
+                                           [str(CONF.lxd.lxd_default_profile)])
+        container_config = self.configure_container_config(
+            container_config, instance)
 
         ''' Create an LXD image '''
         self.container_image.fetch_image(context, instance, image_meta)
-        container_config = self.add_config(container_config, 'source',
-                                self.configure_lxd_image(container_config,
-                                    instance, image_meta))
-
+        container_config = (
+            self.add_config(container_config, 'source',
+                            self.configure_lxd_image(container_config,
+                                                     instance, image_meta)))
 
         return container_config
 
@@ -86,19 +89,20 @@ class LXDContainerConfig(object):
         ''' Basic container configuration. '''
         self.add_config(container_config, 'config', 'raw.lxc',
                         data='lxc.console.logfile=%s\n'
-                            % self.container_dir.get_console_path(instance.name))
+                        % self.container_dir.get_console_path(instance.name))
         return container_config
 
     def configure_lxd_image(self, container_config, instance, image_meta):
         LOG.debug('Getting LXD image')
 
-        self.add_config(container_config, 'source', 
+        self.add_config(container_config, 'source',
                         {'type': 'image',
                          'alias': str(image_meta.get('name'))
-                        })
+                         })
         return container_config
 
-    def configure_network_devices(self, container_config, instance, network_info):
+    def configure_network_devices(self, container_config,
+                                  instance, network_info):
         LOG.debug('Get network devices')
 
         ''' ugh this is ugly'''
@@ -109,69 +113,68 @@ class LXDContainerConfig(object):
             bridge = 'qbr%s' % vif_id
 
             self.add_config(container_config, 'devices', bridge,
-                                data={'nictype': 'bridged',
-                                      'hwaddr': mac,
-                                      'parent': bridge,
-                                      'type': 'nic'})
+                            data={'nictype': 'bridged',
+                                  'hwaddr': mac,
+                                  'parent': bridge,
+                                  'type': 'nic'})
 
         return container_config
 
     def configure_disk_path(self, container_config, vfs_type, instance):
         LOG.debug('Create disk path')
-        config_drive = \
-            self.container_dir.get_container_configdirve(instance.name)
+        config_drive = self.container_dir.get_container_configdrive(
+            instance.name)
         self.add_config(container_config, 'devices', str(vfs_type),
                         data={'path': 'mnt',
                               'source': config_drive,
                               'type': 'disk'})
-        return container_config 
+        return container_config
 
     def configure_container_rescuedisk(self, container_config, instance):
         LOG.debug('Create rescue disk')
-        rescue_path = \
-            self.container_dir.get_container_rootfs(instance.name)
+        rescue_path = self.container_dir.get_container_rootfs(instance.name)
         self.add_config(container_config, 'devices', 'rescue',
                         data={'path': 'mnt',
                               'source': rescue_path,
                               'type': 'disk'})
         return container_config
 
-    def configure_container_configdrive(self, container_config, instance, injected_files,
-                                        admin_password):
+    def configure_container_configdrive(self, container_config, instance,
+                                        injected_files, admin_password):
         LOG.debug('Create config drive')
         if CONF.config_drive_format not in ('fs', None):
-            msg = _('Invalid config drive format: %s' 
-                     % CONF.config_drive_format)
+            msg = (_('Invalid config drive format: %s')
+                   % CONF.config_drive_format)
             raise exception.InstancePowerOnFailure(reason=msg)
 
         LOG.info(_LI('Using config drive for instance'), instance=instance)
         extra_md = {}
-        
+
         inst_md = instance_metadata.InstanceMetadata(instance,
-                                                         content=injected_files,
-                                                         extra_md=extra_md)
+                                                     content=injected_files,
+                                                     extra_md=extra_md)
         name = instance.name
         try:
             with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
-                container_configdrive = \
-                    self.container_dir.get_container_configdirve(name)
+                container_configdrive = (
+                    self.container_dir.get_container_configdrive(name)
+                )
                 cdb.make_drive(container_configdrive)
-                container_config = self.configure_disk_path(container_config, 'configdrive',
-                                         instance)
+                container_config = self.configure_disk_path(container_config,
+                                                            'configdrive',
+                                                            instance)
         except Exception as e:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Creating config drive failed with error: %s'),
-                           e, instance=instance)
+                          e, instance=instance)
 
         return container_config
 
     def add_config(self, config, key, value, data=None):
         if key == 'config':
-            config.setdefault('config', {}).\
-                setdefault(value, data)
+            config.setdefault('config', {}).setdefault(value, data)
         elif key == 'devices':
-            config.setdefault('devices', {}).\
-                setdefault(value, data)
-        elif not key in config:
+            config.setdefault('devices', {}).setdefault(value, data)
+        elif key not in config:
             config.setdefault(key, value)
         return config

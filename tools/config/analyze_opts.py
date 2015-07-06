@@ -26,11 +26,13 @@ import argparse
 import os
 import sys
 
-sys.path.append(os.getcwd())
 from oslo.config import iniparser
+
+sys.path.append(os.getcwd())
 
 
 class PropertyCollecter(iniparser.BaseParser):
+
     def __init__(self):
         super(PropertyCollecter, self).__init__()
         self.key_value_pairs = {}
@@ -62,11 +64,11 @@ if __name__ == '__main__':
 
     parser.add_argument('-c', action='store',
                         default='/etc/nova/nova.conf',
-                        help='path to nova.conf\
-                        (defaults to /etc/nova/nova.conf)')
+                        help='path to nova.conf'
+                        ' (defaults to /etc/nova/nova.conf)')
     parser.add_argument('-s', default='./etc/nova/nova.conf.sample',
-                        help='path to nova.conf.sample\
-                        (defaults to ./etc/nova/nova.conf.sample')
+                        help='path to nova.conf.sample'
+                        ' (defaults to ./etc/nova/nova.conf.sample')
     options = parser.parse_args()
 
     conf_file_options = PropertyCollecter.collect_properties(open(options.c))

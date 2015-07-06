@@ -61,7 +61,7 @@ def main(argv):
     py_version = "python%s.%s" % (sys.version_info[0], sys.version_info[1])
     project = 'Nova'
     install = install_venv.InstallVenv(root, venv, pip_requires, test_requires,
-                             py_version, project)
+                                       py_version, project)
     options = install.parse_args(argv)
     install.check_python_version()
     install.check_dependencies()

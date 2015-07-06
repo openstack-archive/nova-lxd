@@ -16,15 +16,16 @@
 
 import socket
 
+from nova import i18n
+from nova.virt import driver
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from nova.i18n import _
-from nova.virt import driver
+from nclxd.nova.virt.lxd import container_ops
+from nclxd.nova.virt.lxd import container_snapshot
+from nclxd.nova.virt.lxd import host
 
-import container_ops
-import container_snapshot
-import host
+_ = i18n._
 
 lxd_opts = [
     cfg.StrOpt('lxd_root_dir',
@@ -34,8 +35,8 @@ lxd_opts = [
                default=5,
                help='Default LXD timeout'),
     cfg.StrOpt('lxd_default_profile',
-              default='nclxd-profile',
-              help='Default LXD profile')
+               default='nclxd-profile',
+               help='Default LXD profile')
 ]
 
 CONF = cfg.CONF
@@ -44,9 +45,7 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDDriver(driver.ComputeDriver):
-
-    """ LXD Lightervisor
-    """
+    """LXD Lightervisor."""
 
     capabilities = {
         "has_imagecache": False,
@@ -85,8 +84,8 @@ class LXDDriver(driver.ComputeDriver):
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
         return self.container_ops.spawn(context, instance, image_meta,
-                                        injected_files, admin_password, network_info,
-                                        block_device_info)
+                                        injected_files, admin_password,
+                                        network_info, block_device_info)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
@@ -105,7 +104,7 @@ class LXDDriver(driver.ComputeDriver):
                block_device_info=None, bad_volumes_callback=None):
         return self.container_ops.reboot(context, instance, network_info,
                                          reboot_type, block_device_info,
-                                         bad - volumes_callback)
+                                         bad_volumes_callback)
 
     def get_console_output(self, context, instance):
         return self.container_ops.get_console_output(context, instance)
@@ -147,7 +146,7 @@ class LXDDriver(driver.ComputeDriver):
 
     def snapshot(self, context, instance, image_id, update_task_state):
         return self.container_snapshot.snapshot(context, instance, image_id,
-                                    update_task_state)
+                                                update_task_state)
 
     def post_interrupted_snapshot_cleanup(self, context, instance):
         pass
@@ -178,14 +177,15 @@ class LXDDriver(driver.ComputeDriver):
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
-        return self.container_ops.rescue(context, instance, network_info, image_meta,
-                                         rescue_password)
+        return self.container_ops.rescue(context, instance, network_info,
+                                         image_meta, rescue_password)
 
     def unrescue(self, instance, network_info):
         return self.container_ops.unrescue(instance, network_info)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        return self.container_ops.power_off(instance, timeout=0, retry_interval=0)
+        return self.container_ops.power_off(instance, timeout=0,
+                                            retry_interval=0)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
