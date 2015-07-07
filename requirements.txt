@@ -10,4 +10,4 @@ oslo.concurrency>=1.4.1         # Apache-2.0
 oslo.utils>=1.2.0                       # Apache-2.0
 oslo.i18n>=1.3.0  # Apache-2.0
 oslo.log
--e git://github.com/lxc/pylxd.git#egg=pylxd
+pylxd
