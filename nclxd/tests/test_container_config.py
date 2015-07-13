@@ -75,3 +75,26 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                                   **kwargs)))
         mf.assert_called_once_with(context, instance, image_meta)
         mp.assert_called_once_with('mock_instance')
+
+    @mock.patch('nclxd.nova.virt.lxd.container_utils'
+                '.LXDContainerDirectories.get_console_path',
+                return_value='/fake/path')
+    @tests.annotated_data(
+        ('no_limits', {'memory_mb': -1, 'vcpus': 0},
+         {}),
+        ('mem_limit', {'memory_mb': 2048, 'vcpus': 0},
+         {'limits.memory': '2147483648'}),
+        ('cpu_limit', {'memory_mb': -1, 'vcpus': 10},
+         {'limits.cpus': '10'}),
+        ('both_limits', {'memory_mb': 4096, 'vcpus': 20},
+         {'limits.memory': '4294967296', 'limits.cpus': '20'}),
+    )
+    def test_configure_container_config(self, tag, flavor, expected, mp):
+        instance = MockInstance(**flavor)
+        config = {'raw.lxc': 'lxc.console.logfile=/fake/path\n'}
+        config.update(expected)
+        self.assertEqual(
+            {'config': config},
+            self.container_config.configure_container_config({},
+                                                             instance))
+        mp.assert_called_once_with('mock_instance')
