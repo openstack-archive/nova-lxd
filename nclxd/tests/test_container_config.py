@@ -127,3 +127,17 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                 }}},
             self.container_config.configure_network_devices(
                 {}, instance, network_info))
+
+    @mock.patch('nclxd.nova.virt.lxd.container_utils'
+                '.LXDContainerDirectories.get_container_rootfs',
+                return_value='/fake/path')
+    def test_configure_container_rescuedisk(self, mp):
+        instance = MockInstance()
+        self.assertEqual({
+            'devices':
+            {'rescue': {'path': 'mnt',
+                        'source': '/fake/path',
+                        'type': 'disk'}}},
+            self.container_config.configure_container_rescuedisk(
+                {}, instance))
+        mp.assert_called_once_with('mock_instance')
