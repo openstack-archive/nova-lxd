@@ -98,3 +98,32 @@ class LXDTestContainerConfig(test.NoDBTestCase):
             self.container_config.configure_container_config({},
                                                              instance))
         mp.assert_called_once_with('mock_instance')
+
+    def test_configure_network_devices(self):
+        instance = MockInstance()
+        network_info = (
+            {
+                'id': '0123456789abcdef',
+                'address': '00:11:22:33:44:55',
+            },
+            {
+                'id': 'fedcba9876543210',
+                'address': '66:77:88:99:aa:bb',
+            })
+
+        self.assertEqual({
+            'devices': {
+                'qbr0123456789a': {
+                    'nictype': 'bridged',
+                    'hwaddr': '00:11:22:33:44:55',
+                    'parent': 'qbr0123456789a',
+                    'type': 'nic'
+                },
+                'qbrfedcba98765': {
+                    'nictype': 'bridged',
+                    'hwaddr': '66:77:88:99:aa:bb',
+                    'parent': 'qbrfedcba98765',
+                    'type': 'nic'
+                }}},
+            self.container_config.configure_network_devices(
+                {}, instance, network_info))
