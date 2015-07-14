@@ -18,11 +18,12 @@ import mock
 
 class MockInstance(mock.Mock):
 
-    def __init__(self, name='mock_instance', memory_mb=-1, vcpus=0,
-                 *args, **kwargs):
+    def __init__(self, name='mock_instance', image_ref='mock_image',
+                 memory_mb=-1, vcpus=0, *args, **kwargs):
         super(MockInstance, self).__init__(
             *args, **kwargs)
         self.name = name
+        self.image_ref = image_ref
         self.flavor = mock.Mock(memory_mb=memory_mb, vcpus=vcpus)
 
 
