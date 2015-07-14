@@ -109,3 +109,28 @@ class LXDTestContainerImage(test.NoDBTestCase):
                               self.container_image.fetch_image,
                               context, instance, image_meta)
             mu.assert_called_once_with(path='/fake/image/path')
+
+    @mock.patch('os.path.exists', mock.Mock(return_value=False))
+    @mock.patch('nova.openstack.common.fileutils.ensure_tree', mock.Mock())
+    @mock.patch('nova.openstack.common.fileutils.remove_path_on_error',
+                mock.MagicMock())
+    def test_fetch_image_new_alias_failed(self):
+        instance = tests.MockInstance()
+        context = {}
+        image_meta = {'name': 'new_image'}
+        with (
+                mock.patch.object(container_image.IMAGE_API,
+                                  'download')), (
+                mock.patch.object(self.container_image.lxd,
+                                  'image_defined', return_value=False)), (
+                mock.patch.object(self.container_image.lxd,
+                                  'image_upload')), (
+                mock.patch.object(self.container_image.lxd,
+                                  'alias_create',
+                                  side_effect=lxd_exceptions.APIError(
+                                      'Fake error', 500))), (
+                mock.patch('six.moves.builtins.open')) as mo:
+            mo.return_value.__enter__.return_value.read.return_value = b'image'
+            self.assertRaises(exception.ImageUnacceptable,
+                              self.container_image.fetch_image,
+                              context, instance, image_meta)
