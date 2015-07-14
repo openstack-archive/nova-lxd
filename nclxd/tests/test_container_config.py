@@ -25,16 +25,6 @@ from nclxd import tests
 CONF = cfg.CONF
 
 
-class MockInstance(mock.Mock):
-
-    def __init__(self, name='mock_instance', memory_mb=-1, vcpus=0,
-                 *args, **kwargs):
-        super(MockInstance, self).__init__(
-            *args, **kwargs)
-        self.name = name
-        self.flavor = mock.Mock(memory_mb=memory_mb, vcpus=vcpus)
-
-
 @ddt.ddt
 class LXDTestContainerConfig(test.NoDBTestCase):
 
@@ -57,7 +47,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         ('rescue', {'name_label': 'rescued', 'rescue': True}, 'rescued'),
     )
     def test_configure_container(self, tag, kwargs, expected, mp, mf, mc):
-        instance = MockInstance()
+        instance = tests.MockInstance()
         context = {}
         network_info = []
         image_meta = {}
@@ -91,7 +81,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
          {'limits.memory': '4294967296', 'limits.cpus': '20'}),
     )
     def test_configure_container_config(self, tag, flavor, expected, mp):
-        instance = MockInstance(**flavor)
+        instance = tests.MockInstance(**flavor)
         config = {'raw.lxc': 'lxc.console.logfile=/fake/path\n'}
         config.update(expected)
         self.assertEqual(
@@ -101,7 +91,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         mp.assert_called_once_with('mock_instance')
 
     def test_configure_network_devices(self):
-        instance = MockInstance()
+        instance = tests.MockInstance()
         network_info = (
             {
                 'id': '0123456789abcdef',
@@ -133,7 +123,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                 '.LXDContainerDirectories.get_container_rootfs',
                 return_value='/fake/path')
     def test_configure_container_rescuedisk(self, mp):
-        instance = MockInstance()
+        instance = tests.MockInstance()
         self.assertEqual({
             'devices':
             {'rescue': {'path': 'mnt',
@@ -145,7 +135,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
 
     @mock.patch.object(CONF, 'config_drive_format', new='fake-format')
     def test_configure_container_configdrive_wrong_format(self):
-        instance = MockInstance()
+        instance = tests.MockInstance()
         self.assertRaises(
             exception.InstancePowerOnFailure,
             self.container_config.configure_container_configdrive,
@@ -157,7 +147,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                 '.LXDContainerDirectories.get_container_configdrive',
                 side_effect=exception.NovaException)
     def test_configure_container_configdrive_fail(self, md, mi):
-        instance = MockInstance()
+        instance = tests.MockInstance()
         injected_files = mock.Mock()
         self.assertRaises(
             exception.NovaException,
@@ -174,7 +164,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                 '.LXDContainerDirectories.get_container_configdrive',
                 return_value='/fake/path')
     def test_configure_container_configdrive_fail_dir(self, mp, md, mi):
-        instance = MockInstance()
+        instance = tests.MockInstance()
         injected_files = mock.Mock()
         with mock.patch.object(self.container_config, 'configure_disk_path',
                                side_effect=exception.NovaException) as mdir:
@@ -197,7 +187,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                 '.LXDContainerDirectories.get_container_configdrive',
                 return_value='/fake/path')
     def test_configure_container_configdrive(self, mp, md, mi):
-        instance = MockInstance()
+        instance = tests.MockInstance()
         injected_files = mock.Mock()
         self.assertEqual(
             {'devices': {'configdrive': {'path': 'mnt',

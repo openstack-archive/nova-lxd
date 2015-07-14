@@ -13,6 +13,17 @@
 #    under the License.
 
 import ddt
+import mock
+
+
+class MockInstance(mock.Mock):
+
+    def __init__(self, name='mock_instance', memory_mb=-1, vcpus=0,
+                 *args, **kwargs):
+        super(MockInstance, self).__init__(
+            *args, **kwargs)
+        self.name = name
+        self.flavor = mock.Mock(memory_mb=memory_mb, vcpus=vcpus)
 
 
 def annotated_data(*args):
