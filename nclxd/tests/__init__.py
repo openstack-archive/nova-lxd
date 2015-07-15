@@ -16,6 +16,25 @@ import ddt
 import mock
 
 
+class MockConf(mock.Mock):
+
+    def __init__(self, lxd_args=(), lxd_kwargs={}, *args, **kwargs):
+        default = {
+            'config_drive_format': None,
+            'instances_path': '/fake/instances/path',
+            'image_cache_subdirectory_name': '/fake/image/cache',
+        }
+        default.update(kwargs)
+        super(MockConf, self).__init__(*args, **default)
+
+        lxd_default = {
+            'lxd_default_profile': 'fake_profile',
+            'lxd_root_dir': '/fake/lxd/root',
+        }
+        lxd_default.update(lxd_kwargs)
+        self.lxd = mock.Mock(lxd_args, **lxd_default)
+
+
 class MockInstance(mock.Mock):
 
     def __init__(self, name='mock_instance', image_ref='mock_image',

@@ -17,15 +17,15 @@ import ddt
 import mock
 from nova import exception
 from nova import test
-from oslo_config import cfg
 
 from nclxd.nova.virt.lxd import container_config
+from nclxd.nova.virt.lxd import container_utils
 from nclxd import tests
-
-CONF = cfg.CONF
 
 
 @ddt.ddt
+@mock.patch.object(container_config, 'CONF', tests.MockConf())
+@mock.patch.object(container_utils, 'CONF', tests.MockConf())
 class LXDTestContainerConfig(test.NoDBTestCase):
 
     def setUp(self):
@@ -36,24 +36,21 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         self.assertEqual({'config': {}, 'devices': {}},
                          self.container_config._init_container_config())
 
-    @mock.patch.object(CONF, 'lxd', lxd_default_profile='fake_profile')
     @mock.patch('nclxd.nova.virt.lxd.container_image'
                 '.LXDContainerImage.fetch_image')
-    @mock.patch('nclxd.nova.virt.lxd.container_utils'
-                '.LXDContainerDirectories.get_console_path',
-                return_value='/fake/path')
     @tests.annotated_data(
         ('no_rescue', {}, 'mock_instance'),
         ('rescue', {'name_label': 'rescued', 'rescue': True}, 'rescued'),
     )
-    def test_configure_container(self, tag, kwargs, expected, mp, mf, mc):
+    def test_configure_container(self, tag, kwargs, expected, mf):
         instance = tests.MockInstance()
         context = {}
         network_info = []
         image_meta = {}
         self.assertEqual(
             {'config': {'raw.lxc':
-                        'lxc.console.logfile=/fake/path\n'},
+                        'lxc.console.logfile=/fake/lxd/root/lxc/'
+                        'mock_instance/console.log\n'},
              'devices': {},
              'name': expected,
              'profiles': ['fake_profile'],
@@ -65,11 +62,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                                   image_meta,
                                   **kwargs)))
         mf.assert_called_once_with(context, instance, image_meta)
-        mp.assert_called_once_with('mock_instance')
 
-    @mock.patch('nclxd.nova.virt.lxd.container_utils'
-                '.LXDContainerDirectories.get_console_path',
-                return_value='/fake/path')
     @tests.annotated_data(
         ('no_limits', {'memory_mb': -1, 'vcpus': 0},
          {}),
@@ -80,15 +73,15 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         ('both_limits', {'memory_mb': 4096, 'vcpus': 20},
          {'limits.memory': '4294967296', 'limits.cpus': '20'}),
     )
-    def test_configure_container_config(self, tag, flavor, expected, mp):
+    def test_configure_container_config(self, tag, flavor, expected):
         instance = tests.MockInstance(**flavor)
-        config = {'raw.lxc': 'lxc.console.logfile=/fake/path\n'}
+        config = {'raw.lxc': 'lxc.console.logfile=/fake/lxd/root/lxc/'
+                             'mock_instance/console.log\n'}
         config.update(expected)
         self.assertEqual(
             {'config': config},
             self.container_config.configure_container_config({},
                                                              instance))
-        mp.assert_called_once_with('mock_instance')
 
     def test_configure_network_devices(self):
         instance = tests.MockInstance()
@@ -119,85 +112,68 @@ class LXDTestContainerConfig(test.NoDBTestCase):
             self.container_config.configure_network_devices(
                 {}, instance, network_info))
 
-    @mock.patch('nclxd.nova.virt.lxd.container_utils'
-                '.LXDContainerDirectories.get_container_rootfs',
-                return_value='/fake/path')
-    def test_configure_container_rescuedisk(self, mp):
+    def test_configure_container_rescuedisk(self):
         instance = tests.MockInstance()
         self.assertEqual({
             'devices':
             {'rescue': {'path': 'mnt',
-                        'source': '/fake/path',
+                        'source': '/fake/lxd/root/lxc/mock_instance/rootfs',
                         'type': 'disk'}}},
             self.container_config.configure_container_rescuedisk(
                 {}, instance))
-        mp.assert_called_once_with('mock_instance')
 
-    @mock.patch.object(CONF, 'config_drive_format', new='fake-format')
     def test_configure_container_configdrive_wrong_format(self):
         instance = tests.MockInstance()
-        self.assertRaises(
-            exception.InstancePowerOnFailure,
-            self.container_config.configure_container_configdrive,
-            {}, instance, {}, 'secret')
+        with mock.patch.object(container_config.CONF, 'config_drive_format',
+                               new='fake-format'):
+            self.assertRaises(
+                exception.InstancePowerOnFailure,
+                self.container_config.configure_container_configdrive,
+                {}, instance, {}, 'secret')
 
-    @mock.patch.object(CONF, 'config_drive_format', new=None)
     @mock.patch('nova.api.metadata.base.InstanceMetadata')
-    @mock.patch('nclxd.nova.virt.lxd.container_utils'
-                '.LXDContainerDirectories.get_container_configdrive',
-                side_effect=exception.NovaException)
-    def test_configure_container_configdrive_fail(self, md, mi):
-        instance = tests.MockInstance()
+    def test_configure_container_configdrive_fail(self, mi):
+        instance = None
         injected_files = mock.Mock()
         self.assertRaises(
-            exception.NovaException,
+            AttributeError,
             self.container_config.configure_container_configdrive,
             {}, instance, injected_files, 'secret')
-        md.assert_called_once_with('mock_instance')
         mi.assert_called_once_with(
             instance, content=injected_files, extra_md={})
 
-    @mock.patch.object(CONF, 'config_drive_format', new=None)
     @mock.patch('nova.api.metadata.base.InstanceMetadata')
     @mock.patch('nova.virt.configdrive.ConfigDriveBuilder')
-    @mock.patch('nclxd.nova.virt.lxd.container_utils'
-                '.LXDContainerDirectories.get_container_configdrive',
-                return_value='/fake/path')
-    def test_configure_container_configdrive_fail_dir(self, mp, md, mi):
+    def test_configure_container_configdrive_fail_dir(self, md, mi):
         instance = tests.MockInstance()
         injected_files = mock.Mock()
-        with mock.patch.object(self.container_config, 'configure_disk_path',
-                               side_effect=exception.NovaException) as mdir:
-            self.assertRaises(
-                exception.NovaException,
-                self.container_config.configure_container_configdrive,
-                {}, instance, injected_files, 'secret')
-            mdir.assert_called_once_with({}, 'configdrive', instance)
-        mp.assert_called_once_with('mock_instance')
+        self.assertRaises(
+            AttributeError,
+            self.container_config.configure_container_configdrive,
+            None, instance, injected_files, 'secret')
         md.assert_called_once_with(instance_md=mi.return_value)
         (md.return_value.__enter__.return_value
-         .make_drive.assert_called_once_with('/fake/path'))
+         .make_drive.assert_called_once_with(
+             '/fake/instances/path/mock_instance/config-drive'))
         mi.assert_called_once_with(
             instance, content=injected_files, extra_md={})
 
-    @mock.patch.object(CONF, 'config_drive_format', new=None)
     @mock.patch('nova.api.metadata.base.InstanceMetadata')
     @mock.patch('nova.virt.configdrive.ConfigDriveBuilder')
-    @mock.patch('nclxd.nova.virt.lxd.container_utils'
-                '.LXDContainerDirectories.get_container_configdrive',
-                return_value='/fake/path')
-    def test_configure_container_configdrive(self, mp, md, mi):
+    def test_configure_container_configdrive(self, md, mi):
         instance = tests.MockInstance()
         injected_files = mock.Mock()
         self.assertEqual(
-            {'devices': {'configdrive': {'path': 'mnt',
-                                         'type': 'disk',
-                                         'source': '/fake/path'}}},
+            {'devices': {'configdrive':
+                         {'path': 'mnt',
+                          'type': 'disk',
+                          'source': '/fake/instances/path/'
+                                    'mock_instance/config-drive'}}},
             self.container_config.configure_container_configdrive(
                 {}, instance, injected_files, 'secret'))
-        self.assertEqual([mock.call('mock_instance')] * 2, mp.call_args_list)
         md.assert_called_once_with(instance_md=mi.return_value)
         (md.return_value.__enter__.return_value
-         .make_drive.assert_called_once_with('/fake/path'))
+         .make_drive.assert_called_once_with(
+             '/fake/instances/path/mock_instance/config-drive'))
         mi.assert_called_once_with(
             instance, content=injected_files, extra_md={})
