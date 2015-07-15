@@ -62,15 +62,10 @@ class LXDContainerImage(object):
 
         ''' Upload the image to LXD '''
         with fileutils.remove_path_on_error(container_image):
-            try:
-                self.lxd.image_defined(instance.image_ref)
-            except lxd_exceptions.APIError as e:
-                if e.status_code == 404:
-                    pass
-                else:
-                    raise exception.ImageUnacceptable(
-                        image_id=instance.image_ref,
-                        reason=_('Image already exists.'))
+            if self.lxd.image_defined(instance.image_ref):
+                raise exception.ImageUnacceptable(
+                    image_id=instance.image_ref,
+                    reason=_('Image already exists.'))
 
             try:
                 LOG.debug('Uploading image: %s' % container_image)

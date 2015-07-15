@@ -1,7 +1,7 @@
 [run]
 branch = True
-source = nova-compute-lxd
-omit = nova-compute-lxd/tests/*,nova-compute-lxd/openstack/*
+source = nclxd
 
 [report]
 ignore-errors = True
+omit = nclxd/tests/*
