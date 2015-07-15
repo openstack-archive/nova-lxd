@@ -20,17 +20,16 @@ from nova import test
 from pylxd import exceptions as lxd_exceptions
 
 from nclxd.nova.virt.lxd import container_image
+from nclxd.nova.virt.lxd import container_utils
 from nclxd import tests
 
 
 @ddt.ddt
-@mock.patch.multiple('nclxd.nova.virt.lxd.container_utils'
-                     '.LXDContainerDirectories',
-                     get_base_dir=mock.Mock(return_value='/fake/path'),
-                     get_container_image=mock.Mock(
-                         return_value='/fake/image/path'))
+@mock.patch.object(container_image, 'CONF', tests.MockConf())
+@mock.patch.object(container_utils, 'CONF', tests.MockConf())
 class LXDTestContainerImage(test.NoDBTestCase):
 
+    @mock.patch.object(container_utils, 'CONF', tests.MockConf())
     def setUp(self):
         super(LXDTestContainerImage, self).setUp()
         self.container_image = container_image.LXDContainerImage()
@@ -64,9 +63,10 @@ class LXDTestContainerImage(test.NoDBTestCase):
         if base_exists:
             self.assertFalse(mt.called)
         else:
-            mt.assert_called_once_with('/fake/path')
-        self.assertEqual([mock.call('/fake/path'),
-                          mock.call('/fake/image/path')], mo.call_args_list)
+            mt.assert_called_once_with('/fake/image/cache')
+        self.assertEqual([mock.call('/fake/image/cache'),
+                          mock.call('/fake/image/cache/new_image.tar.gz')],
+                         mo.call_args_list)
 
     @mock.patch('os.path.exists', mock.Mock(return_value=False))
     @mock.patch('nova.openstack.common.fileutils.ensure_tree', mock.Mock())
@@ -84,9 +84,10 @@ class LXDTestContainerImage(test.NoDBTestCase):
                               self.container_image.fetch_image,
                               context, instance, image_meta)
             ml.assert_called_once_with('mock_image')
-        mf.assert_called_once_with('/fake/image/path')
+        mf.assert_called_once_with('/fake/image/cache/new_image.tar.gz')
         mi.assert_called_once_with(
-            context, 'mock_image', dest_path='/fake/image/path')
+            context, 'mock_image',
+            dest_path='/fake/image/cache/new_image.tar.gz')
 
     @mock.patch('os.path.exists', mock.Mock(return_value=False))
     @mock.patch('nova.openstack.common.fileutils.ensure_tree', mock.Mock())
@@ -108,7 +109,8 @@ class LXDTestContainerImage(test.NoDBTestCase):
             self.assertRaises(exception.ImageUnacceptable,
                               self.container_image.fetch_image,
                               context, instance, image_meta)
-            mu.assert_called_once_with(path='/fake/image/path')
+            mu.assert_called_once_with(
+                path='/fake/image/cache/new_image.tar.gz')
 
     @mock.patch('os.path.exists', mock.Mock(return_value=False))
     @mock.patch('nova.openstack.common.fileutils.ensure_tree', mock.Mock())
