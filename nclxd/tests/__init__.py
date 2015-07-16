@@ -46,6 +46,16 @@ class MockInstance(mock.Mock):
         self.flavor = mock.Mock(memory_mb=memory_mb, vcpus=vcpus)
 
 
+def lxd_mock(*args, **kwargs):
+    default = {
+        'profile_list.return_value': ['fake_profile'],
+        'container_list.return_value': ['mock-instance-1', 'mock-instance-2'],
+        'host_ping.return_value': True,
+    }
+    default.update(kwargs)
+    return mock.Mock(*args, **default)
+
+
 def annotated_data(*args):
     class List(list):
         pass
