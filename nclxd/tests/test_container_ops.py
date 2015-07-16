@@ -144,3 +144,58 @@ class LXDTestContainerOps(test.NoDBTestCase):
             exception.NovaException,
             self.container_ops.create_instance,
             {}, instance, {}, [], 'secret', None, None)
+
+    @mock.patch('nova.openstack.common.fileutils.ensure_tree',
+                mock.Mock(return_value=None))
+    @mock.patch.object(
+        container_ops, 'driver',
+        mock.Mock(swap_is_usable=mock.Mock(return_value=False)))
+    @mock.patch.object(container_ops, 'configdrive')
+    @tests.annotated_data(
+        ('configdrive', False, None, True),
+        ('network_info', False, mock.Mock(), False),
+        ('rescue', True, None, False),
+        ('configdrive_rescue', True, None, True),
+        ('configdrive_network', False, mock.Mock(), False),
+        ('network_rescue', True, mock.Mock(), False)
+    )
+    def test_create_instance(self, tag, rescue, network_info,
+                             configdrive, mcd):
+        context = mock.Mock()
+        instance = tests.MockInstance()
+        image_meta = mock.Mock()
+        injected_files = mock.Mock()
+        block_device_info = mock.Mock()
+
+        mcd.required_by.return_value = configdrive
+        self.ml.container_init.return_value = (
+            200, {'operation': '/1.0/operations/0123456789'})
+
+        with mock.patch.object(self.container_ops, 'start_instance') as ms:
+            self.assertEqual(
+                None,
+                self.container_ops.create_instance(
+                    context, instance, image_meta, injected_files, 'secret',
+                    network_info, block_device_info, 'fake_instance', rescue))
+            ms.assert_called_once_with(instance, network_info, rescue)
+        self.mc.configure_container.assert_called_once_with(
+            context, instance, network_info,
+            image_meta, 'fake_instance', rescue)
+        calls = [
+            mock.call.container_init(self.mc.configure_container.return_value),
+            mock.call.wait_container_operation('0123456789', 200, 20)
+        ]
+        self.assertEqual(calls, self.ml.method_calls[:2])
+        name = rescue and 'fake_instance' or 'mock_instance'
+        if configdrive:
+            self.ml.container_update.assert_any_call(
+                name,
+                self.mc.configure_container_configdrive.return_value)
+        if network_info:
+            self.ml.container_update.assert_any_call(
+                name,
+                self.mc.configure_network_devices.return_value)
+        if rescue:
+            self.ml.container_update.assert_any_call(
+                name,
+                self.mc.configure_container_rescuedisk.return_value)
