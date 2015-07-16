@@ -106,14 +106,14 @@ class LXDContainerUtils(object):
             return True
         except lxd_exceptions.APIError as ex:
             msg = _('Unable to connect to LXD daemon: %s') % ex
-            exception.HostNotFound(msg)
+            raise exception.HostNotFound(msg)
 
     def list_containers(self):
         try:
             return self.lxd.container_list()
         except lxd_exceptions.APIError as ex:
             msg = _('Unable to list instances: %s') % ex
-            exception.NovaException(msg)
+            raise exception.NovaException(msg)
 
     def container_running(self, instance):
         LOG.debug('container running')

@@ -81,7 +81,7 @@ class LXDContainerOperations(object):
         if rescue:
             name = name_label
         if self.container_utils.container_defined(name):
-            raise exception.InstanceExists(instance=name)
+            raise exception.InstanceExists(name=name)
 
         self.create_instance(context, instance, image_meta, injected_files,
                              admin_password, network_info, block_device_info,
