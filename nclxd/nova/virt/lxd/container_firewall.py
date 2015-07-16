@@ -62,4 +62,8 @@ class LXDContainerFirewall(object):
         return self.firewall_driver.apply_instance_filter(instance, network_info)
 
     def unfilter_instance(self, instance, network_info):
+<<<<<<< HEAD
         return self.firewall_driver.unfilter_instance(instance, network_info)
+=======
+        return self.firewall_driver.unfilter_instance(instance, network_info)
+>>>>>>> ab5d6c591af8c76a258bbf3570854f3d06108ff3
