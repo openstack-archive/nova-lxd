@@ -30,6 +30,7 @@ from oslo_log import log as logging
 from oslo_utils import units
 
 from nclxd.nova.virt.lxd import container_config
+from nclxd.nova.virt.lxd import container_firewall
 from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils
 from nclxd.nova.virt.lxd import vif
@@ -55,6 +56,7 @@ class LXDContainerOperations(object):
         self.container_utils = container_utils.LXDContainerUtils()
         self.container_dir = container_utils.LXDContainerDirectories()
         self.container_image = container_image.LXDContainerImage()
+        self.firewall_driver = container_firewall.LXDContainerFirewall()
         self.vif_driver = vif.LXDGenericDriver()
 
     def init_host(self, host):
@@ -186,10 +188,12 @@ class LXDContainerOperations(object):
     def plug_vifs(self, instance, network_info):
         for viface in network_info:
             self.vif_driver.plug(instance, viface)
+        self._start_firewall(instance, network_info)
 
     def unplug_vifs(self, instance, network_info):
         for viface in network_info:
             self.vif_driver.plug(instance, viface)
+        self._start_firewall(instance, network_info)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
@@ -270,3 +274,11 @@ class LXDContainerOperations(object):
                   {'event': event_name, 'uuid': instance.name})
         if CONF.vif_plugging_is_fatal:
             raise exception.VirtualInterfaceCreateException()
+
+    def _start_firewall(self, instance, network_info):
+        self.firewall_driver.setup_basic_filtering(instance, network_info)
+        self.firewall_driver.prepare_instance_filter(instance, network_info)
+        self.firewall_driver.apply_instance_filter(instance, network_info)
+
+    def _stop_firewall(self, instance, network_info):
+        self.firewall_driver.unfilter_instance(instance, network_info)

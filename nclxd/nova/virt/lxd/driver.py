@@ -21,6 +21,7 @@ from nova.virt import driver
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from nclxd.nova.virt.lxd import container_firewall
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_snapshot
 from nclxd.nova.virt.lxd import host
@@ -58,6 +59,7 @@ class LXDDriver(driver.ComputeDriver):
 
         self.container_ops = container_ops.LXDContainerOperations(virtapi)
         self.container_snapshot = container_snapshot.LXDSnapshot()
+        self.container_firewall = container_firewall.LXDContainerFirewall()
         self.host = host.LXDHost()
 
     def init_host(self, host):
@@ -256,31 +258,31 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def refresh_security_group_rules(self, security_group_id):
-        raise NotImplementedError()
+        return self.container_firewall.refresh_security_group(security_group_id)
 
     def refresh_security_group_members(self, security_group_id):
-        raise NotImplementedError()
+        return self.container_firewall.refresh_security_group(security_group_id)
 
     def refresh_provider_fw_rules(self):
-        raise NotImplementedError()
+        return self.container_firewall.refresh_provider_fw_rules()
 
     def refresh_instance_security_rules(self, instance):
-        raise NotImplementedError()
+        return self.container_firewall.refresh_instances_security_rules(instance)
 
     def reset_network(self, instance):
         pass
 
     def ensure_filtering_rules_for_instance(self, instance, network_info):
-        raise NotImplementedError()
+        return self.container_firewall.ensure_filtering_rules_for_instance(instance, network_info)
 
     def filter_defer_apply_on(self):
-        pass
+        return self.container_firewall.filter_defer_apply_on()
 
     def filter_defer_apply_off(self):
-        pass
+        return self.container_firewall.filter_defer_apply_off()
 
     def unfilter_instance(self, instance, network_info):
-        raise NotImplementedError()
+        return self.container_firewall.unfilter_instance()
 
     def inject_file(self, instance, b64_path, b64_contents):
         raise NotImplementedError()
