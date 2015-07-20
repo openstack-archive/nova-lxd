@@ -117,10 +117,7 @@ class LXDContainerUtils(object):
 
     def container_running(self, instance):
         LOG.debug('container running')
-        if self.lxd.container_running(instance):
-            return True
-        else:
-            return False
+        return self.lxd.container_running(instance)
 
     def container_start(self, instance):
         LOG.debug('container start')
