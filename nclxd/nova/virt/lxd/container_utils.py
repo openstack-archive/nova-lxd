@@ -195,7 +195,7 @@ class LXDContainerUtils(object):
         try:
             return self.lxd.container_init(container_config)
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to destroy container: %s') % ex
+            msg = _('Failed to init container: %s') % ex
             raise exception.NovaException(msg)
 
     def container_update(self, instance, config):
