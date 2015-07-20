@@ -97,3 +97,21 @@ class LXDTestContainerOps(test.NoDBTestCase):
             {}, instance, {}, [], 'secret',
             name_label='fake-instance', rescue=rescue)
         self.ml.container_defined.called_once_with(name)
+
+    def test_spawn_new(self):
+        context = mock.Mock()
+        instance = tests.MockInstance()
+        image_meta = mock.Mock()
+        injected_files = mock.Mock()
+        network_info = mock.Mock()
+        block_device_info = mock.Mock()
+        self.ml.container_defined.return_value = False
+        with mock.patch.object(self.container_ops, 'create_instance') as mc:
+            self.assertEqual(
+                None,
+                self.container_ops.spawn(
+                    context, instance, image_meta, injected_files, 'secret',
+                    network_info, block_device_info, 'fake_instance', False))
+            mc.assert_called_once_with(
+                context, instance, image_meta, injected_files, 'secret',
+                network_info, block_device_info, 'fake_instance', False)
