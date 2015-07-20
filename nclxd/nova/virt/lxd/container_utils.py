@@ -95,9 +95,8 @@ class LXDContainerUtils(object):
         LOG.debug('Host check')
         try:
             if CONF.lxd.lxd_default_profile not in self.lxd.profile_list():
-                msg = (_('Default LXD profile is not available - %s')
-                       % CONF.lxd.lxd_default_profile)
-                raise exception.HostNotFound(msg)
+                profile = {'name': CONF.lxd.lxd_default_profile}
+                self.lxd.profile_create(profile)
 
             if not self.lxd.host_ping():
                 msg = _('Unable to connect to LXD daemon')
