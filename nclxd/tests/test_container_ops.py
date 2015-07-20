@@ -45,6 +45,12 @@ class LXDTestContainerOps(test.NoDBTestCase):
                                            self.mc)
         config_patcher.start()
         self.addCleanup(config_patcher.stop)
+        self.mv = mock.MagicMock()
+        vif_patcher = mock.patch.object(self.container_ops,
+                                        'vif_driver',
+                                        self.mv)
+        vif_patcher.start()
+        self.addCleanup(vif_patcher.stop)
 
     def test_init_host(self):
         self.assertEqual(
@@ -199,3 +205,75 @@ class LXDTestContainerOps(test.NoDBTestCase):
             self.ml.container_update.assert_any_call(
                 name,
                 self.mc.configure_container_rescuedisk.return_value)
+
+    @mock.patch.object(container_ops, 'utils')
+    @tests.annotated_data(
+        {'tag': 'rescue', 'rescue': True, 'is_neutron': False, 'timeout': 0},
+        {'tag': 'running', 'running': True, 'is_neutron': False, 'timeout': 0},
+        {'tag': 'neutron', 'timeout': 0},
+        {'tag': 'neutron_timeout'},
+        {'tag': 'neutron_unknown',
+         'network_info': [{
+             'id': '0123456789abcdef',
+         }]},
+        {'tag': 'neutron_active', 'network_info':
+         [{
+             'id': '0123456789abcdef',
+             'active': True
+         }]},
+        {'tag': 'neutron_inactive',
+         'network_info': [{
+             'id': '0123456789abcdef',
+             'active': False
+         }],
+         'vifs': ('0123456789abcdef',)},
+        {'tag': 'neutron_multi',
+         'network_info': [{
+             'id': '0123456789abcdef',
+         }, {
+             'id': '123456789abcdef0',
+             'active': True
+         }, {
+             'id': '23456789abcdef01',
+             'active': False
+         }],
+         'vifs': ('23456789abcdef01',)},
+        {'tag': 'neutron_failed',
+         'network_info': [{
+             'id': '0123456789abcdef',
+             'active': False
+         }],
+         'vifs': ('0123456789abcdef',),
+         'plug_side_effect': exception.VirtualInterfaceCreateException},
+    )
+    def test_start_instance(self, mu, tag='', rescue=False, running=False,
+                            is_neutron=True, timeout=10, network_info=[],
+                            vifs=(), plug_side_effect=None):
+        instance = tests.MockInstance()
+        self.ml.container_running.return_value = running
+        self.ml.container_start.return_value = (
+            200, {'operation': '/1.0/operations/0123456789'})
+        container_ops.CONF.vif_plugging_timeout = timeout
+        mu.is_neutron.return_value = is_neutron
+        self.mv.plug.side_effect = plug_side_effect
+        with mock.patch.object(self.container_ops.virtapi,
+                               'wait_for_instance_event') as mw:
+            self.assertEqual(
+                None,
+                self.container_ops.start_instance(instance,
+                                                  network_info,
+                                                  rescue))
+            mw.assert_called_once_with(
+                instance,
+                [('network-vif-plugged', vif) for vif in vifs],
+                deadline=timeout,
+                error_callback=self.container_ops._neutron_failed_callback)
+        self.assertEqual(
+            [mock.call(instance, viface) for viface in network_info],
+            self.mv.plug.call_args_list)
+        calls = [
+            mock.call.container_start(rescue and 'mock_instance-rescue'
+                                      or 'mock_instance', 20),
+            mock.call.wait_container_operation('0123456789', 200, 20)
+        ]
+        self.assertEqual(calls, self.ml.method_calls[-2:])

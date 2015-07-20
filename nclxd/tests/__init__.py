@@ -23,6 +23,7 @@ class MockConf(mock.Mock):
             'config_drive_format': None,
             'instances_path': '/fake/instances/path',
             'image_cache_subdirectory_name': '/fake/image/cache',
+            'vif_plugging_timeout': 10,
         }
         default.update(kwargs)
         super(MockConf, self).__init__(*args, **default)
@@ -30,6 +31,7 @@ class MockConf(mock.Mock):
         lxd_default = {
             'lxd_default_profile': 'fake_profile',
             'lxd_root_dir': '/fake/lxd/root',
+            'lxd_timeout': 20,
         }
         lxd_default.update(lxd_kwargs)
         self.lxd = mock.Mock(lxd_args, **lxd_default)
@@ -61,11 +63,21 @@ def annotated_data(*args):
     class List(list):
         pass
 
+    class Dict(dict):
+        pass
+
     new_args = []
 
     for arg in args:
-        new_arg = List(arg)
-        new_arg.__name__ = arg[0]
+        if isinstance(arg, (list, tuple)):
+            new_arg = List(arg)
+            new_arg.__name__ = arg[0]
+        elif isinstance(arg, dict):
+            new_arg = Dict(arg)
+            new_arg.__name__ = arg['tag']
+        else:
+            raise TypeError('annotate_data can only handle dicts, '
+                            'lists and tuples')
         new_args.append(new_arg)
 
     return lambda func: ddt.data(*new_args)(ddt.unpack(func))
