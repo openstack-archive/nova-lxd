@@ -164,7 +164,7 @@ class LXDContainerOperations(object):
                 utils.is_neutron() and timeout):
             events = self._get_neutron_events(network_info)
         else:
-            events = {}
+            events = []
 
         try:
             with self.virtapi.wait_for_instance_event(
