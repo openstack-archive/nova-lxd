@@ -115,3 +115,32 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mc.assert_called_once_with(
                 context, instance, image_meta, injected_files, 'secret',
                 network_info, block_device_info, 'fake_instance', False)
+
+    @mock.patch('nova.openstack.common.fileutils.ensure_tree',
+                return_value=None)
+    @mock.patch.object(container_ops, 'driver')
+    def test_create_instance_swap(self, md, mt):
+        instance = tests.MockInstance()
+        block_device_info = mock.Mock()
+        md.swap_is_usable.return_value = True
+        self.assertRaises(
+            exception.NovaException,
+            self.container_ops.create_instance,
+            {}, instance, {}, [], 'secret', None, block_device_info)
+        mt.assert_called_once_with('/fake/instances/path/mock_instance')
+        md.block_device_info_get_swap.assert_called_once_with(
+            block_device_info)
+        md.swap_is_usable.assert_called_once_with(
+            md.block_device_info_get_swap.return_value)
+
+    @mock.patch('nova.openstack.common.fileutils.ensure_tree',
+                mock.Mock(return_value=None))
+    @mock.patch.object(
+        container_ops, 'driver',
+        mock.Mock(swap_is_usable=mock.Mock(return_value=False)))
+    def test_create_instance_ephemeral(self):
+        instance = tests.MockInstance(ephemeral_gb=1)
+        self.assertRaises(
+            exception.NovaException,
+            self.container_ops.create_instance,
+            {}, instance, {}, [], 'secret', None, None)
