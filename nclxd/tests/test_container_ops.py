@@ -277,3 +277,40 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mock.call.wait_container_operation('0123456789', 200, 20)
         ]
         self.assertEqual(calls, self.ml.method_calls[-2:])
+
+    def test_container_rescue_fail(self):
+        context = mock.Mock()
+        instance = tests.MockInstance()
+        image_meta = mock.Mock()
+        network_info = mock.Mock()
+        self.ml.container_defined.return_value = True
+        self.assertRaises(exception.NovaException,
+                          self.container_ops.rescue, context,
+                          instance,
+                          network_info,
+                          image_meta,
+                          'secret')
+
+    def test_container_rescue(self):
+        context = mock.Mock()
+        instance = tests.MockInstance()
+        image_meta = mock.Mock()
+        network_info = mock.Mock()
+        self.ml.container_defined.return_value = False
+        with mock.patch.object(self.container_ops, 'spawn') as ms:
+            mgr = mock.Mock()
+            mgr.attach_mock(ms, 'spawn')
+            mgr.attach_mock(self.ml.container_stop, 'stop')
+            self.assertEqual(None,
+                             self.container_ops.rescue(context,
+                                                       instance,
+                                                       network_info,
+                                                       image_meta,
+                                                       'secret'))
+            calls = [
+                mock.call.stop('mock_instance', 20),
+                mock.call.spawn(
+                    context, instance, image_meta, [], 'secret', network_info,
+                    name_label='mock_instance-rescue', rescue=True)
+            ]
+            self.assertEqual(calls, mgr.method_calls)
