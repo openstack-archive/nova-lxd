@@ -314,3 +314,15 @@ class LXDTestContainerOps(test.NoDBTestCase):
                     name_label='mock_instance-rescue', rescue=True)
             ]
             self.assertEqual(calls, mgr.method_calls)
+
+    def test_container_unrescue(self):
+        instance = tests.MockInstance()
+        network_info = mock.Mock()
+        self.assertEqual(None,
+                         self.container_ops.unrescue(instance,
+                                                     network_info))
+        calls = [
+            mock.call.container_start('mock_instance', 20),
+            mock.call.container_destroy('mock_instance-rescue')
+        ]
+        self.assertEqual(calls, self.ml.method_calls)
