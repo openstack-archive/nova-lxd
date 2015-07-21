@@ -23,6 +23,7 @@ class MockConf(mock.Mock):
             'config_drive_format': None,
             'instances_path': '/fake/instances/path',
             'image_cache_subdirectory_name': '/fake/image/cache',
+            'vif_plugging_timeout': 10,
         }
         default.update(kwargs)
         super(MockConf, self).__init__(*args, **default)
@@ -30,6 +31,7 @@ class MockConf(mock.Mock):
         lxd_default = {
             'lxd_default_profile': 'fake_profile',
             'lxd_root_dir': '/fake/lxd/root',
+            'lxd_timeout': 20,
         }
         lxd_default.update(lxd_kwargs)
         self.lxd = mock.Mock(lxd_args, **lxd_default)
@@ -38,23 +40,44 @@ class MockConf(mock.Mock):
 class MockInstance(mock.Mock):
 
     def __init__(self, name='mock_instance', image_ref='mock_image',
-                 memory_mb=-1, vcpus=0, *args, **kwargs):
+                 ephemeral_gb=0, memory_mb=-1, vcpus=0, *args, **kwargs):
         super(MockInstance, self).__init__(
+            image_ref=image_ref,
+            ephemeral_gb=ephemeral_gb,
             *args, **kwargs)
         self.name = name
-        self.image_ref = image_ref
         self.flavor = mock.Mock(memory_mb=memory_mb, vcpus=vcpus)
+
+
+def lxd_mock(*args, **kwargs):
+    default = {
+        'profile_list.return_value': ['fake_profile'],
+        'container_list.return_value': ['mock-instance-1', 'mock-instance-2'],
+        'host_ping.return_value': True,
+    }
+    default.update(kwargs)
+    return mock.Mock(*args, **default)
 
 
 def annotated_data(*args):
     class List(list):
         pass
 
+    class Dict(dict):
+        pass
+
     new_args = []
 
     for arg in args:
-        new_arg = List(arg)
-        new_arg.__name__ = arg[0]
+        if isinstance(arg, (list, tuple)):
+            new_arg = List(arg)
+            new_arg.__name__ = arg[0]
+        elif isinstance(arg, dict):
+            new_arg = Dict(arg)
+            new_arg.__name__ = arg['tag']
+        else:
+            raise TypeError('annotate_data can only handle dicts, '
+                            'lists and tuples')
         new_args.append(new_arg)
 
     return lambda func: ddt.data(*new_args)(ddt.unpack(func))
