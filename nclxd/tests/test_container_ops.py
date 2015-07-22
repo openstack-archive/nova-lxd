@@ -15,11 +15,9 @@
 
 import ddt
 import mock
-from nova.compute import power_state
 from nova import exception
 from nova import test
 from nova.virt import fake
-from nova.virt import hardware
 from pylxd import exceptions as lxd_exceptions
 import six
 
@@ -295,26 +293,6 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mock.call.container_destroy('mock_instance-rescue')
         ]
         self.assertEqual(calls, self.ml.method_calls)
-
-    @tests.annotated_data(
-        ('RUNNING', power_state.RUNNING),
-        ('STOPPED', power_state.SHUTDOWN),
-        ('STARTING', power_state.NOSTATE),
-        ('STOPPING', power_state.SHUTDOWN),
-        ('ABORTING', power_state.CRASHED),
-        ('FREEZING', power_state.PAUSED),
-        ('FROZEN', power_state.SUSPENDED),
-        ('THAWED', power_state.PAUSED),
-        ('PENDING', power_state.NOSTATE),
-        ('Success', power_state.RUNNING),
-        ('UNKNOWN', power_state.NOSTATE),
-        (lxd_exceptions.APIError('Fake', 500), power_state.NOSTATE),
-    )
-    def test_get_info(self, side_effect, expected):
-        instance = tests.MockInstance()
-        self.ml.container_state.side_effect = [side_effect]
-        self.assertEqual(hardware.InstanceInfo(state=expected, num_cpu=2),
-                         self.container_ops.get_info(instance))
 
     @mock.patch('six.moves.builtins.open')
     @mock.patch.object(container_ops.utils, 'execute')
