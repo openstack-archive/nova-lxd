@@ -210,8 +210,11 @@ class LXDContainerUtils(object):
         try:
             return self.lxd.container_defined(instance)
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to get container status: %s') % ex
-            raise exception.NovaException(msg)
+            if ex.status_code == 404:
+                return False
+            else:
+                msg = _('Failed to get container status: %s') % ex
+                raise exception.NovaException(msg)
 
     def container_reboot(self, instance):
         try:
