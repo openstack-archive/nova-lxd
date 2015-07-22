@@ -123,6 +123,11 @@ class LXDTestDriver(test.NoDBTestCase):
             expected,
             self.connection.instance_exists(tests.MockInstance(name=name)))
 
+    def test_estimate_instance_overhead(self):
+        self.assertEqual(
+            {'memory_mb': 0},
+            self.connection.estimate_instance_overhead(mock.Mock()))
+
     def test_list_instances(self):
         self.assertEqual(['mock-instance-1', 'mock-instance-2'],
                          self.connection.list_instances())
