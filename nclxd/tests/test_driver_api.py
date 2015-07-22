@@ -172,6 +172,37 @@ class LXDTestDriver(test.NoDBTestCase):
                 context, instance, image_meta, injected_files, 'secret',
                 network_info, block_device_info, None, False)
 
+    def test_destroy_fail(self):
+        instance = tests.MockInstance()
+        self.ml.container_destroy.side_effect = (
+            lxd_exceptions.APIError('Fake', 500))
+        self.assertRaises(
+            exception.NovaException,
+            self.connection.destroy,
+            {}, instance, [])
+        self.ml.container_destroy.assert_called_with('mock_instance')
+
+    @mock.patch('shutil.rmtree')
+    @tests.annotated_data(
+        ('ack', (202, {}), False),
+        ('ack-rmtree', (202, {}), True),
+        ('not-found', lxd_exceptions.APIError('Not found', 404), False),
+    )
+    def test_destroy(self, tag, side_effect, exists, mr):
+        instance = tests.MockInstance()
+        self.ml.container_destroy.side_effect = [side_effect]
+        with mock.patch('os.path.exists', return_value=exists):
+            self.assertEqual(
+                None,
+                self.connection.destroy({}, instance, [])
+            )
+            self.ml.container_destroy.assert_called_once_with('mock_instance')
+            if exists:
+                mr.assert_called_once_with(
+                    '/fake/instances/path/mock_instance')
+            else:
+                self.assertFalse(mr.called)
+
 
 @ddt.ddt
 class LXDTestDriverNoops(test.NoDBTestCase):
