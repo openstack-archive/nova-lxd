@@ -18,6 +18,7 @@ import mock
 from nova.compute import power_state
 from nova import exception
 from nova import test
+from nova.virt import fake
 from nova.virt import hardware
 from pylxd import exceptions as lxd_exceptions
 import six
@@ -41,7 +42,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
         lxd_patcher.start()
         self.addCleanup(lxd_patcher.stop)
 
-        self.container_ops = container_ops.LXDContainerOperations(mock.Mock())
+        self.container_ops = (
+            container_ops.LXDContainerOperations(fake.FakeVirtAPI()))
         self.mc = mock.MagicMock()
         config_patcher = mock.patch.object(self.container_ops,
                                            'container_config',
