@@ -57,36 +57,6 @@ class LXDTestContainerOps(test.NoDBTestCase):
         vif_patcher.start()
         self.addCleanup(vif_patcher.stop)
 
-    def test_init_host(self):
-        self.assertEqual(
-            True,
-            self.container_ops.init_host(None)
-        )
-
-    def test_init_host_new_profile(self):
-        self.ml.profile_list.return_value = []
-        self.assertEqual(
-            True,
-            self.container_ops.init_host(None)
-        )
-        self.ml.profile_create.assert_called_once_with(
-            {'name': 'fake_profile'})
-
-    @tests.annotated_data(
-        ('profile_fail', {'profile_list.side_effect':
-                          lxd_exceptions.APIError('Fake', 500)}),
-        ('no_ping', {'host_ping.return_value': False}),
-        ('ping_fail', {'host_ping.side_effect':
-                       lxd_exceptions.APIError('Fake', 500)}),
-    )
-    def test_init_host_fail(self, tag, config):
-        self.ml.configure_mock(**config)
-        self.assertRaises(
-            exception.HostNotFound,
-            self.container_ops.init_host,
-            None
-        )
-
     def test_list_instances(self):
         self.assertEqual(['mock-instance-1', 'mock-instance-2'],
                          self.container_ops.list_instances())
