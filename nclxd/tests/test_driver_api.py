@@ -91,3 +91,15 @@ class LXDTestDriver(test.NoDBTestCase):
             self.connection.init_host,
             None
         )
+
+    def test_list_instances(self):
+        self.assertEqual(['mock-instance-1', 'mock-instance-2'],
+                         self.connection.list_instances())
+
+    def test_list_instances_fail(self):
+        self.ml.container_list.side_effect = (
+            lxd_exceptions.APIError('Fake', 500))
+        self.assertRaises(
+            exception.NovaException,
+            self.connection.list_instances
+        )

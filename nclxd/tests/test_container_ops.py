@@ -57,19 +57,6 @@ class LXDTestContainerOps(test.NoDBTestCase):
         vif_patcher.start()
         self.addCleanup(vif_patcher.stop)
 
-    def test_list_instances(self):
-        self.assertEqual(['mock-instance-1', 'mock-instance-2'],
-                         self.container_ops.list_instances())
-
-    def test_list_instances_fail(self):
-        self.ml.configure_mock(
-            **{'container_list.side_effect':
-               lxd_exceptions.APIError('Fake', 500)})
-        self.assertRaises(
-            exception.NovaException,
-            self.container_ops.list_instances
-        )
-
     @tests.annotated_data(
         ('exists', [True], exception.InstanceExists, False, 'mock-instance'),
         ('exists_rescue', [True], exception.InstanceExists,
