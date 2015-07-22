@@ -139,3 +139,19 @@ class LXDTestDriver(test.NoDBTestCase):
             exception.NovaException,
             self.connection.list_instances
         )
+
+
+@ddt.ddt
+class LXDTestDriverNoops(test.NoDBTestCase):
+
+    def setUp(self):
+        super(LXDTestDriverNoops, self).setUp()
+        self.connection = driver.LXDDriver(fake.FakeVirtAPI())
+
+    @ddt.data(
+        'list_instance_uuids',
+    )
+    def test_notimplemented(self, method):
+        self.assertRaises(
+            NotImplementedError,
+            getattr(self.connection, method))
