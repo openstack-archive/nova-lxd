@@ -258,22 +258,26 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def refresh_security_group_rules(self, security_group_id):
-        return self.container_firewall.refresh_security_group(security_group_id)
+        return (self.container_firewall
+                .refresh_security_group(security_group_id))
 
     def refresh_security_group_members(self, security_group_id):
-        return self.container_firewall.refresh_security_group(security_group_id)
+        return (self.container_firewall
+                .refresh_security_group(security_group_id))
 
     def refresh_provider_fw_rules(self):
         return self.container_firewall.refresh_provider_fw_rules()
 
     def refresh_instance_security_rules(self, instance):
-        return self.container_firewall.refresh_instances_security_rules(instance)
+        return (self.container_firewall
+                .refresh_instances_security_rules(instance))
 
     def reset_network(self, instance):
         pass
 
     def ensure_filtering_rules_for_instance(self, instance, network_info):
-        return self.container_firewall.ensure_filtering_rules_for_instance(instance, network_info)
+        return (self.container_firewall
+                .ensure_filtering_rules_for_instance(instance, network_info))
 
     def filter_defer_apply_on(self):
         return self.container_firewall.filter_defer_apply_on()

@@ -61,8 +61,16 @@ class LXDTestContainerOps(test.NoDBTestCase):
             self.container_ops.init_host(None)
         )
 
+    def test_init_host_new_profile(self):
+        self.ml.profile_list.return_value = []
+        self.assertEqual(
+            True,
+            self.container_ops.init_host(None)
+        )
+        self.ml.profile_create.assert_called_once_with(
+            {'name': 'fake_profile'})
+
     @tests.annotated_data(
-        ('bad_profile', {'profile_list.return_value': ['bad_profile']}),
         ('profile_fail', {'profile_list.side_effect':
                           lxd_exceptions.APIError('Fake', 500)}),
         ('no_ping', {'host_ping.return_value': False}),
