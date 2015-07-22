@@ -94,7 +94,6 @@ class LXDDriver(driver.ComputeDriver):
         return self.container_ops.destroy(context, instance, network_info,
                                           block_device_info, destroy_disks,
                                           migrate_data)
-        self.cleanup(context, instance, network_info, block_device_info)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
