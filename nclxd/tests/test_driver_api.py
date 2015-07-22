@@ -13,13 +13,23 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import os
+
 from nova import test
 from nova.virt import fake
 from oslo_config import cfg
 
 from nclxd.nova.virt.lxd import driver
 
-CONF = cfg.CONF
+
+class LXDTestConfig(test.NoDBTestCase):
+
+    def test_config(self):
+        self.assertIsInstance(driver.CONF.lxd, cfg.ConfigOpts.GroupAttr)
+        self.assertEqual(os.path.abspath('/var/lib/lxd'),
+                         os.path.abspath(driver.CONF.lxd.root_dir))
+        self.assertEqual(5, driver.CONF.lxd.timeout)
+        self.assertEqual('nclxd-profile', driver.CONF.lxd.default_profile)
 
 
 class LXDTestDriver(test.NoDBTestCase):
