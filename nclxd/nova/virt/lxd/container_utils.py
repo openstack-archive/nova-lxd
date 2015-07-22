@@ -175,7 +175,7 @@ class LXDContainerUtils(object):
                 raise exception.NovaException(msg)
 
     def container_cleanup(self, instance, network_info, block_device_info):
-        LOG.debug('continer cleanup')
+        LOG.debug('container cleanup')
         container_dir = self.container_dir.get_instance_dir(instance.name)
         if os.path.exists(container_dir):
             shutil.rmtree(container_dir)
