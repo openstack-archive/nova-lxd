@@ -18,7 +18,6 @@ import mock
 from nova import exception
 from nova import test
 from nova.virt import fake
-from pylxd import exceptions as lxd_exceptions
 import six
 
 from nclxd.nova.virt.lxd import container_ops
@@ -56,11 +55,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
         self.addCleanup(vif_patcher.stop)
 
     @tests.annotated_data(
-        ('exists', [True], exception.InstanceExists, False, 'mock-instance'),
         ('exists_rescue', [True], exception.InstanceExists,
          True, 'fake-instance'),
-        ('fail', lxd_exceptions.APIError('Fake', 500),
-         exception.NovaException, False, 'mock-instance')
     )
     def test_spawn_defined(self, tag, side_effect, expected, rescue, name):
         instance = tests.MockInstance()
@@ -71,24 +67,6 @@ class LXDTestContainerOps(test.NoDBTestCase):
             {}, instance, {}, [], 'secret',
             name_label='fake-instance', rescue=rescue)
         self.ml.container_defined.called_once_with(name)
-
-    def test_spawn_new(self):
-        context = mock.Mock()
-        instance = tests.MockInstance()
-        image_meta = mock.Mock()
-        injected_files = mock.Mock()
-        network_info = mock.Mock()
-        block_device_info = mock.Mock()
-        self.ml.container_defined.return_value = False
-        with mock.patch.object(self.container_ops, 'create_instance') as mc:
-            self.assertEqual(
-                None,
-                self.container_ops.spawn(
-                    context, instance, image_meta, injected_files, 'secret',
-                    network_info, block_device_info, 'fake_instance', False))
-            mc.assert_called_once_with(
-                context, instance, image_meta, injected_files, 'secret',
-                network_info, block_device_info, 'fake_instance', False)
 
     @mock.patch('oslo_utils.fileutils.ensure_tree',
                 return_value=None)
