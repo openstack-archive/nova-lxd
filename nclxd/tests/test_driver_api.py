@@ -114,6 +114,15 @@ class LXDTestDriver(test.NoDBTestCase):
         self.assertEqual(hardware.InstanceInfo(state=expected, num_cpu=2),
                          self.connection.get_info(instance))
 
+    @tests.annotated_data(
+        (True, 'mock-instance-1'),
+        (False, 'fake-instance'),
+    )
+    def test_instance_exists(self, expected, name):
+        self.assertEqual(
+            expected,
+            self.connection.instance_exists(tests.MockInstance(name=name)))
+
     def test_list_instances(self):
         self.assertEqual(['mock-instance-1', 'mock-instance-2'],
                          self.connection.list_instances())

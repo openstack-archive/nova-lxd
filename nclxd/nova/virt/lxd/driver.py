@@ -81,7 +81,7 @@ class LXDDriver(driver.ComputeDriver):
         return self.container_ops.list_instances()
 
     def list_instance_uuids(self):
-        return self.container_ops.list_instances()
+        raise NotImplementedError()
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
