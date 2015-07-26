@@ -14,6 +14,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import collections
+import pprint
+
 from nova.api.metadata import base as instance_metadata
 from nova import exception
 from nova import i18n
@@ -169,6 +172,62 @@ class LXDContainerConfig(object):
                           e, instance=instance)
 
         return container_config
+
+    def configure_container_net_device(self, instance, vif):
+        LOG.debug('Configure container device')
+        container_config = self._get_container_config(instance, vif)
+        bridge = 'qbr%s' % vif['id'][:11]
+
+        container_config = self.add_config(container_config, 'devices',
+                                           bridge, 
+                                           data={'name': self._get_network_device(
+                                                            instance.name),
+                                                 'nictype': 'bridged',
+                                                 'hwaddr': vif['address'],
+                                                 'parent': bridge,
+                                                 'type': 'nic'})
+        return container_config
+
+
+    def _get_container_config(self, instance, network_info):
+        container_update = self._init_container_config()
+
+        container_old = self.container_utils.container_config(instance.name)
+        container_config = self._convert(container_old['config'])
+        container_devices = self._convert(container_old['devices'])
+
+        container_update['config'] = container_config
+        container_update['devices'] = container_devices
+
+        LOG.debug(pprint.pprint(container_update))
+
+        return container_update
+
+    def _get_network_device(self, instance):
+        data = self.container_utils.container_info(instance)
+        lines = open('/proc/%s/net/dev' % data['init']).readlines()
+        interface = []
+        for line in lines[2:]:
+            if line.find(':') < 0: continue
+            face, _ = line.split(':')
+            if 'eth' in face:
+                interfaces.append(face.strip())
+
+        if len(interfaces) == 1:
+            return 'eth1'
+        else:
+            return 'eth%s' % int(len(interfaces) - 1)
+
+    def _convert(self, data):
+        if isinstance(data, basestring):
+            return str(data)
+        elif isinstance(data, collections.Mapping):
+            return dict(map(self._convert, data.iteritems()))
+        elif isinstance(data, collections.Iterable):
+            return type(data)(map(self._convert, data))
+        else:
+            return data
+
 
     def add_config(self, config, key, value, data=None):
         if key == 'config':

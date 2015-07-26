@@ -264,6 +264,23 @@ class LXDContainerOperations(object):
                                                   MAX_CONSOLE_BYTES)
             return log_data
 
+    def container_attach_interface(self, instance, image_meta, vif):
+        try:
+            self.vif_driver.plug(instance, vif)
+            self.firewall_driver.setup_basic_filtering(instance, vif)
+            container_config = \
+                self.container_config.configure_container_net_device(instance,
+                                                                     vif)
+            self.container_utils.container_update(instance.name, container_config)
+        except Exception as ex:
+            self.vif_driver.unplug(instance, vif)
+
+    def container_detach_interface(self, instance, vif):
+        try:
+            self.vif_driver.unplug(instance, vif)
+        except Exception as ex:
+            pass
+
     def _get_neutron_events(self, network_info):
         return [('network-vif-plugged', vif['id'])
                 for vif in network_info if vif.get('active', True) is False]

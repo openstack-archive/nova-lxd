@@ -181,13 +181,21 @@ class LXDContainerUtils(object):
             shutil.rmtree(container_dir)
 
     def container_state(self, instance):
-        LOG.debug('container info')
+        LOG.debug('container state')
         try:
             container_state = self.lxd.container_state(instance)
             state = LXD_POWER_STATES[container_state]
         except lxd_exceptions.APIError:
             state = power_state.NOSTATE
         return state
+
+    def container_info(self, instance):
+        LOG.debug('container info')
+        try:
+            return self.lxd.container_info(instance)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to retrieve container info: %s') % ex
+            raise exception.NovaException(msg)
 
     def container_init(self, container_config):
         LOG.debug('container init')
