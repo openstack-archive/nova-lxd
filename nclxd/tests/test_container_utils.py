@@ -133,5 +133,5 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         mock_container_state.return_value = 'RUNNING'
         instance = fake_instance.fake_instance_obj(None, name='fake_inst',
                                                    uuid='fake_uuid')
-        self.assertTrue(self.container_utils.container_info(instance),
+        self.assertTrue(self.container_utils.container_state(instance),
                         power_state.RUNNING)

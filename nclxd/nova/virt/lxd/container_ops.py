@@ -242,8 +242,8 @@ class LXDContainerOperations(object):
                                                       block_device_info)
 
     def get_info(self, instance):
-        container_info = self.container_utils.container_info(instance.name)
-        return hardware.InstanceInfo(state=container_info,
+        container_state = self.container_utils.container_state(instance.name)
+        return hardware.InstanceInfo(state=container_state,
                                      max_mem_kb=0,
                                      mem_kb=0,
                                      num_cpu=2,

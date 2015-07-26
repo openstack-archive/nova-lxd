@@ -180,7 +180,7 @@ class LXDContainerUtils(object):
         if os.path.exists(container_dir):
             shutil.rmtree(container_dir)
 
-    def container_info(self, instance):
+    def container_state(self, instance):
         LOG.debug('container info')
         try:
             container_state = self.lxd.container_state(instance)
