@@ -49,7 +49,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
                                                           image_meta))
 
     @mock.patch('os.path.exists')
-    @mock.patch('nova.openstack.common.fileutils.ensure_tree')
+    @mock.patch('oslo_utils.fileutils.ensure_tree')
     @ddt.data(True, False)
     def test_fetch_image_existing_file(self, base_exists, mt, mo):
         mo.side_effect = [base_exists, True]
@@ -69,8 +69,8 @@ class LXDTestContainerImage(test.NoDBTestCase):
                          mo.call_args_list)
 
     @mock.patch('os.path.exists', mock.Mock(return_value=False))
-    @mock.patch('nova.openstack.common.fileutils.ensure_tree', mock.Mock())
-    @mock.patch('nova.openstack.common.fileutils.remove_path_on_error')
+    @mock.patch('oslo_utils.fileutils.ensure_tree', mock.Mock())
+    @mock.patch('oslo_utils.fileutils.remove_path_on_error')
     def test_fetch_image_new_defined(self, mf):
         instance = tests.MockInstance()
         context = {}
@@ -90,8 +90,8 @@ class LXDTestContainerImage(test.NoDBTestCase):
             dest_path='/fake/image/cache/new_image.tar.gz')
 
     @mock.patch('os.path.exists', mock.Mock(return_value=False))
-    @mock.patch('nova.openstack.common.fileutils.ensure_tree', mock.Mock())
-    @mock.patch('nova.openstack.common.fileutils.remove_path_on_error',
+    @mock.patch('oslo_utils.fileutils.ensure_tree', mock.Mock())
+    @mock.patch('oslo_utils.fileutils.remove_path_on_error',
                 mock.MagicMock())
     def test_fetch_image_new_upload_failed(self):
         instance = tests.MockInstance()
@@ -113,8 +113,8 @@ class LXDTestContainerImage(test.NoDBTestCase):
                 path='/fake/image/cache/new_image.tar.gz')
 
     @mock.patch('os.path.exists', mock.Mock(return_value=False))
-    @mock.patch('nova.openstack.common.fileutils.ensure_tree', mock.Mock())
-    @mock.patch('nova.openstack.common.fileutils.remove_path_on_error',
+    @mock.patch('oslo_utils.fileutils.ensure_tree', mock.Mock())
+    @mock.patch('oslo_utils.fileutils.remove_path_on_error',
                 mock.MagicMock())
     def test_fetch_image_new_alias_failed(self):
         instance = tests.MockInstance()
@@ -138,8 +138,8 @@ class LXDTestContainerImage(test.NoDBTestCase):
                               context, instance, image_meta)
 
     @mock.patch('os.path.exists', mock.Mock(return_value=False))
-    @mock.patch('nova.openstack.common.fileutils.ensure_tree', mock.Mock())
-    @mock.patch('nova.openstack.common.fileutils.remove_path_on_error',
+    @mock.patch('oslo_utils.fileutils.ensure_tree', mock.Mock())
+    @mock.patch('oslo_utils.fileutils.remove_path_on_error',
                 mock.MagicMock())
     def test_fetch_image_new(self):
         instance = tests.MockInstance()
