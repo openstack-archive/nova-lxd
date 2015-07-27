@@ -18,6 +18,8 @@ import os
 import pprint
 import pwd
 
+from oslo_utils import fileutils
+
 from nova import exception
 from nova import i18n
 from nova.openstack.common import fileutils
