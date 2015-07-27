@@ -135,7 +135,9 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplemented()
 
     def attach_interface(self, instance, image_meta, vif):
-        return self.container_ops.container_attach_interface(instance, image_meta, vif)
+        return self.container_ops.container_attach_interface(instance,
+                                                             image_meta,
+                                                             vif)
 
     def detach_interface(self, instance, vif):
         return self.container_ops.container_detach_interface(instance, vif)

@@ -17,13 +17,12 @@
 import hashlib
 import os
 
-from oslo_utils import fileutils
-
 from nova import exception
 from nova import i18n
 from nova import image
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import fileutils
 from pylxd import api
 from pylxd import exceptions as lxd_exceptions
 

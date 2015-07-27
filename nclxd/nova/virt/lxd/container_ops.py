@@ -269,17 +269,18 @@ class LXDContainerOperations(object):
         try:
             self.vif_driver.plug(instance, vif)
             self.firewall_driver.setup_basic_filtering(instance, vif)
-            container_config = \
+            container_config = (
                 self.container_config.configure_container_net_device(instance,
-                                                                     vif)
-            self.container_utils.container_update(instance.name, container_config)
-        except Exception as ex:
+                                                                     vif))
+            self.container_utils.container_update(instance.name,
+                                                  container_config)
+        except Exception:
             self.vif_driver.unplug(instance, vif)
 
     def container_detach_interface(self, instance, vif):
         try:
             self.vif_driver.unplug(instance, vif)
-        except Exception as ex:
+        except Exception:
             pass
 
     def _get_neutron_events(self, network_info):
