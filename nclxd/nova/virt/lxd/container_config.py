@@ -25,6 +25,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import units
+import six
 
 from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils
@@ -219,7 +220,7 @@ class LXDContainerConfig(object):
             return 'eth%s' % int(len(interfaces) - 1)
 
     def _convert(self, data):
-        if isinstance(data, basestring):
+        if isinstance(data, six.string_types):
             return str(data)
         elif isinstance(data, collections.Mapping):
             return dict(map(self._convert, data.iteritems()))
