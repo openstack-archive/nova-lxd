@@ -272,9 +272,6 @@ class LXDDriver(driver.ComputeDriver):
         return (self.container_firewall
                 .refresh_instances_security_rules(instance))
 
-    def reset_network(self, instance):
-        pass
-
     def ensure_filtering_rules_for_instance(self, instance, network_info):
         return (self.container_firewall
                 .ensure_filtering_rules_for_instance(instance, network_info))
