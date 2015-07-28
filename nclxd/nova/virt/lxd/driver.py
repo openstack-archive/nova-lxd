@@ -301,7 +301,7 @@ class LXDDriver(driver.ComputeDriver):
         return self.host.get_host_uptime()
 
     def get_host_cpu_stats(self):
-        raise NotImplementedError()
+        return self.host.get_host_cpu_stats()
 
     def block_stats(self, instance, disk_id):
         raise NotImplementedError()
