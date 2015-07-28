@@ -29,13 +29,13 @@ from nclxd.nova.virt.lxd import host
 _ = i18n._
 
 lxd_opts = [
-    cfg.StrOpt('lxd_root_dir',
+    cfg.StrOpt('root_dir',
                default='/var/lib/lxd/',
                help='Default LXD directory'),
-    cfg.IntOpt('lxd_timeout',
+    cfg.IntOpt('timeout',
                default=5,
                help='Default LXD timeout'),
-    cfg.StrOpt('lxd_default_profile',
+    cfg.StrOpt('default_profile',
                default='nclxd-profile',
                help='Default LXD profile')
 ]

@@ -63,7 +63,7 @@ class LXDContainerConfig(object):
         container_config = self.add_config(container_config, 'name',
                                            name)
         container_config = self.add_config(container_config, 'profiles',
-                                           [str(CONF.lxd.lxd_default_profile)])
+                                           [str(CONF.lxd.default_profile)])
         container_config = self.configure_container_config(
             container_config, instance)
 
