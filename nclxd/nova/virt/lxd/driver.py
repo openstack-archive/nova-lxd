@@ -288,12 +288,6 @@ class LXDDriver(driver.ComputeDriver):
     def unfilter_instance(self, instance, network_info):
         return self.container_firewall.unfilter_instance()
 
-    def inject_file(self, instance, b64_path, b64_contents):
-        raise NotImplementedError()
-
-    def inject_network_info(self, instance, nw_info):
-        pass
-
     def poll_rebooting_instances(self, timeout, instances):
         raise NotImplementedError()
 
