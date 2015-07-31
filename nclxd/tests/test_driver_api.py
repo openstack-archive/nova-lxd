@@ -219,28 +219,6 @@ class LXDTestDriver(test.NoDBTestCase):
         mr.assert_called_once_with(
             '/fake/instances/path/mock_instance')
 
-    def test_reboot_fail(self):
-        instance = tests.MockInstance()
-        self.ml.container_reboot.side_effect = lxd_exceptions.APIError('Fake',
-                                                                       500)
-        self.assertRaises(
-            exception.NovaException,
-            self.connection.reboot,
-            {}, instance, [], None, None, None)
-        self.ml.container_reboot.assert_called_once_with('mock_instance')
-
-    @tests.annotated_data(
-        ('ack', (202, {}), (202, {})),
-        ('not-found', lxd_exceptions.APIError('Not found', 404), None),
-    )
-    def test_reboot(self, tag, side_effect, expected):
-        instance = tests.MockInstance()
-        self.ml.container_reboot.side_effect = [side_effect]
-        self.assertEqual(
-            expected,
-            self.connection.reboot({}, instance, [], None, None, None))
-        self.ml.container_reboot.assert_called_once_with('mock_instance')
-
     @mock.patch('six.moves.builtins.open')
     @mock.patch.object(container_ops.utils, 'execute')
     @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
@@ -350,27 +328,6 @@ class LXDTestDriver(test.NoDBTestCase):
         ]
         self.assertEqual(calls, manager.method_calls)
 
-    def test_pause_fail(self):
-        instance = tests.MockInstance()
-        self.ml.container_freeze.side_effect = (
-            [lxd_exceptions.APIError('Fake', 500)])
-        self.assertRaises(
-            exception.NovaException,
-            self.connection.pause, instance)
-        self.ml.container_freeze.assert_called_once_with('mock_instance', 20)
-
-    @tests.annotated_data(
-        ('ack', (202, {}), (202, {})),
-        ('not-found', lxd_exceptions.APIError('Not found', 404), None),
-    )
-    def test_pause(self, tag, side_effect, expected):
-        instance = tests.MockInstance()
-        self.ml.container_freeze.side_effect = [side_effect]
-        self.assertEqual(
-            expected,
-            self.connection.pause(instance))
-        self.ml.container_freeze.assert_called_once_with('mock_instance', 20)
-
     def test_rescue_fail(self):
         instance = tests.MockInstance()
         self.ml.container_defined.return_value = True
@@ -414,26 +371,58 @@ class LXDTestDriver(test.NoDBTestCase):
         ]
         self.assertEqual(calls, self.ml.method_calls)
 
-    def test_power_off_fail(self):
-        instance = tests.MockInstance()
-        self.ml.container_stop.side_effect = (
-            [lxd_exceptions.APIError('Fake', 500)])
+    # methods that simply proxy some arguments through
+    simple_methods = (
+        ('reboot', 'container_reboot',
+         ({}, tests.MockInstance(), [], None, None, None),
+         ('mock_instance',)),
+        ('pause', 'container_freeze',
+         (tests.MockInstance(),),
+         ('mock_instance', 20)),
+        ('power_off', 'container_stop',
+         (tests.MockInstance(),),
+         ('mock_instance', 20)),
+        ('power_on', 'container_start',
+         ({}, tests.MockInstance(), []),
+         ('mock_instance', 20),
+         False),
+    )
+
+    @tests.annotated_data(*simple_methods)
+    def test_simple_fail(self, name, lxd_name, args, call_args,
+                         ignore_404=True):
+        call = getattr(self.connection, name)
+        lxd_call = getattr(self.ml, lxd_name)
+        lxd_call.side_effect = lxd_exceptions.APIError('Fake', 500)
         self.assertRaises(
             exception.NovaException,
-            self.connection.power_off, instance)
-        self.ml.container_stop.assert_called_once_with('mock_instance', 20)
+            call, *args)
+        lxd_call.assert_called_once_with(*call_args)
 
-    @tests.annotated_data(
-        ('ack', (202, {}), (202, {})),
-        ('not-found', lxd_exceptions.APIError('Not found', 404), None),
-    )
-    def test_power_off(self, tag, side_effect, expected):
-        instance = tests.MockInstance()
-        self.ml.container_stop.side_effect = [side_effect]
+    @tests.annotated_data(*simple_methods)
+    def test_simple_notfound(self, name, lxd_name, args, call_args,
+                             ignore_404=True):
+        call = getattr(self.connection, name)
+        lxd_call = getattr(self.ml, lxd_name)
+        lxd_call.side_effect = lxd_exceptions.APIError('Fake', 404)
+        if ignore_404:
+            self.assertEqual(
+                None,
+                call(*args))
+        else:
+            self.assertRaises(
+                exception.NovaException,
+                call, *args)
+        lxd_call.assert_called_once_with(*call_args)
+
+    @tests.annotated_data(*simple_methods)
+    def test_simple(self, name, lxd_name, args, call_args, ignore_404=True):
+        call = getattr(self.connection, name)
+        lxd_call = getattr(self.ml, lxd_name)
         self.assertEqual(
-            expected,
-            self.connection.power_off(instance))
-        self.ml.container_stop.assert_called_once_with('mock_instance', 20)
+            lxd_call.return_value,
+            call(*args))
+        lxd_call.assert_called_once_with(*call_args)
 
 
 @ddt.ddt
