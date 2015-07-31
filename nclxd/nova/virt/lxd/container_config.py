@@ -25,6 +25,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import units
+import six
 
 from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils
@@ -62,7 +63,7 @@ class LXDContainerConfig(object):
         container_config = self.add_config(container_config, 'name',
                                            name)
         container_config = self.add_config(container_config, 'profiles',
-                                           [str(CONF.lxd.lxd_default_profile)])
+                                           [str(CONF.lxd.default_profile)])
         container_config = self.configure_container_config(
             container_config, instance)
 
@@ -178,16 +179,15 @@ class LXDContainerConfig(object):
         container_config = self._get_container_config(instance, vif)
         bridge = 'qbr%s' % vif['id'][:11]
 
-        container_config = self.add_config(container_config, 'devices',
-                                           bridge, 
-                                           data={'name': self._get_network_device(
-                                                            instance.name),
-                                                 'nictype': 'bridged',
-                                                 'hwaddr': vif['address'],
-                                                 'parent': bridge,
-                                                 'type': 'nic'})
+        container_config = self.add_config(
+            container_config, 'devices',
+            bridge,
+            data={'name': self._get_network_device(instance.name),
+                  'nictype': 'bridged',
+                  'hwaddr': vif['address'],
+                  'parent': bridge,
+                  'type': 'nic'})
         return container_config
-
 
     def _get_container_config(self, instance, network_info):
         container_update = self._init_container_config()
@@ -206,9 +206,10 @@ class LXDContainerConfig(object):
     def _get_network_device(self, instance):
         data = self.container_utils.container_info(instance)
         lines = open('/proc/%s/net/dev' % data['init']).readlines()
-        interface = []
+        interfaces = []
         for line in lines[2:]:
-            if line.find(':') < 0: continue
+            if line.find(':') < 0:
+                continue
             face, _ = line.split(':')
             if 'eth' in face:
                 interfaces.append(face.strip())
@@ -219,7 +220,7 @@ class LXDContainerConfig(object):
             return 'eth%s' % int(len(interfaces) - 1)
 
     def _convert(self, data):
-        if isinstance(data, basestring):
+        if isinstance(data, six.string_types):
             return str(data)
         elif isinstance(data, collections.Mapping):
             return dict(map(self._convert, data.iteritems()))
@@ -227,7 +228,6 @@ class LXDContainerConfig(object):
             return type(data)(map(self._convert, data))
         else:
             return data
-
 
     def add_config(self, config, key, value, data=None):
         if key == 'config':

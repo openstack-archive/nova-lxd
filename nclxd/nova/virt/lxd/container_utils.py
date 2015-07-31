@@ -68,18 +68,18 @@ class LXDContainerDirectories(object):
                             'config-drive')
 
     def get_console_path(self, instance):
-        return os.path.join(CONF.lxd.lxd_root_dir,
+        return os.path.join(CONF.lxd.root_dir,
                             'lxc',
                             instance,
                             'console.log')
 
     def get_container_dir(self, instance):
-        return os.path.join(CONF.lxd.lxd_root_dir,
+        return os.path.join(CONF.lxd.root_dir,
                             'lxc',
                             instance)
 
     def get_container_rootfs(self, instance):
-        return os.path.join(CONF.lxd.lxd_root_dir,
+        return os.path.join(CONF.lxd.root_dir,
                             'lxc',
                             instance,
                             'rootfs')
@@ -94,8 +94,8 @@ class LXDContainerUtils(object):
     def init_lxd_host(self, host):
         LOG.debug('Host check')
         try:
-            if CONF.lxd.lxd_default_profile not in self.lxd.profile_list():
-                profile = {'name': CONF.lxd.lxd_default_profile}
+            if CONF.lxd.default_profile not in self.lxd.profile_list():
+                profile = {'name': CONF.lxd.default_profile}
                 self.lxd.profile_create(profile)
 
             if not self.lxd.host_ping():
@@ -122,7 +122,7 @@ class LXDContainerUtils(object):
         LOG.debug('container start')
         try:
             return self.lxd.container_start(instance,
-                                            CONF.lxd.lxd_timeout)
+                                            CONF.lxd.timeout)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to start container: %s') % ex
             raise exception.NovaException(msg)
@@ -131,7 +131,7 @@ class LXDContainerUtils(object):
         LOG.debug('container stop')
         try:
             return self.lxd.container_stop(instance,
-                                           CONF.lxd.lxd_timeout)
+                                           CONF.lxd.timeout)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return
@@ -143,7 +143,7 @@ class LXDContainerUtils(object):
         LOG.debug('container pause')
         try:
             return self.lxd.container_freeze(instance,
-                                             CONF.lxd.lxd_timeout)
+                                             CONF.lxd.timeout)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return
@@ -155,7 +155,7 @@ class LXDContainerUtils(object):
         LOG.debug('container unpause')
         try:
             return self.lxd.container_unfreeze(instance,
-                                               CONF.lxd.lxd_timeout)
+                                               CONF.lxd.timeout)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return

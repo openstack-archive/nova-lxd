@@ -56,7 +56,7 @@ class LXDHost(object):
                  int(cpu_topology['threads']))
 
         local_memory_info = self._get_memory_mb_usage()
-        local_disk_info = self._get_fs_info(CONF.lxd.lxd_root_dir)
+        local_disk_info = self._get_fs_info(CONF.lxd.root_dir)
 
         data = {
             'vcpus': vcpus,
