@@ -234,6 +234,18 @@ class LXDContainerUtils(object):
                 msg = _('Failed to reboot container: %s') % ex
                 raise exception.NovaException(msg)
 
+    def container_config(self, instance):
+        try:
+            return self.lxd.get_container_config(instance)
+        except  lxd_exceptions.APIError as ex:
+            msg = _('Failed to fetch container config: %s') % ex
+            raise exception.NovaException(msg)
+
+    def container_info(self, instance):
+        try:
+            return
+
+
     def wait_for_container(self, oid):
         if not oid:
             msg = _('Unable to determine container operation')
