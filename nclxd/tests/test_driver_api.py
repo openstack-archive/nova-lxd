@@ -213,6 +213,28 @@ class LXDTestDriver(test.NoDBTestCase):
         mr.assert_called_once_with(
             '/fake/instances/path/mock_instance')
 
+    def test_reboot_fail(self):
+        instance = tests.MockInstance()
+        self.ml.container_reboot.side_effect = lxd_exceptions.APIError('Fake',
+                                                                       500)
+        self.assertRaises(
+            exception.NovaException,
+            self.connection.reboot,
+            {}, instance, [], None, None, None)
+        self.ml.container_reboot.assert_called_once_with('mock_instance')
+
+    @tests.annotated_data(
+        ('ack', (202, {}), (202, {})),
+        ('not-found', lxd_exceptions.APIError('Not found', 404), None),
+    )
+    def test_reboot(self, tag, side_effect, expected):
+        instance = tests.MockInstance()
+        self.ml.container_reboot.side_effect = [side_effect]
+        self.assertEqual(
+            expected,
+            self.connection.reboot({}, instance, [], None, None, None))
+        self.ml.container_reboot.assert_called_once_with('mock_instance')
+
 
 @ddt.ddt
 class LXDTestDriverNoops(test.NoDBTestCase):
