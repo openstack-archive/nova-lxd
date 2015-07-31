@@ -69,18 +69,18 @@ class LXDContainerDirectories(object):
 
     def get_console_path(self, instance):
         return os.path.join(CONF.lxd.root_dir,
-                            'lxc',
+                            'containers',
                             instance,
                             'console.log')
 
     def get_container_dir(self, instance):
         return os.path.join(CONF.lxd.root_dir,
-                            'lxc',
+                            'containers',
                             instance)
 
     def get_container_rootfs(self, instance):
         return os.path.join(CONF.lxd.root_dir,
-                            'lxc',
+                            'containers',
                             instance,
                             'rootfs')
 
