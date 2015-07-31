@@ -350,6 +350,27 @@ class LXDTestDriver(test.NoDBTestCase):
         ]
         self.assertEqual(calls, manager.method_calls)
 
+    def test_pause_fail(self):
+        instance = tests.MockInstance()
+        self.ml.container_freeze.side_effect = (
+            [lxd_exceptions.APIError('Fake', 500)])
+        self.assertRaises(
+            exception.NovaException,
+            self.connection.pause, instance)
+        self.ml.container_freeze.assert_called_once_with('mock_instance', 20)
+
+    @tests.annotated_data(
+        ('ack', (202, {}), (202, {})),
+        ('not-found', lxd_exceptions.APIError('Not found', 404), None),
+    )
+    def test_pause(self, tag, side_effect, expected):
+        instance = tests.MockInstance()
+        self.ml.container_freeze.side_effect = [side_effect]
+        self.assertEqual(
+            expected,
+            self.connection.pause(instance))
+        self.ml.container_freeze.assert_called_once_with('mock_instance', 20)
+
 
 @ddt.ddt
 class LXDTestDriverNoops(test.NoDBTestCase):
