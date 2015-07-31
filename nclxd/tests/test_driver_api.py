@@ -203,6 +203,16 @@ class LXDTestDriver(test.NoDBTestCase):
             else:
                 self.assertFalse(mr.called)
 
+    @mock.patch('os.path.exists', mock.Mock(return_value=True))
+    @mock.patch('shutil.rmtree')
+    def test_cleanup(self, mr):
+        instance = tests.MockInstance()
+        self.assertEqual(
+            None,
+            self.connection.cleanup({}, instance, [], [], None, None, None))
+        mr.assert_called_once_with(
+            '/fake/instances/path/mock_instance')
+
 
 @ddt.ddt
 class LXDTestDriverNoops(test.NoDBTestCase):
