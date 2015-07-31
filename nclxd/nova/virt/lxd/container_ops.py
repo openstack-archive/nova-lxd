@@ -115,7 +115,7 @@ class LXDContainerOperations(object):
             raise exception.NovaException(msg)
 
         container_config = self.container_config.configure_container(
-            context, instance, network_info, image_meta, name_label, rescue)
+            context, instance, image_meta, name_label, rescue)
 
         LOG.debug(pprint.pprint(container_config))
         (state, data) = self.container_utils.container_init(container_config)

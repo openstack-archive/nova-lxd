@@ -51,7 +51,7 @@ class LXDContainerConfig(object):
         config.setdefault('devices', {})
         return config
 
-    def configure_container(self, context, instance, network_info, image_meta,
+    def configure_container(self, context, instance, image_meta,
                             name_label=None, rescue=False):
         LOG.debug('Creating LXD container')
 
