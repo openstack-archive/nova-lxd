@@ -406,3 +406,29 @@ class LXDTestDriverNoops(test.NoDBTestCase):
             NotImplementedError,
             call,
             *([None] * (len(argspec.args) - 1)))
+
+    @ddt.data(
+        'post_interrupted_snapshot_cleanup',
+        'post_live_migration',
+        'check_instance_shared_storage_cleanup',
+        'manage_image_cache',
+    )
+    def test_pass(self, method):
+        call = getattr(self.connection, method)
+        argspec = inspect.getargspec(call)
+        self.assertEqual(
+            None,
+            call(*([None] * (len(argspec.args) - 1))))
+
+    @tests.annotated_data(
+        ('deallocate_networks_on_reschedule', False),
+        ('macs_for_instance', None),
+        ('get_per_instance_usage', {}),
+        ('instance_on_disk', False),
+    )
+    def test_return(self, method, expected):
+        call = getattr(self.connection, method)
+        argspec = inspect.getargspec(call)
+        self.assertEqual(
+            expected,
+            call(*([None] * (len(argspec.args) - 1))))
