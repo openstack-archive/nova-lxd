@@ -243,8 +243,10 @@ class LXDContainerUtils(object):
 
     def container_info(self, instance):
         try:
-            return
-
+            return self.lxd.container_info(instnace)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to fetch container config: %s') % ex
+            raise exception.NovaException(msg)
 
     def wait_for_container(self, oid):
         if not oid:
