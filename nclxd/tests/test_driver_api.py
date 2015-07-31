@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import inspect
 import os
 
 import ddt
@@ -265,8 +266,15 @@ class LXDTestDriverNoops(test.NoDBTestCase):
 
     @ddt.data(
         'list_instance_uuids',
+        'get_diagnostics',
+        'get_instance_diagnostics',
+        'get_all_bw_counters',
+        'get_all_volume_usage',
     )
     def test_notimplemented(self, method):
+        call = getattr(self.connection, method)
+        argspec = inspect.getargspec(call)
         self.assertRaises(
             NotImplementedError,
-            getattr(self.connection, method))
+            call,
+            *([None] * (len(argspec.args) - 1)))
