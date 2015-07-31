@@ -371,9 +371,10 @@ class LXDTestContainerOps(test.NoDBTestCase):
                                                                instance))
         calls = [
             mock.call('chown', '1234:1234',
-                      '/fake/lxd/root/lxc/mock_instance/console.log',
+                      '/fake/lxd/root/containers/mock_instance/console.log',
                       run_as_root=True),
-            mock.call('chmod', '755', '/fake/lxd/root/lxc/mock_instance',
+            mock.call('chmod', '755',
+                      '/fake/lxd/root/containers/mock_instance',
                       run_as_root=True)
         ]
         self.assertEqual(calls, me.call_args_list)

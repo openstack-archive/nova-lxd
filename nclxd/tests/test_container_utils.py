@@ -63,7 +63,7 @@ class LXDTestContainerDirectory(test.NoDBTestCase):
                                                    uuid='fake_uuid')
         path = self.container_dir.get_console_path(instance.uuid)
         expected_path = os.path.join(CONF.lxd.root_dir,
-                                     'lxc',
+                                     'containers',
                                      instance.uuid,
                                      'console.log')
         self.assertEqual(expected_path, path)
@@ -73,7 +73,7 @@ class LXDTestContainerDirectory(test.NoDBTestCase):
                                                    uuid='fake_uuid')
         path = self.container_dir.get_container_dir(instance.uuid)
         expected_path = os.path.join(CONF.lxd.root_dir,
-                                     'lxc',
+                                     'containers',
                                      instance.uuid)
         self.assertEqual(expected_path, path)
 
@@ -82,7 +82,7 @@ class LXDTestContainerDirectory(test.NoDBTestCase):
                                                    uuid='fake_uuid')
         path = self.container_dir.get_container_rootfs(instance.uuid)
         expected_path = os.path.join(CONF.lxd.root_dir,
-                                     'lxc',
+                                     'containers',
                                      instance.uuid,
                                      'rootfs')
         self.assertEqual(expected_path, path)
