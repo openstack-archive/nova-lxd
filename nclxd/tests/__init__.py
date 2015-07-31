@@ -24,6 +24,7 @@ class MockConf(mock.Mock):
             'instances_path': '/fake/instances/path',
             'image_cache_subdirectory_name': '/fake/image/cache',
             'vif_plugging_timeout': 10,
+            'my_ip': '1.2.3.4',
         }
         default.update(kwargs)
         super(MockConf, self).__init__(*args, **default)

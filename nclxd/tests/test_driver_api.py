@@ -30,6 +30,7 @@ import six
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_utils
 from nclxd.nova.virt.lxd import driver
+from nclxd.nova.virt.lxd import host
 from nclxd import tests
 
 
@@ -47,6 +48,7 @@ class LXDTestConfig(test.NoDBTestCase):
 @mock.patch.object(container_ops, 'CONF', tests.MockConf())
 @mock.patch.object(container_utils, 'CONF', tests.MockConf())
 @mock.patch.object(driver, 'CONF', tests.MockConf())
+@mock.patch.object(host, 'CONF', tests.MockConf())
 class LXDTestDriver(test.NoDBTestCase):
 
     @mock.patch.object(driver, 'CONF', tests.MockConf())
@@ -255,6 +257,15 @@ class LXDTestDriver(test.NoDBTestCase):
                       run_as_root=True)
         ]
         self.assertEqual(calls, me.call_args_list)
+
+    @mock.patch.object(host.compute_utils, 'get_machine_ips')
+    @tests.annotated_data(
+        ('found', ['1.2.3.4']),
+        ('not-found', ['4.3.2.1']),
+    )
+    def test_get_host_ip_addr(self, tag, return_value, mi):
+        mi.return_value = return_value
+        self.assertEqual('1.2.3.4', self.connection.get_host_ip_addr())
 
 
 @ddt.ddt
