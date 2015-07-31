@@ -19,6 +19,7 @@ import os
 import ddt
 import mock
 from nova.compute import power_state
+from nova.compute import task_states
 from nova import exception
 from nova import test
 from nova.virt import fake
@@ -28,6 +29,7 @@ from pylxd import exceptions as lxd_exceptions
 import six
 
 from nclxd.nova.virt.lxd import container_ops
+from nclxd.nova.virt.lxd import container_snapshot
 from nclxd.nova.virt.lxd import container_utils
 from nclxd.nova.virt.lxd import driver
 from nclxd.nova.virt.lxd import host
@@ -295,6 +297,58 @@ class LXDTestDriver(test.NoDBTestCase):
                 self.connection.detach_interface(instance, vif)
             )
             mv.unplug.assert_called_once_with(instance, vif)
+
+    @mock.patch.object(container_snapshot, 'IMAGE_API')
+    def test_snapshot(self, mi):
+        context = mock.Mock()
+        instance = tests.MockInstance()
+        image_id = 'mock_image'
+
+        mi.get.return_value = {'name': 'mock_snapshot'}
+        self.ml.container_snapshot_create.return_value = (
+            200, {'operation': '/1.0/operations/0123456789'})
+        self.ml.container_stop.return_value = (
+            200, {'operation': '/1.0/operations/1234567890'})
+        self.ml.container_start.return_value = (
+            200, {'operation': '/1.0/operations/2345678901'})
+        self.ml.container_publish.return_value = (
+            200, {'metadata': {'fingerprint': 'abcdef0123456789'}})
+
+        manager = mock.Mock()
+        manager.attach_mock(mi, 'image')
+        manager.attach_mock(self.ml, 'lxd')
+
+        self.assertEqual(
+            None,
+            self.connection.snapshot(
+                context, instance, image_id, manager.update)
+        )
+        calls = [
+            mock.call.update(task_state=task_states.IMAGE_PENDING_UPLOAD),
+            mock.call.image.get(context, 'mock_image'),
+            mock.call.lxd.container_snapshot_create(
+                'mock_instance',
+                {'name': 'mock_snapshot', 'stateful': False}),
+            mock.call.lxd.wait_container_operation('0123456789', 200, 20),
+            mock.call.lxd.container_stop('mock_instance', 20),
+            mock.call.lxd.wait_container_operation('1234567890', 200, 20),
+            mock.call.lxd.container_publish(
+                {'source': {'name': 'mock_instance/mock_snapshot',
+                            'type': 'snapshot'}}),
+            mock.call.lxd.alias_create(
+                {'name': 'mock_snapshot', 'target': 'abcdef0123456789'}),
+            mock.call.lxd.image_export('abcdef0123456789'),
+            mock.call.image.update(
+                context, 'mock_image',
+                {'name': 'mock_snapshot', 'disk_format': 'raw',
+                 'container_format': 'bare', 'properties': {}},
+                self.ml.image_export.return_value),
+            mock.call.update(task_state=task_states.IMAGE_UPLOADING,
+                             expected_state=task_states.IMAGE_PENDING_UPLOAD),
+            mock.call.lxd.container_start('mock_instance', 20),
+            mock.call.lxd.wait_container_operation('2345678901', 200, 20),
+        ]
+        self.assertEqual(calls, manager.method_calls)
 
 
 @ddt.ddt
