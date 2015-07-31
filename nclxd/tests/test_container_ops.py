@@ -18,7 +18,6 @@ import mock
 from nova import exception
 from nova import test
 from nova.virt import fake
-import six
 
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_utils
@@ -271,24 +270,3 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mock.call.container_destroy('mock_instance-rescue')
         ]
         self.assertEqual(calls, self.ml.method_calls)
-
-    @mock.patch('six.moves.builtins.open')
-    @mock.patch.object(container_ops.utils, 'execute')
-    @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
-    @mock.patch('os.getuid', mock.Mock())
-    def test_get_console_output(self, me, mo):
-        instance = tests.MockInstance()
-        context = mock.Mock()
-        mo.return_value.__enter__.return_value = six.BytesIO(b'fake contents')
-        self.assertEqual(b'fake contents',
-                         self.container_ops.get_console_output(context,
-                                                               instance))
-        calls = [
-            mock.call('chown', '1234:1234',
-                      '/fake/lxd/root/containers/mock_instance/console.log',
-                      run_as_root=True),
-            mock.call('chmod', '755',
-                      '/fake/lxd/root/containers/mock_instance',
-                      run_as_root=True)
-        ]
-        self.assertEqual(calls, me.call_args_list)

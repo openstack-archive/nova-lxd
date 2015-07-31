@@ -24,6 +24,7 @@ from nova.virt import fake
 from nova.virt import hardware
 from oslo_config import cfg
 from pylxd import exceptions as lxd_exceptions
+import six
 
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_utils
@@ -234,6 +235,25 @@ class LXDTestDriver(test.NoDBTestCase):
             expected,
             self.connection.reboot({}, instance, [], None, None, None))
         self.ml.container_reboot.assert_called_once_with('mock_instance')
+
+    @mock.patch('six.moves.builtins.open')
+    @mock.patch.object(container_ops.utils, 'execute')
+    @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
+    @mock.patch('os.getuid', mock.Mock())
+    def test_get_console_output(self, me, mo):
+        instance = tests.MockInstance()
+        mo.return_value.__enter__.return_value = six.BytesIO(b'fake contents')
+        self.assertEqual(b'fake contents',
+                         self.connection.get_console_output({}, instance))
+        calls = [
+            mock.call('chown', '1234:1234',
+                      '/fake/lxd/root/containers/mock_instance/console.log',
+                      run_as_root=True),
+            mock.call('chmod', '755',
+                      '/fake/lxd/root/containers/mock_instance',
+                      run_as_root=True)
+        ]
+        self.assertEqual(calls, me.call_args_list)
 
 
 @ddt.ddt
