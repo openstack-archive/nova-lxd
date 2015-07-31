@@ -196,8 +196,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
                     network_info, block_device_info, 'fake_instance', rescue))
             ms.assert_called_once_with(instance, network_info, rescue)
         self.mc.configure_container.assert_called_once_with(
-            context, instance, network_info,
-            image_meta, 'fake_instance', rescue)
+            context, instance, image_meta, 'fake_instance', rescue)
         calls = [
             mock.call.container_init(self.mc.configure_container.return_value),
             mock.call.wait_container_operation('0123456789', 200, 20)

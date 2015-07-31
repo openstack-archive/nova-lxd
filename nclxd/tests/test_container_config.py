@@ -45,7 +45,6 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     def test_configure_container(self, tag, kwargs, expected, mf):
         instance = tests.MockInstance()
         context = {}
-        network_info = []
         image_meta = {}
         self.assertEqual(
             {'config': {'raw.lxc':
@@ -58,7 +57,6 @@ class LXDTestContainerConfig(test.NoDBTestCase):
             (self.container_config
              .configure_container(context,
                                   instance,
-                                  network_info,
                                   image_meta,
                                   **kwargs)))
         mf.assert_called_once_with(context, instance, image_meta)
