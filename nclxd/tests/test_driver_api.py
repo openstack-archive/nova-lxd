@@ -267,6 +267,35 @@ class LXDTestDriver(test.NoDBTestCase):
         mi.return_value = return_value
         self.assertEqual('1.2.3.4', self.connection.get_host_ip_addr())
 
+    def test_detach_interface_fail(self):
+        instance = tests.MockInstance()
+        vif = mock.Mock()
+        with mock.patch.object(self.connection.container_ops,
+                               'vif_driver') as mv:
+            mv.unplug.side_effect = [TypeError]
+
+            self.assertRaises(
+                TypeError,
+                self.connection.detach_interface,
+                instance, vif)
+
+    @tests.annotated_data(
+        ('ok', True),
+        ('nova-exc', exception.NovaException),
+        ('pylxd-exc', lxd_exceptions.PyLXDException),
+    )
+    def test_detach_interface(self, tag, side_effect):
+        instance = tests.MockInstance()
+        vif = mock.Mock()
+        with mock.patch.object(self.connection.container_ops,
+                               'vif_driver') as mv:
+            mv.unplug.side_effect = [side_effect]
+            self.assertEqual(
+                None,
+                self.connection.detach_interface(instance, vif)
+            )
+            mv.unplug.assert_called_once_with(instance, vif)
+
 
 @ddt.ddt
 class LXDTestDriverNoops(test.NoDBTestCase):
