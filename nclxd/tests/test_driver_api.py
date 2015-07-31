@@ -371,6 +371,49 @@ class LXDTestDriver(test.NoDBTestCase):
             self.connection.pause(instance))
         self.ml.container_freeze.assert_called_once_with('mock_instance', 20)
 
+    def test_rescue_fail(self):
+        instance = tests.MockInstance()
+        self.ml.container_defined.return_value = True
+        self.assertRaises(exception.NovaException,
+                          self.connection.rescue,
+                          {}, instance, [], {}, 'secret')
+
+    def test_rescue(self):
+        context = mock.Mock()
+        instance = tests.MockInstance()
+        image_meta = mock.Mock()
+        network_info = mock.Mock()
+        self.ml.container_defined.return_value = False
+        with mock.patch.object(self.connection.container_ops, 'spawn') as ms:
+            mgr = mock.Mock()
+            mgr.attach_mock(ms, 'spawn')
+            mgr.attach_mock(self.ml.container_stop, 'stop')
+            self.assertEqual(None,
+                             self.connection.rescue(context,
+                                                    instance,
+                                                    network_info,
+                                                    image_meta,
+                                                    'secret'))
+            calls = [
+                mock.call.stop('mock_instance', 20),
+                mock.call.spawn(
+                    context, instance, image_meta, [], 'secret', network_info,
+                    name_label='mock_instance-rescue', rescue=True)
+            ]
+            self.assertEqual(calls, mgr.method_calls)
+
+    def test_container_unrescue(self):
+        instance = tests.MockInstance()
+        network_info = mock.Mock()
+        self.assertEqual(None,
+                         self.connection.unrescue(instance,
+                                                  network_info))
+        calls = [
+            mock.call.container_start('mock_instance', 20),
+            mock.call.container_destroy('mock_instance-rescue')
+        ]
+        self.assertEqual(calls, self.ml.method_calls)
+
 
 @ddt.ddt
 class LXDTestDriverNoops(test.NoDBTestCase):
