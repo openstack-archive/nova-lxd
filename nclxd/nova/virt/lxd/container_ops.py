@@ -28,6 +28,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import fileutils
 from oslo_utils import units
+from pylxd import exceptions as lxd_exceptions
 
 from nclxd.nova.virt.lxd import container_config
 from nclxd.nova.virt.lxd import container_firewall
@@ -273,13 +274,13 @@ class LXDContainerOperations(object):
                                                                      vif))
             self.container_utils.container_update(instance.name,
                                                   container_config)
-        except Exception:
+        except (exception.NovaException, lxd_exceptions.PyLXDException):
             self.vif_driver.unplug(instance, vif)
 
     def container_detach_interface(self, instance, vif):
         try:
             self.vif_driver.unplug(instance, vif)
-        except Exception:
+        except (exception.NovaException, lxd_exceptions.PyLXDException):
             pass
 
     def _get_neutron_events(self, network_info):
