@@ -127,11 +127,11 @@ class LXDDriver(driver.ComputeDriver):
 
     def attach_volume(self, context, connection_info, instance, mountpoint,
                       disk_bus=None, device_type=None, encryption=None):
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def detach_volume(self, connection_info, instance, mountpoint,
                       encryption=None):
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def attach_interface(self, instance, image_meta, vif):
         return self.container_ops.container_attach_interface(instance,
