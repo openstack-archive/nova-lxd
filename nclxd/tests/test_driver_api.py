@@ -14,12 +14,16 @@
 #    under the License.
 
 import inspect
+import json
 import os
 
 import ddt
 import mock
+from nova.compute import arch
+from nova.compute import hv_type
 from nova.compute import power_state
 from nova.compute import task_states
+from nova.compute import vm_mode
 from nova import exception
 from nova import test
 from nova.virt import fake
@@ -370,6 +374,69 @@ class LXDTestDriver(test.NoDBTestCase):
             mock.call.container_destroy('mock_instance-rescue')
         ]
         self.assertEqual(calls, self.ml.method_calls)
+
+    @mock.patch.object(container_ops.utils, 'execute',
+                       mock.Mock(return_value=('', True)))
+    def test_get_available_resource_fail(self):
+        self.assertRaises(
+            exception.NovaException,
+            self.connection.get_available_resource,
+            None)
+
+    @mock.patch('platform.node', mock.Mock(return_value='fake_hostname'))
+    @mock.patch('os.statvfs', return_value=mock.Mock(f_blocks=131072000,
+                                                     f_bsize=8192,
+                                                     f_bavail=65536000))
+    @mock.patch('six.moves.builtins.open')
+    @mock.patch.object(container_ops.utils, 'execute')
+    def test_get_available_resource(self, me, mo, ms):
+        me.return_value = ('Model name:          Fake CPU\n'
+                           'Vendor ID:           FakeVendor\n'
+                           'Socket(s):           10\n'
+                           'Core(s) per socket:  5\n'
+                           'Thread(s) per core:  4\n',
+                           None)
+        meminfo = mock.MagicMock()
+        meminfo.__enter__.return_value = six.moves.cStringIO(
+            'MemTotal: 10240000 kB\n'
+            'MemFree:   2000000 kB\n'
+            'Buffers:     24000 kB\n'
+            'Cached:      24000 kB\n')
+
+        mo.side_effect = [
+            six.moves.cStringIO('flags: fake flag goes here'),
+            meminfo,
+        ]
+        value = self.connection.get_available_resource(None)
+        value['cpu_info'] = json.loads(value['cpu_info'])
+        value['supported_instances'] = json.loads(value['supported_instances'])
+        expected = {'cpu_info': {'arch': 'x86_64',
+                                 'features': 'fake flag goes here',
+                                 'model': 'Fake CPU',
+                                 'topology': {'cores': '5',
+                                              'sockets': '10',
+                                              'threads': '4'},
+                                 'vendor': 'FakeVendor'},
+                    'hypervisor_hostname': 'fake_hostname',
+                    'hypervisor_type': 'lxd',
+                    'hypervisor_version': '011',
+                    'local_gb': 1000,
+                    'local_gb_used': 500,
+                    'memory_mb': 10000,
+                    'memory_mb_used': 8000,
+                    'numa_topology': None,
+                    'supported_instances': [[arch.I686, hv_type.LXC,
+                                             vm_mode.EXE],
+                                            [arch.X86_64, hv_type.LXC,
+                                             vm_mode.EXE]],
+                    'vcpus': 200,
+                    'vcpus_used': 0}
+        self.assertEqual(expected, value)
+        me.assert_called_once_with('lscpu')
+        self.assertEqual([mock.call('/proc/cpuinfo', 'r'),
+                          mock.call('/proc/meminfo')],
+                         mo.call_args_list)
+        ms.assert_called_once_with('/fake/lxd/root')
 
     # methods that simply proxy some arguments through
     simple_methods = (
