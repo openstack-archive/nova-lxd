@@ -151,7 +151,7 @@ class LXDHost(object):
         out, err = utils.execute('lscpu')
         if err:
             msg = _('Unable to parse lscpu output.')
-            exception.NovaException(msg)
+            raise exception.NovaException(msg)
 
         cpu = [line.strip('\n') for line in out.splitlines()]
         for line in cpu:

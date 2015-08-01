@@ -81,7 +81,7 @@ class LXDDriver(driver.ComputeDriver):
         return self.container_ops.list_instances()
 
     def list_instance_uuids(self):
-        return self.container_ops.list_instances()
+        raise NotImplementedError()
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
@@ -94,7 +94,6 @@ class LXDDriver(driver.ComputeDriver):
         return self.container_ops.destroy(context, instance, network_info,
                                           block_device_info, destroy_disks,
                                           migrate_data)
-        self.cleanup(context, instance, network_info, block_device_info)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
@@ -128,11 +127,11 @@ class LXDDriver(driver.ComputeDriver):
 
     def attach_volume(self, context, connection_info, instance, mountpoint,
                       disk_bus=None, device_type=None, encryption=None):
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def detach_volume(self, connection_info, instance, mountpoint,
                       encryption=None):
-        raise NotImplemented()
+        raise NotImplementedError()
 
     def attach_interface(self, instance, image_meta, vif):
         return self.container_ops.container_attach_interface(instance,

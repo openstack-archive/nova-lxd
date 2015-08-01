@@ -15,12 +15,9 @@
 
 import ddt
 import mock
-from nova.compute import power_state
 from nova import exception
 from nova import test
-from nova.virt import hardware
-from pylxd import exceptions as lxd_exceptions
-import six
+from nova.virt import fake
 
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_utils
@@ -41,7 +38,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
         lxd_patcher.start()
         self.addCleanup(lxd_patcher.stop)
 
-        self.container_ops = container_ops.LXDContainerOperations(mock.Mock())
+        self.container_ops = (
+            container_ops.LXDContainerOperations(fake.FakeVirtAPI()))
         self.mc = mock.MagicMock()
         config_patcher = mock.patch.object(self.container_ops,
                                            'container_config',
@@ -55,55 +53,9 @@ class LXDTestContainerOps(test.NoDBTestCase):
         vif_patcher.start()
         self.addCleanup(vif_patcher.stop)
 
-    def test_init_host(self):
-        self.assertEqual(
-            True,
-            self.container_ops.init_host(None)
-        )
-
-    def test_init_host_new_profile(self):
-        self.ml.profile_list.return_value = []
-        self.assertEqual(
-            True,
-            self.container_ops.init_host(None)
-        )
-        self.ml.profile_create.assert_called_once_with(
-            {'name': 'fake_profile'})
-
     @tests.annotated_data(
-        ('profile_fail', {'profile_list.side_effect':
-                          lxd_exceptions.APIError('Fake', 500)}),
-        ('no_ping', {'host_ping.return_value': False}),
-        ('ping_fail', {'host_ping.side_effect':
-                       lxd_exceptions.APIError('Fake', 500)}),
-    )
-    def test_init_host_fail(self, tag, config):
-        self.ml.configure_mock(**config)
-        self.assertRaises(
-            exception.HostNotFound,
-            self.container_ops.init_host,
-            None
-        )
-
-    def test_list_instances(self):
-        self.assertEqual(['mock-instance-1', 'mock-instance-2'],
-                         self.container_ops.list_instances())
-
-    def test_list_instances_fail(self):
-        self.ml.configure_mock(
-            **{'container_list.side_effect':
-               lxd_exceptions.APIError('Fake', 500)})
-        self.assertRaises(
-            exception.NovaException,
-            self.container_ops.list_instances
-        )
-
-    @tests.annotated_data(
-        ('exists', [True], exception.InstanceExists, False, 'mock-instance'),
         ('exists_rescue', [True], exception.InstanceExists,
          True, 'fake-instance'),
-        ('fail', lxd_exceptions.APIError('Fake', 500),
-         exception.NovaException, False, 'mock-instance')
     )
     def test_spawn_defined(self, tag, side_effect, expected, rescue, name):
         instance = tests.MockInstance()
@@ -114,24 +66,6 @@ class LXDTestContainerOps(test.NoDBTestCase):
             {}, instance, {}, [], 'secret',
             name_label='fake-instance', rescue=rescue)
         self.ml.container_defined.called_once_with(name)
-
-    def test_spawn_new(self):
-        context = mock.Mock()
-        instance = tests.MockInstance()
-        image_meta = mock.Mock()
-        injected_files = mock.Mock()
-        network_info = mock.Mock()
-        block_device_info = mock.Mock()
-        self.ml.container_defined.return_value = False
-        with mock.patch.object(self.container_ops, 'create_instance') as mc:
-            self.assertEqual(
-                None,
-                self.container_ops.spawn(
-                    context, instance, image_meta, injected_files, 'secret',
-                    network_info, block_device_info, 'fake_instance', False))
-            mc.assert_called_once_with(
-                context, instance, image_meta, injected_files, 'secret',
-                network_info, block_device_info, 'fake_instance', False)
 
     @mock.patch('oslo_utils.fileutils.ensure_tree',
                 return_value=None)
@@ -287,93 +221,3 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mock.call.wait_container_operation('0123456789', 200, 20)
         ]
         self.assertEqual(calls, self.ml.method_calls[-2:])
-
-    def test_container_rescue_fail(self):
-        context = mock.Mock()
-        instance = tests.MockInstance()
-        image_meta = mock.Mock()
-        network_info = mock.Mock()
-        self.ml.container_defined.return_value = True
-        self.assertRaises(exception.NovaException,
-                          self.container_ops.rescue, context,
-                          instance,
-                          network_info,
-                          image_meta,
-                          'secret')
-
-    def test_container_rescue(self):
-        context = mock.Mock()
-        instance = tests.MockInstance()
-        image_meta = mock.Mock()
-        network_info = mock.Mock()
-        self.ml.container_defined.return_value = False
-        with mock.patch.object(self.container_ops, 'spawn') as ms:
-            mgr = mock.Mock()
-            mgr.attach_mock(ms, 'spawn')
-            mgr.attach_mock(self.ml.container_stop, 'stop')
-            self.assertEqual(None,
-                             self.container_ops.rescue(context,
-                                                       instance,
-                                                       network_info,
-                                                       image_meta,
-                                                       'secret'))
-            calls = [
-                mock.call.stop('mock_instance', 20),
-                mock.call.spawn(
-                    context, instance, image_meta, [], 'secret', network_info,
-                    name_label='mock_instance-rescue', rescue=True)
-            ]
-            self.assertEqual(calls, mgr.method_calls)
-
-    def test_container_unrescue(self):
-        instance = tests.MockInstance()
-        network_info = mock.Mock()
-        self.assertEqual(None,
-                         self.container_ops.unrescue(instance,
-                                                     network_info))
-        calls = [
-            mock.call.container_start('mock_instance', 20),
-            mock.call.container_destroy('mock_instance-rescue')
-        ]
-        self.assertEqual(calls, self.ml.method_calls)
-
-    @tests.annotated_data(
-        ('RUNNING', power_state.RUNNING),
-        ('STOPPED', power_state.SHUTDOWN),
-        ('STARTING', power_state.NOSTATE),
-        ('STOPPING', power_state.SHUTDOWN),
-        ('ABORTING', power_state.CRASHED),
-        ('FREEZING', power_state.PAUSED),
-        ('FROZEN', power_state.SUSPENDED),
-        ('THAWED', power_state.PAUSED),
-        ('PENDING', power_state.NOSTATE),
-        ('Success', power_state.RUNNING),
-        ('UNKNOWN', power_state.NOSTATE),
-        (lxd_exceptions.APIError('Fake', 500), power_state.NOSTATE),
-    )
-    def test_get_info(self, side_effect, expected):
-        instance = tests.MockInstance()
-        self.ml.container_state.side_effect = [side_effect]
-        self.assertEqual(hardware.InstanceInfo(state=expected, num_cpu=2),
-                         self.container_ops.get_info(instance))
-
-    @mock.patch('six.moves.builtins.open')
-    @mock.patch.object(container_ops.utils, 'execute')
-    @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
-    @mock.patch('os.getuid', mock.Mock())
-    def test_get_console_output(self, me, mo):
-        instance = tests.MockInstance()
-        context = mock.Mock()
-        mo.return_value.__enter__.return_value = six.BytesIO(b'fake contents')
-        self.assertEqual(b'fake contents',
-                         self.container_ops.get_console_output(context,
-                                                               instance))
-        calls = [
-            mock.call('chown', '1234:1234',
-                      '/fake/lxd/root/containers/mock_instance/console.log',
-                      run_as_root=True),
-            mock.call('chmod', '755',
-                      '/fake/lxd/root/containers/mock_instance',
-                      run_as_root=True)
-        ]
-        self.assertEqual(calls, me.call_args_list)
