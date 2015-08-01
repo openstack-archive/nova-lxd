@@ -45,11 +45,10 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     def test_configure_container(self, tag, kwargs, expected, mf):
         instance = tests.MockInstance()
         context = {}
-        network_info = []
         image_meta = {}
         self.assertEqual(
             {'config': {'raw.lxc':
-                        'lxc.console.logfile=/fake/lxd/root/lxc/'
+                        'lxc.console.logfile=/fake/lxd/root/containers/'
                         'mock_instance/console.log\n'},
              'devices': {},
              'name': expected,
@@ -58,7 +57,6 @@ class LXDTestContainerConfig(test.NoDBTestCase):
             (self.container_config
              .configure_container(context,
                                   instance,
-                                  network_info,
                                   image_meta,
                                   **kwargs)))
         mf.assert_called_once_with(context, instance, image_meta)
@@ -75,7 +73,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     )
     def test_configure_container_config(self, tag, flavor, expected):
         instance = tests.MockInstance(**flavor)
-        config = {'raw.lxc': 'lxc.console.logfile=/fake/lxd/root/lxc/'
+        config = {'raw.lxc': 'lxc.console.logfile=/fake/lxd/root/containers/'
                              'mock_instance/console.log\n'}
         config.update(expected)
         self.assertEqual(
@@ -117,7 +115,8 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         self.assertEqual({
             'devices':
             {'rescue': {'path': 'mnt',
-                        'source': '/fake/lxd/root/lxc/mock_instance/rootfs',
+                        'source': '/fake/lxd/root/containers/'
+                                  'mock_instance/rootfs',
                         'type': 'disk'}}},
             self.container_config.configure_container_rescuedisk(
                 {}, instance))

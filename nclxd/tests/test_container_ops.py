@@ -196,8 +196,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
                     network_info, block_device_info, 'fake_instance', rescue))
             ms.assert_called_once_with(instance, network_info, rescue)
         self.mc.configure_container.assert_called_once_with(
-            context, instance, network_info,
-            image_meta, 'fake_instance', rescue)
+            context, instance, image_meta, 'fake_instance', rescue)
         calls = [
             mock.call.container_init(self.mc.configure_container.return_value),
             mock.call.wait_container_operation('0123456789', 200, 20)
@@ -371,9 +370,10 @@ class LXDTestContainerOps(test.NoDBTestCase):
                                                                instance))
         calls = [
             mock.call('chown', '1234:1234',
-                      '/fake/lxd/root/lxc/mock_instance/console.log',
+                      '/fake/lxd/root/containers/mock_instance/console.log',
                       run_as_root=True),
-            mock.call('chmod', '755', '/fake/lxd/root/lxc/mock_instance',
+            mock.call('chmod', '755',
+                      '/fake/lxd/root/containers/mock_instance',
                       run_as_root=True)
         ]
         self.assertEqual(calls, me.call_args_list)
