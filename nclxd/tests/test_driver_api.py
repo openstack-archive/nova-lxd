@@ -288,7 +288,7 @@ class LXDTestDriver(test.NoDBTestCase):
             mock.patch.object((self.connection.container_ops
                                .firewall_driver), 'firewall_driver')) as mf:
             manager = mock.Mock()
-            manager.attach_mock(mv, 'vif')
+            manager.attach_mock(mv, 'vif_driver')
             manager.attach_mock(mf, 'firewall')
             mf.setup_basic_filtering.side_effect = [firewall_setup]
             self.assertEqual(
@@ -296,11 +296,11 @@ class LXDTestDriver(test.NoDBTestCase):
                 self.connection.attach_interface(instance, {}, vif)
             )
             calls = [
-                mock.call.vif.plug(instance, vif),
+                mock.call.vif_driver.plug(instance, vif),
                 mock.call.firewall.setup_basic_filtering(instance, vif)
             ]
             if not success:
-                calls.append(mock.call.vif.unplug(instance, vif))
+                calls.append(mock.call.vif_driver.unplug(instance, vif))
             self.assertEqual(calls, manager.method_calls)
         if success:
             self.ml.container_update.assert_called_once_with(
