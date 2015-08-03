@@ -553,6 +553,26 @@ class LXDTestDriver(test.NoDBTestCase):
             call(*args))
         lxd_call.assert_called_once_with(*call_args)
 
+    @tests.annotated_data(
+        ('refresh_security_group_rules', (mock.Mock(),)),
+        ('refresh_security_group_members', (mock.Mock(),)),
+        ('refresh_provider_fw_rules',),
+        ('refresh_instance_security_rules', (mock.Mock(),)),
+        ('ensure_filtering_rules_for_instance', (mock.Mock(), mock.Mock())),
+        ('filter_defer_apply_on',),
+        ('filter_defer_apply_off',),
+        ('unfilter_instance', (mock.Mock(), mock.Mock())),
+    )
+    def test_firewall_calls(self, name, args=()):
+        with mock.patch.object(self.connection.container_firewall,
+                               'firewall_driver') as mf:
+            driver_method = getattr(self.connection, name)
+            firewall_method = getattr(mf, name)
+            self.assertEqual(
+                firewall_method.return_value,
+                driver_method(*args))
+            firewall_method.assert_called_once_with(*args)
+
 
 @ddt.ddt
 class LXDTestDriverNoops(test.NoDBTestCase):
