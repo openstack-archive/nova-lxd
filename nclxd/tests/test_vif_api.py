@@ -19,6 +19,7 @@ import ddt
 import mock
 from nova.network import model as network_model
 from nova import test
+from oslo_concurrency import processutils
 
 from nclxd.nova.virt.lxd import vif
 from nclxd import tests
@@ -105,4 +106,47 @@ class LXDTestOVSDriver(test.NoDBTestCase):
             calls.append(mock.call.net.create_ovs_vif_port(
                 'fakebr', 'qvo0123456789a', '0123456789abcdef',
                 '00:11:22:33:44:55', 'fake-uuid'))
+        self.assertEqual(calls, self.mgr.method_calls)
+
+    def test_unplug_fail(self):
+        instance = tests.MockInstance()
+        vif_data = copy.deepcopy(self.vif_data)
+        self.mgr.net.device_exists.side_effect = (
+            processutils.ProcessExecutionError)
+        self.assertEqual(
+            None,
+            self.vif_driver.unplug(instance, vif_data))
+
+    @tests.annotated_data(
+        ('id', {}, [True, True]),
+        ('ovs-id', {'ovs_interfaceid': '123456789abcdef0'}, [True, True]),
+        ('no-bridge', {}, [False, True]),
+        ('no-v2', {}, [True, False]),
+        ('no-bridge-or-v2', {}, [False, False]),
+    )
+    def test_unplug(self, tag, vif_data, exists):
+        instance = tests.MockInstance()
+        vif = copy.deepcopy(self.vif_data)
+        self.mgr.net.device_exists.side_effect = exists
+        self.assertEqual(
+            None,
+            self.vif_driver.unplug(instance, vif))
+
+        calls = [
+            mock.call.net.device_exists('qbr0123456789a'),
+            mock.call.net.delete_ovs_vif_port('fakebr', 'qvo0123456789a'),
+            mock.call.net.device_exists('qvo0123456789a')
+        ]
+        if exists[0]:
+            calls[1:1] = [
+                mock.call.ex('brctl', 'delif', 'qbr0123456789a',
+                             'qvb0123456789a', run_as_root=True),
+                mock.call.ex('ip', 'link', 'set', 'qbr0123456789a', 'down',
+                             run_as_root=True),
+                mock.call.ex('brctl', 'delbr', 'qbr0123456789a',
+                             run_as_root=True)]
+        if exists[1]:
+            calls.append(
+                mock.call.ex('ip', 'link', 'set', 'qvo0123456789a', 'down',
+                             run_as_root=True))
         self.assertEqual(calls, self.mgr.method_calls)
