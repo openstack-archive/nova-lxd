@@ -573,6 +573,12 @@ class LXDTestDriver(test.NoDBTestCase):
                 driver_method(*args))
             firewall_method.assert_called_once_with(*args)
 
+    @mock.patch.object(host.utils, 'execute')
+    def test_get_host_uptime(self, me):
+        me.return_value = ('out', 'err')
+        self.assertEqual('out',
+                         self.connection.get_host_uptime())
+
 
 @ddt.ddt
 class LXDTestDriverNoops(test.NoDBTestCase):
