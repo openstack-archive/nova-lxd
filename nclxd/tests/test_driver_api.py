@@ -329,7 +329,6 @@ class LXDTestDriver(test.NoDBTestCase):
     @tests.annotated_data(
         ('ok', True),
         ('nova-exc', exception.NovaException),
-        ('pylxd-exc', lxd_exceptions.PyLXDException),
     )
     def test_detach_interface(self, tag, side_effect):
         instance = tests.MockInstance()
