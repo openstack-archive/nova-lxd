@@ -251,6 +251,69 @@ class LXDTestDriver(test.NoDBTestCase):
         mi.return_value = return_value
         self.assertEqual('1.2.3.4', self.connection.get_host_ip_addr())
 
+    @mock.patch('six.moves.builtins.open')
+    @tests.annotated_data(
+        {'tag': 'single-if',
+         'net': 'Head\nHead\n\neth0:\n',
+         'expected_if': 'eth1',
+         'config': {'config': {}, 'devices': {}}},
+        {'tag': 'multi-if',
+         'net': 'Head\nHead\nbr0:\neth0:\neth1:\neth2:\n',
+         'expected_if': 'eth2',
+         'config': {'config': {}, 'devices': {}}},
+        {'tag': 'firewall-fail',
+         'firewall_setup': exception.NovaException,
+         'success': False},
+        {'tag': 'config-fail',
+         'config': lxd_exceptions.APIError('Fake', 500),
+         'success': False},
+        {'tag': 'info-fail',
+         'config': {'config': {}, 'devices': {}},
+         'info': lxd_exceptions.APIError('Fake', 500),
+         'success': False},
+    )
+    def test_attach_interface(self, mo, tag, net='', config={},
+                              info={'init': 1}, firewall_setup=None,
+                              expected_if='', success=True):
+        instance = tests.MockInstance()
+        vif = {
+            'id': '0123456789abcdef',
+            'address': '00:11:22:33:44:55',
+        }
+        self.ml.get_container_config.side_effect = [config]
+        self.ml.container_info.side_effect = [info]
+        mo.return_value = six.moves.cStringIO(net)
+        with mock.patch.object(self.connection.container_ops,
+                               'vif_driver') as mv, (
+            mock.patch.object((self.connection.container_ops
+                               .firewall_driver), 'firewall_driver')) as mf:
+            manager = mock.Mock()
+            manager.attach_mock(mv, 'vif')
+            manager.attach_mock(mf, 'firewall')
+            mf.setup_basic_filtering.side_effect = [firewall_setup]
+            self.assertEqual(
+                None,
+                self.connection.attach_interface(instance, {}, vif)
+            )
+            calls = [
+                mock.call.vif.plug(instance, vif),
+                mock.call.firewall.setup_basic_filtering(instance, vif)
+            ]
+            if not success:
+                calls.append(mock.call.vif.unplug(instance, vif))
+            self.assertEqual(calls, manager.method_calls)
+        if success:
+            self.ml.container_update.assert_called_once_with(
+                'mock_instance',
+                {'config': {},
+                 'devices': {
+                    'qbr0123456789a': {
+                        'hwaddr': '00:11:22:33:44:55',
+                        'type': 'nic',
+                        'name': expected_if,
+                        'parent': 'qbr0123456789a',
+                        'nictype': 'bridged'}}})
+
     def test_detach_interface_fail(self):
         instance = tests.MockInstance()
         vif = mock.Mock()
