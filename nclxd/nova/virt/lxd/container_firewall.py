@@ -33,13 +33,13 @@ class LXDContainerFirewall(object):
 
     def refresh_security_group_members(self, security_group_id):
         return (self.firewall_driver
-                .refresh_security_group_rules(security_group_id))
+                .refresh_security_group_members(security_group_id))
 
     def refresh_provider_fw_rules(self):
         return self.firewall_driver.refresh_provider_fw_rules()
 
     def refresh_instance_security_rules(self, instance):
-        return self.firewall_driver.refresh_security_group_rules(instance)
+        return self.firewall_driver.refresh_instance_security_rules(instance)
 
     def ensure_filtering_rules_for_instance(self, instance, network_info):
         return (self.firewall_driver
@@ -49,7 +49,7 @@ class LXDContainerFirewall(object):
         return self.firewall_driver.filter_defer_apply_on()
 
     def filter_defer_apply_off(self):
-        return self.firewall_driver.filter_defer_apply_on()
+        return self.firewall_driver.filter_defer_apply_off()
 
     def unfilter_instance(self, instance, network_info):
         return self.firewall_driver.unfilter_instance(instance, network_info)
