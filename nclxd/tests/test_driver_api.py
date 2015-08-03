@@ -251,6 +251,69 @@ class LXDTestDriver(test.NoDBTestCase):
         mi.return_value = return_value
         self.assertEqual('1.2.3.4', self.connection.get_host_ip_addr())
 
+    @mock.patch('six.moves.builtins.open')
+    @tests.annotated_data(
+        {'tag': 'single-if',
+         'net': 'Head\nHead\n\neth0:\n',
+         'expected_if': 'eth1',
+         'config': {'config': {}, 'devices': {}}},
+        {'tag': 'multi-if',
+         'net': 'Head\nHead\nbr0:\neth0:\neth1:\neth2:\n',
+         'expected_if': 'eth2',
+         'config': {'config': {}, 'devices': {}}},
+        {'tag': 'firewall-fail',
+         'firewall_setup': exception.NovaException,
+         'success': False},
+        {'tag': 'config-fail',
+         'config': lxd_exceptions.APIError('Fake', 500),
+         'success': False},
+        {'tag': 'info-fail',
+         'config': {'config': {}, 'devices': {}},
+         'info': lxd_exceptions.APIError('Fake', 500),
+         'success': False},
+    )
+    def test_attach_interface(self, mo, tag, net='', config={},
+                              info={'init': 1}, firewall_setup=None,
+                              expected_if='', success=True):
+        instance = tests.MockInstance()
+        vif = {
+            'id': '0123456789abcdef',
+            'address': '00:11:22:33:44:55',
+        }
+        self.ml.get_container_config.side_effect = [config]
+        self.ml.container_info.side_effect = [info]
+        mo.return_value = six.moves.cStringIO(net)
+        with mock.patch.object(self.connection.container_ops,
+                               'vif_driver') as mv, (
+            mock.patch.object((self.connection.container_ops
+                               .firewall_driver), 'firewall_driver')) as mf:
+            manager = mock.Mock()
+            manager.attach_mock(mv, 'vif')
+            manager.attach_mock(mf, 'firewall')
+            mf.setup_basic_filtering.side_effect = [firewall_setup]
+            self.assertEqual(
+                None,
+                self.connection.attach_interface(instance, {}, vif)
+            )
+            calls = [
+                mock.call.vif.plug(instance, vif),
+                mock.call.firewall.setup_basic_filtering(instance, vif)
+            ]
+            if not success:
+                calls.append(mock.call.vif.unplug(instance, vif))
+            self.assertEqual(calls, manager.method_calls)
+        if success:
+            self.ml.container_update.assert_called_once_with(
+                'mock_instance',
+                {'config': {},
+                 'devices': {
+                    'qbr0123456789a': {
+                        'hwaddr': '00:11:22:33:44:55',
+                        'type': 'nic',
+                        'name': expected_if,
+                        'parent': 'qbr0123456789a',
+                        'nictype': 'bridged'}}})
+
     def test_detach_interface_fail(self):
         instance = tests.MockInstance()
         vif = mock.Mock()
@@ -266,7 +329,6 @@ class LXDTestDriver(test.NoDBTestCase):
     @tests.annotated_data(
         ('ok', True),
         ('nova-exc', exception.NovaException),
-        ('pylxd-exc', lxd_exceptions.PyLXDException),
     )
     def test_detach_interface(self, tag, side_effect):
         instance = tests.MockInstance()
@@ -490,6 +552,46 @@ class LXDTestDriver(test.NoDBTestCase):
             lxd_call.return_value,
             call(*args))
         lxd_call.assert_called_once_with(*call_args)
+
+    @tests.annotated_data(
+        ('refresh_security_group_rules', (mock.Mock(),)),
+        ('refresh_security_group_members', (mock.Mock(),)),
+        ('refresh_provider_fw_rules',),
+        ('refresh_instance_security_rules', (mock.Mock(),)),
+        ('ensure_filtering_rules_for_instance', (mock.Mock(), mock.Mock())),
+        ('filter_defer_apply_on',),
+        ('filter_defer_apply_off',),
+        ('unfilter_instance', (mock.Mock(), mock.Mock())),
+    )
+    def test_firewall_calls(self, name, args=()):
+        with mock.patch.object(self.connection.container_firewall,
+                               'firewall_driver') as mf:
+            driver_method = getattr(self.connection, name)
+            firewall_method = getattr(mf, name)
+            self.assertEqual(
+                firewall_method.return_value,
+                driver_method(*args))
+            firewall_method.assert_called_once_with(*args)
+
+    @mock.patch.object(host.utils, 'execute')
+    def test_get_host_uptime(self, me):
+        me.return_value = ('out', 'err')
+        self.assertEqual('out',
+                         self.connection.get_host_uptime())
+
+    @mock.patch('socket.gethostname', mock.Mock(return_value='mock_hostname'))
+    def test_get_available_nodes(self):
+        self.assertEqual(
+            ['mock_hostname'], self.connection.get_available_nodes())
+
+    @mock.patch('socket.gethostname', mock.Mock(return_value='mock_hostname'))
+    @tests.annotated_data(
+        ('mock_hostname', True),
+        ('wrong_hostname', False),
+    )
+    def test_node_is_available(self, nodename, available):
+        self.assertEqual(available,
+                         self.connection.node_is_available(nodename))
 
 
 @ddt.ddt

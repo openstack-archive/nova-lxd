@@ -237,13 +237,6 @@ class LXDContainerUtils(object):
     def container_config(self, instance):
         try:
             return self.lxd.get_container_config(instance)
-        except  lxd_exceptions.APIError as ex:
-            msg = _('Failed to fetch container config: %s') % ex
-            raise exception.NovaException(msg)
-
-    def container_info(self, instance):
-        try:
-            return self.lxd.container_info(instnace)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to fetch container config: %s') % ex
             raise exception.NovaException(msg)
