@@ -579,6 +579,11 @@ class LXDTestDriver(test.NoDBTestCase):
         self.assertEqual('out',
                          self.connection.get_host_uptime())
 
+    @mock.patch('socket.gethostname', mock.Mock(return_value='mock_hostname'))
+    def test_get_available_nodes(self):
+        self.assertEqual(
+            ['mock_hostname'], self.connection.get_available_nodes())
+
 
 @ddt.ddt
 class LXDTestDriverNoops(test.NoDBTestCase):
