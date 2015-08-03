@@ -223,7 +223,7 @@ class LXDContainerConfig(object):
         if isinstance(data, six.string_types):
             return str(data)
         elif isinstance(data, collections.Mapping):
-            return dict(map(self._convert, data.iteritems()))
+            return dict(map(self._convert, data.items()))
         elif isinstance(data, collections.Iterable):
             return type(data)(map(self._convert, data))
         else:
