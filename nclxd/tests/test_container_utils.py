@@ -12,3 +12,35 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+
+import mock
+from nova import exception
+from nova import test
+
+from nclxd.nova.virt.lxd import container_utils
+from nclxd import tests
+
+
+class LXDTestContainerUtils(test.NoDBTestCase):
+
+    def setUp(self):
+        super(LXDTestContainerUtils, self).setUp()
+        self.ml = tests.lxd_mock()
+        lxd_patcher = mock.patch('pylxd.api.API',
+                                 mock.Mock(return_value=self.ml))
+        lxd_patcher.start()
+        self.addCleanup(lxd_patcher.stop)
+
+        self.container_utils = container_utils.LXDContainerUtils()
+
+    def test_wait_undefined(self):
+        self.assertRaises(exception.NovaException,
+                          self.container_utils.wait_for_container,
+                          None)
+
+    def test_wait_timedout(self):
+        self.ml.wait_container_operation.return_value = False
+        self.assertRaises(exception.NovaException,
+                          self.container_utils.wait_for_container,
+                          'fake')
