@@ -163,14 +163,18 @@ class LXDTestDriver(test.NoDBTestCase):
             {}, instance, {}, [], 'secret')
         self.ml.container_defined.called_once_with('mock_instance')
 
-    def test_spawn_new(self):
+    @tests.annotated_data(
+        ('undefined', False),
+        ('404', lxd_exceptions.APIError('Not found', 404)),
+    )
+    def test_spawn_new(self, tag, side_effect):
         context = mock.Mock()
         instance = tests.MockInstance()
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         network_info = mock.Mock()
         block_device_info = mock.Mock()
-        self.ml.container_defined.return_value = False
+        self.ml.container_defined.side_effect = [side_effect]
         with mock.patch.object(self.connection.container_ops,
                                'create_instance') as mc:
             self.assertEqual(
