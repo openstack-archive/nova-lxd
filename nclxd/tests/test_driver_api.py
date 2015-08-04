@@ -275,10 +275,16 @@ class LXDTestDriver(test.NoDBTestCase):
          'config': {'config': {}, 'devices': {}},
          'info': lxd_exceptions.APIError('Fake', 500),
          'success': False},
+        {'tag': 'update-fail',
+         'config': {'config': {}, 'devices': {}},
+         'net': 'Head\nHead\n\neth0:\n',
+         'expected_if': 'eth1',
+         'update': lxd_exceptions.APIError('Fake', 500),
+         'success': False},
     )
     def test_attach_interface(self, mo, tag, net='', config={},
                               info={'init': 1}, firewall_setup=None,
-                              expected_if='', success=True):
+                              update=None, expected_if='', success=True):
         instance = tests.MockInstance()
         vif = {
             'id': '0123456789abcdef',
@@ -286,6 +292,7 @@ class LXDTestDriver(test.NoDBTestCase):
         }
         self.ml.get_container_config.side_effect = [config]
         self.ml.container_info.side_effect = [info]
+        self.ml.container_update.side_effect = [update]
         mo.return_value = six.moves.cStringIO(net)
         with mock.patch.object(self.connection.container_ops,
                                'vif_driver') as mv, (
@@ -306,7 +313,7 @@ class LXDTestDriver(test.NoDBTestCase):
             if not success:
                 calls.append(mock.call.vif_driver.unplug(instance, vif))
             self.assertEqual(calls, manager.method_calls)
-        if success:
+        if success or update is not None:
             self.ml.container_update.assert_called_once_with(
                 'mock_instance',
                 {'config': {},
