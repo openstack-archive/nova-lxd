@@ -354,6 +354,28 @@ class LXDTestDriver(test.NoDBTestCase):
             mv.unplug.assert_called_once_with(instance, vif)
 
     @mock.patch.object(container_snapshot, 'IMAGE_API')
+    @tests.annotated_data(
+        ('export-fail', lxd_exceptions.APIError('Fake', 500), None),
+        ('update-fail', None, exception.NovaException),
+    )
+    def test_snapshot_fail(self, tag, export_effect, update_effect, mi):
+        instance = tests.MockInstance()
+        mi.get.return_value = {'name': 'mock_snapshot'}
+        self.ml.container_snapshot_create.return_value = (
+            200, {'operation': '/1.0/operations/0123456789'})
+        self.ml.container_stop.return_value = (
+            200, {'operation': '/1.0/operations/1234567890'})
+        self.ml.container_start.return_value = (
+            200, {'operation': '/1.0/operations/2345678901'})
+        self.ml.container_publish.return_value = (
+            200, {'metadata': {'fingerprint': 'abcdef0123456789'}})
+        self.ml.image_export.side_effect = export_effect
+        mi.update.side_effect = update_effect
+        self.assertRaises(exception.NovaException,
+                          self.connection.snapshot,
+                          {}, instance, '', mock.Mock())
+
+    @mock.patch.object(container_snapshot, 'IMAGE_API')
     def test_snapshot(self, mi):
         context = mock.Mock()
         instance = tests.MockInstance()
