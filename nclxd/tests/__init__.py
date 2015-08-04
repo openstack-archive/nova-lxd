@@ -25,6 +25,8 @@ class MockConf(mock.Mock):
             'image_cache_subdirectory_name': '/fake/image/cache',
             'vif_plugging_timeout': 10,
             'my_ip': '1.2.3.4',
+            'vlan_interface': 'vlanif',
+            'flat_interface': 'flatif',
         }
         default.update(kwargs)
         super(MockConf, self).__init__(*args, **default)
@@ -40,9 +42,11 @@ class MockConf(mock.Mock):
 
 class MockInstance(mock.Mock):
 
-    def __init__(self, name='mock_instance', image_ref='mock_image',
-                 ephemeral_gb=0, memory_mb=-1, vcpus=0, *args, **kwargs):
+    def __init__(self, name='mock_instance', uuid='fake-uuid',
+                 image_ref='mock_image', ephemeral_gb=0, memory_mb=-1,
+                 vcpus=0, *args, **kwargs):
         super(MockInstance, self).__init__(
+            uuid=uuid,
             image_ref=image_ref,
             ephemeral_gb=ephemeral_gb,
             *args, **kwargs)

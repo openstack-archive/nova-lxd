@@ -18,6 +18,7 @@ import mock
 from nova import exception
 from nova import test
 from nova.virt import fake
+from pylxd import exceptions as lxd_exception
 
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_utils
@@ -53,19 +54,25 @@ class LXDTestContainerOps(test.NoDBTestCase):
         vif_patcher.start()
         self.addCleanup(vif_patcher.stop)
 
-    @tests.annotated_data(
-        ('exists_rescue', [True], exception.InstanceExists,
-         True, 'fake-instance'),
-    )
-    def test_spawn_defined(self, tag, side_effect, expected, rescue, name):
+    def test_rescue_defined(self):
         instance = tests.MockInstance()
-        self.ml.container_defined.side_effect = side_effect
+        self.ml.container_defined.return_value = True
         self.assertRaises(
-            expected,
+            exception.InstanceExists,
             self.container_ops.spawn,
             {}, instance, {}, [], 'secret',
-            name_label='fake-instance', rescue=rescue)
-        self.ml.container_defined.called_once_with(name)
+            name_label='fake-instance', rescue=True)
+        self.ml.container_defined.called_once_with('fake-instance')
+
+    @mock.patch('oslo_utils.fileutils.ensure_tree',
+                mock.Mock(return_value=None))
+    def test_create_instance_initfail(self):
+        instance = tests.MockInstance()
+        self.ml.container_init.side_effect = (
+            lxd_exception.APIError('Fake', 500))
+        self.assertRaises(exception.NovaException,
+                          self.container_ops.create_instance,
+                          {}, instance, {}, [], 'secret', None, None)
 
     @mock.patch('oslo_utils.fileutils.ensure_tree',
                 return_value=None)
