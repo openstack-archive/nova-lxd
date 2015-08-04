@@ -10,7 +10,7 @@
 XTRACE=$(set +o | grep xtrace)
 set +o xtrace
 
-PYLXD_REPO=${LXC_REPO:-${GIT_BASE}/lxc/pylxd}
+PYLXD_REPO=${LXC_REPO:-git://github.com/lxc/pylxd}
 PYLXD_DIR=$DEST/pylxd
 
 LXD_DIR=${FLEX_DIR:-${DEST}/nova-compute-lxd}
@@ -20,10 +20,9 @@ function configure_lxd {
 	install_package python-software-properties
 	apt_get update
 
-	sudo apt-add-repository -y ppa:ubuntu-lxc/lxc-git-master
-#	sudo apt-add-repository -y ppa:ubuntu-lxc/lxd-git-master
+	sudo apt-add-repository -y ppa:ubuntu-lxc/lxd-stable
 	apt_get update
-	install_package lxc lxc-dev
+	install_package lxd
 }
 
 function install_lxd {
