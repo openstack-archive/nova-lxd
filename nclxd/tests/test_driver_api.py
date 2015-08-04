@@ -489,7 +489,8 @@ class LXDTestDriver(test.NoDBTestCase):
                            'Vendor ID:           FakeVendor\n'
                            'Socket(s):           10\n'
                            'Core(s) per socket:  5\n'
-                           'Thread(s) per core:  4\n',
+                           'Thread(s) per core:  4\n'
+                           '\n',
                            None)
         meminfo = mock.MagicMock()
         meminfo.__enter__.return_value = six.moves.cStringIO(
@@ -499,7 +500,9 @@ class LXDTestDriver(test.NoDBTestCase):
             'Cached:      24000 kB\n')
 
         mo.side_effect = [
-            six.moves.cStringIO('flags: fake flag goes here'),
+            six.moves.cStringIO('flags: fake flag goes here\n'
+                                'processor: 2\n'
+                                '\n'),
             meminfo,
         ]
         value = self.connection.get_available_resource(None)
