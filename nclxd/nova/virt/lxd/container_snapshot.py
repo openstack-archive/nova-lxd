@@ -47,35 +47,35 @@ class LXDSnapshot(object):
         snapshot = IMAGE_API.get(context, image_id)
 
         ''' Create a snapshot of the running contianer'''
-        self.create_container_snapshot(snapshot, instance.name)
+        self.create_container_snapshot(snapshot, instance.uuid)
 
         ''' Publish the image to LXD '''
-        (state, data) = self.container_utils.container_stop(instance.name)
+        (state, data) = self.container_utils.container_stop(instance.uuid)
         self.container_utils.wait_for_container(
             data.get('operation').split('/')[3])
-        fingerprint = self.create_lxd_image(snapshot, instance.name)
+        fingerprint = self.create_lxd_image(snapshot, instance.uuid)
         self.create_glance_image(context, image_id, snapshot, fingerprint)
 
         update_task_state(task_state=task_states.IMAGE_UPLOADING,
                           expected_state=task_states.IMAGE_PENDING_UPLOAD)
-        (state, data) = self.container_utils.container_start(instance.name)
+        (state, data) = self.container_utils.container_start(instance.uuid)
         self.container_utils.wait_for_container(
             data.get('operation').split('/')[3])
 
-    def create_container_snapshot(self, snapshot, instance_name):
+    def create_container_snapshot(self, snapshot, instance.uuid):
         LOG.debug('Creating container snapshot')
         container_snapshot = {'name': snapshot['name'],
                               'stateful': False}
-        (state, data) = self.lxd.container_snapshot_create(instance_name,
+        (state, data) = self.lxd.container_snapshot_create(instance.uuid,
                                                            container_snapshot)
         self.container_utils.wait_for_container(
             data.get('operation').split('/')[3])
 
-    def create_lxd_image(self, snapshot, instance_name):
+    def create_lxd_image(self, snapshot, instance.uuid):
         LOG.debug('Uploading image to LXD image store.')
         container_image = {
             'source': {
-                'name': '%s/%s' % (instance_name,
+                'name': '%s/%s' % (instance.uuid,
                                    snapshot['name']),
                 'type': 'snapshot'
             }
