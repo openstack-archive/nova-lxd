@@ -12,14 +12,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from oslo_concurrency import processutils
+from oslo_config import cfg
+from oslo_log import log as logging
+
 from nova import exception
 from nova import i18n
 from nova.network import linux_net
 from nova.network import model as network_model
 from nova import utils
-from oslo_concurrency import processutils
-from oslo_config import cfg
-from oslo_log import log as logging
 
 _ = i18n._
 _LE = i18n._LE

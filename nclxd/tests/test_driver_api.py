@@ -15,11 +15,15 @@
 
 import inspect
 import json
+from nova.compute import arch
 import os
+from pylxd import exceptions as lxd_exceptions
 
 import ddt
 import mock
-from nova.compute import arch
+from oslo_config import cfg
+import six
+
 from nova.compute import hv_type
 from nova.compute import power_state
 from nova.compute import task_states
@@ -28,9 +32,6 @@ from nova import exception
 from nova import test
 from nova.virt import fake
 from nova.virt import hardware
-from oslo_config import cfg
-from pylxd import exceptions as lxd_exceptions
-import six
 
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_snapshot

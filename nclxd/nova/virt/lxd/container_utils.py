@@ -15,15 +15,16 @@
 #    under the License.
 
 import os
+from pylxd import api
+from pylxd import exceptions as lxd_exceptions
 import shutil
+
+from oslo_config import cfg
+from oslo_log import log as logging
 
 from nova.compute import power_state
 from nova import exception
 from nova import i18n
-from oslo_config import cfg
-from oslo_log import log as logging
-from pylxd import api
-from pylxd import exceptions as lxd_exceptions
 
 _ = i18n._
 

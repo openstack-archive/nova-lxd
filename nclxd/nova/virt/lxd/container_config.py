@@ -15,17 +15,19 @@
 #    under the License.
 
 import collections
+from nova.virt import configdrive
 import pprint
 
-from nova.api.metadata import base as instance_metadata
-from nova import exception
-from nova import i18n
-from nova.virt import configdrive
+
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import units
 import six
+
+from nova.api.metadata import base as instance_metadata
+from nova import exception
+from nova import i18n
 
 from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils

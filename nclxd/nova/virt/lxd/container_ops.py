@@ -18,16 +18,17 @@ import os
 import pprint
 import pwd
 
+from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_utils import fileutils
+from oslo_utils import units
+
 from nova import exception
 from nova import i18n
 from nova import utils
 from nova.virt import configdrive
 from nova.virt import driver
 from nova.virt import hardware
-from oslo_config import cfg
-from oslo_log import log as logging
-from oslo_utils import fileutils
-from oslo_utils import units
 
 from nclxd.nova.virt.lxd import container_config
 from nclxd.nova.virt.lxd import container_firewall

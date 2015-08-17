@@ -17,10 +17,11 @@ import copy
 
 import ddt
 import mock
+from oslo_concurrency import processutils
+
 from nova import exception
 from nova.network import model as network_model
 from nova import test
-from oslo_concurrency import processutils
 
 from nclxd.nova.virt.lxd import vif
 from nclxd import tests

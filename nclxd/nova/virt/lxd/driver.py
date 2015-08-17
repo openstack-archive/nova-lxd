@@ -14,10 +14,10 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import socket
-
 from nova import i18n
 from nova.virt import driver
+import socket
+
 from oslo_config import cfg
 from oslo_log import log as logging
 
@@ -46,6 +46,7 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDDriver(driver.ComputeDriver):
+
     """LXD Lightervisor."""
 
     capabilities = {

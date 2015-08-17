@@ -13,11 +13,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import ddt
-import mock
 from nova import exception
 from nova import test
 from pylxd import exceptions as lxd_exceptions
+
+import ddt
+import mock
 
 from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils

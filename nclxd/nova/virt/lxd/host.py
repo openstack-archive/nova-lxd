@@ -17,9 +17,15 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
 import os
 import platform
+from pylxd import api
+
+from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_serialization import jsonutils
+from oslo_utils import units
+import psutil
 
 from nova.compute import arch
 from nova.compute import hv_type
@@ -28,12 +34,6 @@ from nova.compute import vm_mode
 from nova import exception
 from nova import i18n
 from nova import utils
-from oslo_config import cfg
-from oslo_log import log as logging
-from oslo_serialization import jsonutils
-from oslo_utils import units
-import psutil
-from pylxd import api
 
 _ = i18n._
 _LW = i18n._LW

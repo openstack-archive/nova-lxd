@@ -15,6 +15,7 @@
 
 import ddt
 import mock
+
 from nova import exception
 from nova import test
 
