@@ -40,7 +40,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     @mock.patch('nclxd.nova.virt.lxd.container_image'
                 '.LXDContainerImage.fetch_image')
     @tests.annotated_data(
-        ('no_rescue', {}, 'mock_instance'),
+        ('no_rescue', {}, 'fake-uuid'),
         ('rescue', {'name_label': 'rescued', 'rescue': True}, 'rescued'),
     )
     def test_configure_container(self, tag, kwargs, expected, mf):
@@ -50,7 +50,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         self.assertEqual(
             {'config': {'raw.lxc':
                         'lxc.console.logfile=/fake/lxd/root/containers/'
-                        'mock_instance/console.log\n'},
+                        'fake-uuid/console.log\n'},
              'devices': {},
              'name': expected,
              'profiles': ['fake_profile'],
@@ -75,7 +75,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     def test_configure_container_config(self, tag, flavor, expected):
         instance = tests.MockInstance(**flavor)
         config = {'raw.lxc': 'lxc.console.logfile=/fake/lxd/root/containers/'
-                             'mock_instance/console.log\n'}
+                             'fake-uuid/console.log\n'}
         config.update(expected)
         self.assertEqual(
             {'config': config},
@@ -117,7 +117,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
             'devices':
             {'rescue': {'path': 'mnt',
                         'source': '/fake/lxd/root/containers/'
-                                  'mock_instance/rootfs',
+                                  'fake-uuid/rootfs',
                         'type': 'disk'}}},
             self.container_config.configure_container_rescuedisk(
                 {}, instance))
@@ -154,7 +154,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         md.assert_called_once_with(instance_md=mi.return_value)
         (md.return_value.__enter__.return_value
          .make_drive.assert_called_once_with(
-             '/fake/instances/path/mock_instance/config-drive'))
+             '/fake/instances/path/fake-uuid/config-drive'))
         mi.assert_called_once_with(
             instance, content=injected_files, extra_md={})
 
@@ -168,12 +168,12 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                          {'path': 'mnt',
                           'type': 'disk',
                           'source': '/fake/instances/path/'
-                                    'mock_instance/config-drive'}}},
+                                    'fake-uuid/config-drive'}}},
             self.container_config.configure_container_configdrive(
                 {}, instance, injected_files, 'secret'))
         md.assert_called_once_with(instance_md=mi.return_value)
         (md.return_value.__enter__.return_value
          .make_drive.assert_called_once_with(
-             '/fake/instances/path/mock_instance/config-drive'))
+             '/fake/instances/path/fake-uuid/config-drive'))
         mi.assert_called_once_with(
             instance, content=injected_files, extra_md={})

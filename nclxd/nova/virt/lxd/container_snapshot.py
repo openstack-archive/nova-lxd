@@ -47,18 +47,18 @@ class LXDSnapshot(object):
         snapshot = IMAGE_API.get(context, image_id)
 
         ''' Create a snapshot of the running contianer'''
-        self.create_container_snapshot(snapshot, instance.name)
+        self.create_container_snapshot(snapshot, instance.uuid)
 
         ''' Publish the image to LXD '''
-        (state, data) = self.container_utils.container_stop(instance.name)
+        (state, data) = self.container_utils.container_stop(instance.uuid)
         self.container_utils.wait_for_container(
             data.get('operation').split('/')[3])
-        fingerprint = self.create_lxd_image(snapshot, instance.name)
+        fingerprint = self.create_lxd_image(snapshot, instance.uuid)
         self.create_glance_image(context, image_id, snapshot, fingerprint)
 
         update_task_state(task_state=task_states.IMAGE_UPLOADING,
                           expected_state=task_states.IMAGE_PENDING_UPLOAD)
-        (state, data) = self.container_utils.container_start(instance.name)
+        (state, data) = self.container_utils.container_start(instance.uuid)
         self.container_utils.wait_for_container(
             data.get('operation').split('/')[3])
 

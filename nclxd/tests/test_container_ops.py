@@ -86,7 +86,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
             exception.NovaException,
             self.container_ops.create_instance,
             {}, instance, {}, [], 'secret', None, block_device_info)
-        mt.assert_called_once_with('/fake/instances/path/mock_instance')
+        mt.assert_called_once_with('/fake/instances/path/fake-uuid')
         md.block_device_info_get_swap.assert_called_once_with(
             block_device_info)
         md.swap_is_usable.assert_called_once_with(
@@ -144,7 +144,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mock.call.wait_container_operation('0123456789', 200, 20)
         ]
         self.assertEqual(calls, self.ml.method_calls[:2])
-        name = rescue and 'fake_instance' or 'mock_instance'
+        name = rescue and 'fake_instance' or 'fake-uuid'
         if configdrive:
             self.ml.container_update.assert_any_call(
                 name,
@@ -224,8 +224,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
             [mock.call(instance, viface) for viface in network_info],
             self.mv.plug.call_args_list)
         calls = [
-            mock.call.container_start(rescue and 'mock_instance-rescue'
-                                      or 'mock_instance', 20),
+            mock.call.container_start(rescue and 'fake-uuid-rescue'
+                                      or 'fake-uuid', 20),
             mock.call.wait_container_operation('0123456789', 200, 20)
         ]
         self.assertEqual(calls, self.ml.method_calls[-2:])

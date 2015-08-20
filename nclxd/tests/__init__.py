@@ -42,7 +42,7 @@ class MockConf(mock.Mock):
 
 class MockInstance(mock.Mock):
 
-    def __init__(self, name='mock_instance', uuid='fake-uuid',
+    def __init__(self, name='fake-uuid', uuid='fake-uuid',
                  image_ref='mock_image', ephemeral_gb=0, memory_mb=-1,
                  vcpus=0, *args, **kwargs):
         super(MockInstance, self).__init__(

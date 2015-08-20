@@ -195,7 +195,7 @@ class LXDTestDriver(test.NoDBTestCase):
             exception.NovaException,
             self.connection.destroy,
             {}, instance, [])
-        self.ml.container_destroy.assert_called_with('mock_instance')
+        self.ml.container_destroy.assert_called_with('fake-uuid')
 
     @mock.patch('shutil.rmtree')
     @tests.annotated_data(
@@ -211,10 +211,10 @@ class LXDTestDriver(test.NoDBTestCase):
                 None,
                 self.connection.destroy({}, instance, [])
             )
-            self.ml.container_destroy.assert_called_once_with('mock_instance')
+            self.ml.container_destroy.assert_called_once_with('fake-uuid')
             if exists:
                 mr.assert_called_once_with(
-                    '/fake/instances/path/mock_instance')
+                    '/fake/instances/path/fake-uuid')
             else:
                 self.assertFalse(mr.called)
 
@@ -226,7 +226,7 @@ class LXDTestDriver(test.NoDBTestCase):
             None,
             self.connection.cleanup({}, instance, [], [], None, None, None))
         mr.assert_called_once_with(
-            '/fake/instances/path/mock_instance')
+            '/fake/instances/path/fake-uuid')
 
     @mock.patch('six.moves.builtins.open')
     @mock.patch.object(container_ops.utils, 'execute')
@@ -239,10 +239,10 @@ class LXDTestDriver(test.NoDBTestCase):
                          self.connection.get_console_output({}, instance))
         calls = [
             mock.call('chown', '1234:1234',
-                      '/fake/lxd/root/containers/mock_instance/console.log',
+                      '/fake/lxd/root/containers/fake-uuid/console.log',
                       run_as_root=True),
             mock.call('chmod', '755',
-                      '/fake/lxd/root/containers/mock_instance',
+                      '/fake/lxd/root/containers/fake-uuid',
                       run_as_root=True)
         ]
         self.assertEqual(calls, me.call_args_list)
@@ -316,7 +316,7 @@ class LXDTestDriver(test.NoDBTestCase):
             self.assertEqual(calls, manager.method_calls)
         if success or update is not None:
             self.ml.container_update.assert_called_once_with(
-                'mock_instance',
+                'fake-uuid',
                 {'config': {},
                  'devices': {
                     'qbr0123456789a': {
@@ -405,13 +405,13 @@ class LXDTestDriver(test.NoDBTestCase):
             mock.call.update(task_state=task_states.IMAGE_PENDING_UPLOAD),
             mock.call.image.get(context, 'mock_image'),
             mock.call.lxd.container_snapshot_create(
-                'mock_instance',
+                'fake-uuid',
                 {'name': 'mock_snapshot', 'stateful': False}),
             mock.call.lxd.wait_container_operation('0123456789', 200, 20),
-            mock.call.lxd.container_stop('mock_instance', 20),
+            mock.call.lxd.container_stop('fake-uuid', 20),
             mock.call.lxd.wait_container_operation('1234567890', 200, 20),
             mock.call.lxd.container_publish(
-                {'source': {'name': 'mock_instance/mock_snapshot',
+                {'source': {'name': 'fake-uuid/mock_snapshot',
                             'type': 'snapshot'}}),
             mock.call.lxd.alias_create(
                 {'name': 'mock_snapshot', 'target': 'abcdef0123456789'}),
@@ -423,7 +423,7 @@ class LXDTestDriver(test.NoDBTestCase):
                 self.ml.image_export.return_value),
             mock.call.update(task_state=task_states.IMAGE_UPLOADING,
                              expected_state=task_states.IMAGE_PENDING_UPLOAD),
-            mock.call.lxd.container_start('mock_instance', 20),
+            mock.call.lxd.container_start('fake-uuid', 20),
             mock.call.lxd.wait_container_operation('2345678901', 200, 20),
         ]
         self.assertEqual(calls, manager.method_calls)
@@ -452,10 +452,10 @@ class LXDTestDriver(test.NoDBTestCase):
                                                     image_meta,
                                                     'secret'))
             calls = [
-                mock.call.stop('mock_instance', 20),
+                mock.call.stop('fake-uuid', 20),
                 mock.call.spawn(
                     context, instance, image_meta, [], 'secret', network_info,
-                    name_label='mock_instance-rescue', rescue=True)
+                    name_label='fake-uuid-rescue', rescue=True)
             ]
             self.assertEqual(calls, mgr.method_calls)
 
@@ -466,8 +466,8 @@ class LXDTestDriver(test.NoDBTestCase):
                          self.connection.unrescue(instance,
                                                   network_info))
         calls = [
-            mock.call.container_start('mock_instance', 20),
-            mock.call.container_destroy('mock_instance-rescue')
+            mock.call.container_start('fake-uuid', 20),
+            mock.call.container_destroy('fake-uuid-rescue')
         ]
         self.assertEqual(calls, self.ml.method_calls)
 
@@ -541,16 +541,16 @@ class LXDTestDriver(test.NoDBTestCase):
     simple_methods = (
         ('reboot', 'container_reboot',
          ({}, tests.MockInstance(), [], None, None, None),
-         ('mock_instance',)),
+         ('fake-uuid',)),
         ('pause', 'container_freeze',
          (tests.MockInstance(),),
-         ('mock_instance', 20)),
+         ('fake-uuid', 20)),
         ('power_off', 'container_stop',
          (tests.MockInstance(),),
-         ('mock_instance', 20)),
+         ('fake-uuid', 20)),
         ('power_on', 'container_start',
          ({}, tests.MockInstance(), []),
-         ('mock_instance', 20),
+         ('fake-uuid', 20),
          False),
     )
 
