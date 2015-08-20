@@ -64,7 +64,7 @@ class LXDDriver(driver.ComputeDriver):
         self.host = host.LXDHost()
 
     def init_host(self, host):
-        return self.container_ops.init_host(host)
+        return self.host.init_host(host)
 
     def get_info(self, instance):
         return self.container_ops.get_info(instance)

@@ -60,9 +60,6 @@ class LXDContainerOperations(object):
         self.firewall_driver = container_firewall.LXDContainerFirewall()
         self.vif_driver = vif.LXDGenericDriver()
 
-    def init_host(self, host):
-        return self.container_utils.init_lxd_host(host)
-
     def list_instances(self):
         return self.container_utils.list_containers()
 

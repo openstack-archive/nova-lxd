@@ -17,15 +17,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+
 import os
 import platform
-from pylxd import api
-
-from oslo_config import cfg
-from oslo_log import log as logging
-from oslo_serialization import jsonutils
-from oslo_utils import units
-import psutil
 
 from nova.compute import arch
 from nova.compute import hv_type
@@ -34,6 +28,13 @@ from nova.compute import vm_mode
 from nova import exception
 from nova import i18n
 from nova import utils
+from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_serialization import jsonutils
+from oslo_utils import units
+import psutil
+from pylxd import api
+from pylxd import exceptions as lxd_exceptions
 
 _ = i18n._
 _LW = i18n._LW
@@ -183,3 +184,19 @@ class LXDHost(object):
             'iowait': int(psutil.cpu_times()[4]),
             'frequency': self.host_cpu_info['hz_advertised']
         }
+
+    def init_host(self, host):
+        LOG.debug('Host check')
+        try:
+            if not self.lxd.host_ping():
+                msg = _('Unable to connect to LXD daemon')
+                raise exception.HostNotFound(msg)
+
+            if CONF.lxd.default_profile not in self.lxd.profile_list():
+                profile = {'name': CONF.lxd.default_profile}
+                self.lxd.profile_create(profile)
+
+            return True
+        except lxd_exceptions.APIError as ex:
+            msg = _('Unable to connect to LXD daemon: %s') % ex
+            raise exception.HostNotFound(msg)
