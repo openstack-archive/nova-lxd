@@ -15,20 +15,22 @@
 #    under the License.
 
 import collections
-from nova.virt import configdrive
 import pprint
-
-
-from oslo_config import cfg
-from oslo_log import log as logging
-from oslo_utils import excutils
-from oslo_utils import units
-import six
 
 from nova.api.metadata import base as instance_metadata
 from nova import exception
 from nova import i18n
+from nova.virt import configdrive
+from nova.virt import driver
+from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_utils import excutils
+from oslo_utils import fileutils
+from oslo_utils import importutils
+from oslo_utils import units
+import six
 
+from nclxd.nova.virt.lxd import container_client
 from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils
 
@@ -37,6 +39,7 @@ _LE = i18n._LE
 _LI = i18n._LI
 
 CONF = cfg.CONF
+CONF.import_opt('my_ip', 'nova.netconf')
 LOG = logging.getLogger(__name__)
 
 
@@ -44,8 +47,8 @@ class LXDContainerConfig(object):
 
     def __init__(self):
         self.container_dir = container_utils.LXDContainerDirectories()
-        self.container_utils = container_utils.LXDContainerUtils()
-        self.container_image = container_image.LXDContainerImage()
+        self.container_client = container_client.LXDContainerClient()
+        self.img_driver = importutils.import_object(CONF.lxd.img_driver)
 
     def _init_container_config(self):
         config = {}
@@ -53,38 +56,120 @@ class LXDContainerConfig(object):
         config.setdefault('devices', {})
         return config
 
-    def configure_container(self, context, instance, image_meta,
-                            name_label=None, rescue=False):
-        LOG.debug('Creating LXD container')
+    def create_container(self, context, instance, image_meta, injected_files,
+                        admin_password, network_info, block_device_info,
+                        name_label=None, rescue=False, host=None):
+
+        LOG.debug('Creating instance')
+
+        name = instance.uuid
+        if rescue:
+            name = name_label
+
+        # Ensure the directory exists and is writable
+        fileutils.ensure_tree(
+            self.container_dir.get_instance_dir(name))
+
+        # Check to see if we are using swap.
+        swap = driver.block_device_info_get_swap(block_device_info)
+        if driver.swap_is_usable(swap):
+            msg = _('Swap space is not supported by LXD.')
+            raise exception.NovaException(msg)
+
+        # Check to see if ephemeral block devices exist.
+        ephemeral_gb = instance.ephemeral_gb
+        if ephemeral_gb > 0:
+            msg = _('Ephemeral block devices is not supported.')
+            raise exception.NovaException(msg)
 
         name = instance.uuid
         if rescue:
             name = name_label
 
         container_config = self._init_container_config()
-        container_config = self.add_config(container_config, 'name',
-                                           name)
-        container_config = self.add_config(container_config, 'profiles',
-                                           [str(CONF.lxd.default_profile)])
-        container_config = self.configure_container_config(
+        container_config = self.configure_container_config(name,
             container_config, instance)
 
         ''' Create an LXD image '''
-        self.container_image.fetch_image(context, instance, image_meta)
+        self.img_driver.setup_image(context, instance, image_meta, host=host)
         container_config = (
             self.add_config(container_config, 'source',
                             self.configure_lxd_image(container_config,
                                                      instance, image_meta)))
 
+        LOG.debug(pprint.pprint(container_config))
+        (state, data) = self.container_client.client('init', container_config=container_config,
+                                                     host=host)
+        self.container_client.client('wait', oid=data.get('operation').split('/')[3],
+                                     host=host)
+
+        if configdrive.required_by(instance):
+            container_configdrive = (
+                self.configure_container_configdrive(
+                    container_config,
+                    instance,
+                    injected_files,
+                    admin_password))
+            LOG.debug(pprint.pprint(container_configdrive))
+            self.container_client.client('update', instnace=name,
+                                         container_config=container_configdrive,
+                                         host=host)
+
+        if network_info:
+            container_network_devices = (
+                self.configure_network_devices(
+                    container_config,
+                    instance,
+                    network_info))
+            LOG.debug(pprint.pprint(container_network_devices))
+            self.container_client.client('update', instance=name,
+                                         container_config=container_network_devices,
+                                         host=host)
+
+        if rescue:
+            container_rescue_devices = (
+                self.configure_container_rescuedisk(
+                    container_config,
+                    instance))
+            LOG.debug(pprint.pprint(container_rescue_devices))
+            self.container_client.client('update', instnace=name,
+                                         container_config=container_rescue_devices,
+                                         host=host)
+
         return container_config
 
-    def configure_container_config(self, container_config, instance):
+    def configure_container_migrate(self, instance, network_info, host=None):
+        LOG.debug('Creating LXD migration config')
+
+        container_config = self._init_container_config()
+        container_config = self.configure_container_config(instance.uuid,
+            container_config, instance)
+        container_config = self.configure_lxd_ws(container_config, instance)
+        if network_info:
+            container_network_devices = (
+                self.configure_network_devices(
+                            container_config,
+                            instance,
+                            network_info))
+            self.container_client.client('update', instance=instance.uuid,
+                            container_config=container_network_devices,
+                            host=host)
+
+        return container_config
+
+    def configure_container_config(self, name, container_config, instance):
         LOG.debug('Configure LXD container')
 
         ''' Set the limits. '''
         flavor = instance.flavor
         mem = flavor.memory_mb * units.Mi
         vcpus = flavor.vcpus
+
+        container_config = self.add_config(container_config, 'name',
+                                           name)
+        container_config = self.add_config(container_config, 'profiles',
+                                           [str(CONF.lxd.default_profile)])
+
         if mem >= 0:
             self.add_config(container_config, 'config', 'limits.memory',
                             data='%s' % mem)
@@ -101,11 +186,33 @@ class LXDContainerConfig(object):
     def configure_lxd_image(self, container_config, instance, image_meta):
         LOG.debug('Getting LXD image')
 
+
         self.add_config(container_config, 'source',
                         {'type': 'image',
-                         'alias': str(image_meta.get('name'))
+                         'alias': instance.image_ref
                          })
         return container_config
+
+    def configure_lxd_ws(self, container_config, instance, host=None):
+        LOG.debug('Creating LXD websocket')
+
+        container_ws = self.container_client.client('migrate', instance=instance.uuid,
+                                                    host=host)
+        container_url = "wss://%s:%s/1.0/operations/%s/websocket" % (CONF.my_ip,
+                                                                    CONF.lxd.lxd_port,
+                                                                    container_ws['operation'])
+        self.add_config(container_config, 'source',
+                        {'base-image': '',
+                         "mode": "pull",
+                         "operation": container_url,
+                         "secrets": {
+                           "control": container_ws['control'],
+                           "fs": container_ws['fs']
+                         },
+                         "type": "migration"
+                         })
+        return container_config
+
 
     def configure_network_devices(self, container_config,
                                   instance, network_info):
@@ -191,10 +298,11 @@ class LXDContainerConfig(object):
                   'type': 'nic'})
         return container_config
 
-    def _get_container_config(self, instance, network_info):
+    def _get_container_config(self, instance, network_info, host=None):
         container_update = self._init_container_config()
 
-        container_old = self.container_utils.container_config(instance.uuid)
+        container_old = self.container_client.client('config', instance=instance.uuid,
+                                                      host=host)
         container_config = self._convert(container_old['config'])
         container_devices = self._convert(container_old['devices'])
 
@@ -205,8 +313,8 @@ class LXDContainerConfig(object):
 
         return container_update
 
-    def _get_network_device(self, instance):
-        data = self.container_utils.container_info(instance)
+    def _get_network_device(self, instance, host=None):
+        data = self.container_client.client('info', instance=instance, host=None)
         lines = open('/proc/%s/net/dev' % data['init']).readlines()
         interfaces = []
         for line in lines[2:]:

@@ -14,16 +14,20 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import socket
+
 from nova import i18n
 from nova.virt import driver
-import socket
+from nova import utils
 
 from oslo_config import cfg
 from oslo_log import log as logging
 
+
 from nclxd.nova.virt.lxd import container_firewall
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_snapshot
+from nclxd.nova.virt.lxd import container_migrate
 from nclxd.nova.virt.lxd import host
 
 _ = i18n._
@@ -32,12 +36,18 @@ lxd_opts = [
     cfg.StrOpt('root_dir',
                default='/var/lib/lxd/',
                help='Default LXD directory'),
+    cfg.StrOpt('img_driver',
+               default='nclxd.nova.virt.lxd.container_image.LXDContainerImage',
+               help='Default image driver'),
     cfg.IntOpt('timeout',
                default=5,
                help='Default LXD timeout'),
     cfg.StrOpt('default_profile',
                default='nclxd-profile',
-               help='Default LXD profile')
+               help='Default LXD profile'),
+    cfg.StrOpt('lxd_port',
+               default=8443,
+               help='Default LXD Port')
 ]
 
 CONF = cfg.CONF
@@ -46,13 +56,12 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDDriver(driver.ComputeDriver):
-
     """LXD Lightervisor."""
 
     capabilities = {
         "has_imagecache": False,
         "supports_recreate": False,
-        "supports_migrate_to_same_host": False
+        "supports_migrate_to_same_host": True,
     }
 
     def __init__(self, virtapi):
@@ -61,6 +70,7 @@ class LXDDriver(driver.ComputeDriver):
         self.container_ops = container_ops.LXDContainerOperations(virtapi)
         self.container_snapshot = container_snapshot.LXDSnapshot()
         self.container_firewall = container_firewall.LXDContainerFirewall()
+        self.container_migrate = container_migrate.LXDContainerMigrate(virtapi)
         self.host = host.LXDHost()
 
     def init_host(self, host):
@@ -146,7 +156,9 @@ class LXDDriver(driver.ComputeDriver):
                                    flavor, network_info,
                                    block_device_info=None,
                                    timeout=0, retry_interval=0):
-        raise NotImplementedError()
+        return self.container_migrate.migrate_disk_and_power_off(context, instance, dest, flavor,
+                                                                 network_info, block_device_info, timeout,
+                                                                 retry_interval)
 
     def snapshot(self, context, instance, image_id, update_task_state):
         return self.container_snapshot.snapshot(context, instance, image_id,
@@ -158,14 +170,12 @@ class LXDDriver(driver.ComputeDriver):
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance,
                          block_device_info=None, power_on=True):
-        raise NotImplementedError()
+        return self.container_migrate.finish_migration(context, migration, instance, disk_info,
+                                                       network_info, image_meta, resize_instance,
+                                                       block_device_info, power_on)
 
     def confirm_migration(self, migration, instance, network_info):
-        raise NotImplementedError()
-
-    def finish_revert_migration(self, context, instance, network_info,
-                                block_device_info=None, power_on=True):
-        raise NotImplementedError()
+        return self.container_migrate.confirm_migration(migration, instance, network_info)
 
     def pause(self, instance):
         return self.container_ops.pause(instance)
@@ -204,33 +214,27 @@ class LXDDriver(driver.ComputeDriver):
 
     def pre_live_migration(self, context, instance, block_device_info,
                            network_info, disk_info, migrate_data=None):
-        raise NotImplementedError()
+        return self.container_migrate.pre_live_migration(context, instance, block_device_info,
+                                                         network_info)
 
     def live_migration(self, context, instance, dest,
                        post_method, recover_method, block_migration=False,
                        migrate_data=None):
-        raise NotImplementedError()
-
-    def rollback_live_migration_at_destination(self, context, instance,
-                                               network_info,
-                                               block_device_info,
-                                               destroy_disks=True,
-                                               migrate_data=None):
-        raise NotImplementedError()
+        return self.container_migrate.live_migration(context, instance, dest,
+                                                     post_method, recover_method, block_migration,
+                                                     migrate_data)
 
     def post_live_migration(self, context, instance, block_device_info,
                             migrate_data=None):
-        pass
+        return self.container_migrate.post_live_migration(context, instance, block_device_info)
 
-    def post_live_migration_at_source(self, context, instance, network_info):
-        raise NotImplementedError(_("Hypervisor driver does not support "
-                                    "post_live_migration_at_source method"))
 
     def post_live_migration_at_destination(self, context, instance,
                                            network_info,
                                            block_migration=False,
                                            block_device_info=None):
-        raise NotImplementedError()
+        return self.container_migrate.post_live_migration_at_destination(context, instance, network_info,
+                                                                         block_migration, block_device_info)
 
     def check_instance_shared_storage_local(self, context, instance):
         raise NotImplementedError()
@@ -330,7 +334,9 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def get_volume_connector(self, instance):
-        raise NotImplementedError()
+        return {'ip': CONF.my_block_storage_ip,
+                'initiator': 'fake',
+                'host': 'fakehost'}
 
     def get_available_nodes(self, refresh=False):
         hostname = socket.gethostname()

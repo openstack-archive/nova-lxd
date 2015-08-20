@@ -17,11 +17,7 @@
 import os
 import pprint
 import pwd
-
-from oslo_config import cfg
-from oslo_log import log as logging
-from oslo_utils import fileutils
-from oslo_utils import units
+import shutil
 
 from nova import exception
 from nova import i18n
@@ -29,8 +25,14 @@ from nova import utils
 from nova.virt import configdrive
 from nova.virt import driver
 from nova.virt import hardware
+from oslo_config import cfg
+from oslo_log import log as logging
+from oslo_utils import fileutils
+from oslo_utils import importutils
+from oslo_utils import units
 
 from nclxd.nova.virt.lxd import container_config
+from nclxd.nova.virt.lxd import container_client
 from nclxd.nova.virt.lxd import container_firewall
 from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils
@@ -54,18 +56,18 @@ class LXDContainerOperations(object):
         self.virtapi = virtapi
 
         self.container_config = container_config.LXDContainerConfig()
-        self.container_utils = container_utils.LXDContainerUtils()
+        self.container_client = container_client.LXDContainerClient()
         self.container_dir = container_utils.LXDContainerDirectories()
-        self.container_image = container_image.LXDContainerImage()
         self.firewall_driver = container_firewall.LXDContainerFirewall()
+
         self.vif_driver = vif.LXDGenericDriver()
 
-    def list_instances(self):
-        return self.container_utils.list_containers()
+    def list_instances(self, host=None):
+        return self.container_client.client('list', host=None)
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None,
-              name_label=None, rescue=False):
+              name_label=None, rescue=False, host=None):
         msg = ('Spawning container '
                'network_info=%(network_info)s '
                'image_meta=%(image_meta)s '
@@ -80,78 +82,17 @@ class LXDContainerOperations(object):
         name = instance.uuid
         if rescue:
             name = name_label
-        if self.container_utils.container_defined(name):
+
+        if self.container_client.client('defined', instance=name, host=host):
             raise exception.InstanceExists(name=name)
 
-        self.create_instance(context, instance, image_meta, injected_files,
-                             admin_password, network_info, block_device_info,
-                             name_label, rescue)
+        container_config = self.container_config.create_container(context, instance, image_meta,
+                             injected_files, admin_password, network_info,
+                             block_device_info, name_label, rescue)
 
-    def create_instance(self, context, instance, image_meta, injected_files,
-                        admin_password, network_info, block_device_info,
-                        name_label=None, rescue=False):
-        LOG.debug('Creating instance')
+        self.start_instance(container_config, instance, network_info, rescue)
 
-        name = instance.uuid
-        if rescue:
-            name = name_label
-
-        # Ensure the directory exists and is writable
-        fileutils.ensure_tree(
-            self.container_dir.get_instance_dir(name))
-
-        # Check to see if we are using swap.
-        swap = driver.block_device_info_get_swap(block_device_info)
-        if driver.swap_is_usable(swap):
-            msg = _('Swap space is not supported by LXD.')
-            raise exception.NovaException(msg)
-
-        # Check to see if ephemeral block devices exist.
-        ephemeral_gb = instance.ephemeral_gb
-        if ephemeral_gb > 0:
-            msg = _('Ephemeral block devices is not supported.')
-            raise exception.NovaException(msg)
-
-        container_config = self.container_config.configure_container(
-            context, instance, image_meta, name_label, rescue)
-
-        LOG.debug(pprint.pprint(container_config))
-        (state, data) = self.container_utils.container_init(container_config)
-        self.container_utils.wait_for_container(
-            data.get('operation').split('/')[3])
-
-        if configdrive.required_by(instance):
-            container_configdrive = (
-                self.container_config.configure_container_configdrive(
-                    container_config,
-                    instance,
-                    injected_files,
-                    admin_password))
-            LOG.debug(pprint.pprint(container_configdrive))
-            self.container_utils.container_update(name, container_configdrive)
-
-        if network_info:
-            container_network_devices = (
-                self.container_config.configure_network_devices(
-                    container_config,
-                    instance,
-                    network_info))
-            LOG.debug(pprint.pprint(container_network_devices))
-            self.container_utils.container_update(
-                name, container_network_devices)
-
-        if rescue:
-            container_rescue_devices = (
-                self.container_config.configure_container_rescuedisk(
-                    container_config,
-                    instance))
-            LOG.debug(pprint.pprint(container_rescue_devices))
-            self.container_utils.container_update(
-                name, container_rescue_devices)
-
-        self.start_instance(instance, network_info, rescue)
-
-    def start_instance(self, instance, network_info, rescue=False):
+    def start_instance(self, container_config, instance, network_info, rescue=False, host=None):
         LOG.debug('Staring instance')
         name = instance.uuid
         if rescue:
@@ -160,7 +101,8 @@ class LXDContainerOperations(object):
         timeout = CONF.vif_plugging_timeout
         # check to see if neutron is ready before
         # doing anything else
-        if (not self.container_utils.container_running(name) and
+        if (not self.container_client.client('running', instance=name,
+                                             host=host) and
                 utils.is_neutron() and timeout):
             events = self._get_neutron_events(network_info)
         else:
@@ -170,20 +112,23 @@ class LXDContainerOperations(object):
             with self.virtapi.wait_for_instance_event(
                     instance, events, deadline=timeout,
                     error_callback=self._neutron_failed_callback):
-                self.plug_vifs(instance, network_info)
+                self.plug_vifs(container_config, instance, network_info)
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed to connect networking to instance'))
 
-        (state, data) = self.container_utils.container_start(name)
-        self.container_utils.wait_for_container(
-            data.get('operation').split('/')[3])
+        (state, data) = self.container_client.client('start', instance=name,
+                                                     host=host)
+        self.container_client.client('wait', oid=data.get('operation').split('/')[3],
+                                     host=host)
 
     def reboot(self, context, instance, network_info, reboot_type,
-               block_device_info=None, bad_volumes_callback=None):
+               block_device_info=None, bad_volumes_callback=None,
+               host=None):
         LOG.debug('container reboot')
-        return self.container_utils.container_reboot(instance.uuid)
+        return self.container_client.client('reboot', instance=instance.uuid,
+                                            host=host)
 
-    def plug_vifs(self, instance, network_info):
+    def plug_vifs(self, container_config, instance, network_info):
         for viface in network_info:
             self.vif_driver.plug(instance, viface)
         self._start_firewall(instance, network_info)
@@ -194,53 +139,64 @@ class LXDContainerOperations(object):
         self._start_firewall(instance, network_info)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
-                destroy_disks=True, migrate_data=None):
-        self.container_utils.container_destroy(instance.uuid)
+                destroy_disks=True, migrate_data=None, host=None):
+        self.container_client.client('stop', instance=instance.uuid,
+                                     host=host)
+        self.container_client.client('destroy', instance=instance.uuid,
+                                     host=host)
         self.cleanup(context, instance, network_info, block_device_info)
 
-    def power_off(self, instance, timeout=0, retry_interval=0):
-        return self.container_utils.container_stop(instance.uuid)
+    def power_off(self, instance, timeout=0, retry_interval=0, host=None):
+        return self.container_client.client('stop', instance=instance.uuid,
+                                            host=host)
 
     def power_on(self, context, instance, network_info,
-                 block_device_info=None):
-        return self.container_utils.container_start(instance.uuid)
+                 block_device_info=None, host=None):
+        return self.container_client.client('start', instnace=instance.uuid,
+                                            host=host)
 
-    def pause(self, instance):
-        return self.container_utils.container_pause(instance.uuid)
+    def pause(self, instance, host=None):
+        return self.container_client.client('pause', instance=instance.uuid, host=host)
 
-    def unpause(self, instance):
-        return self.container_utils.container_unpause(instance.uuid)
+    def unpause(self, instance, host=None):
+        return self.container_client.client('unpause', instnace=instance.uuid, host=host)
 
-    def suspend(self, context, instance):
-        return self.container_utils.container_pause(instance.uuid)
+    def suspend(self, context, instance, host=None):
+        return self.container_client.client('pause', instance=instance.uuid, host=host)
 
-    def resume(self, context, instance, network_info, block_device_info=None):
-        return self.container_utils.container_unpause(instance.uuid)
+    def resume(self, context, instance, network_info, block_device_info=None, host=None):
+        return self.container_client.client('unpause', instance=instance.uuid, host=host)
 
     def rescue(self, context, instance, network_info, image_meta,
-               rescue_password):
+               rescue_password, host=None):
         LOG.debug('Container rescue')
-        self.container_utils.container_stop(instance.uuid)
+        self.container_client.client('stop', instance=instance.uuid, host=host)
         rescue_name_label = '%s-rescue' % instance.uuid
-        if self.container_utils.container_defined(rescue_name_label):
+        if self.container_client.client('defined', instance=rescue_name_label,
+                                        host=host):
             msg = _('Instace is arleady in Rescue mode: %s') % instance.uuid
             raise exception.NovaException(msg)
         self.spawn(context, instance, image_meta, [], rescue_password,
                    network_info, name_label=rescue_name_label, rescue=True)
 
-    def unrescue(self, instance, network_info):
+    def unrescue(self, instance, network_info, host=None):
         LOG.debug('Conainer unrescue')
-        self.container_utils.container_start(instance.uuid)
+        self.container_client.client('start', instance=instance.uuid,
+                                      host=host)
         rescue = '%s-rescue' % instance.uuid
-        self.container_utils.container_destroy(rescue)
+        self.container_client.client('destroy', instance=instance.uuid,
+                                     host=host)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
-        return self.container_utils.container_cleanup(instance, network_info,
-                                                      block_device_info)
+        LOG.debug('container cleanup')
+        container_dir = self.container_dir.get_instance_dir(instance.uuid)
+        if os.path.exists(container_dir):
+            shutil.rmtree(container_dir)
 
-    def get_info(self, instance):
-        container_state = self.container_utils.container_state(instance.uuid)
+    def get_info(self, instance, host=None):
+        container_state = self.container_client.client('state', instance=instance.uuid,
+                                                       host=host)
         return hardware.InstanceInfo(state=container_state,
                                      max_mem_kb=0,
                                      mem_kb=0,
@@ -262,15 +218,16 @@ class LXDContainerOperations(object):
                                                   MAX_CONSOLE_BYTES)
             return log_data
 
-    def container_attach_interface(self, instance, image_meta, vif):
+    def container_attach_interface(self, instance, image_meta, vif, host=None):
         try:
             self.vif_driver.plug(instance, vif)
             self.firewall_driver.setup_basic_filtering(instance, vif)
             container_config = (
                 self.container_config.configure_container_net_device(instance,
                                                                      vif))
-            self.container_utils.container_update(instance.uuid,
-                                                  container_config)
+            self.container_client.client('update', instance=instance.uuid,
+                                                   container_config=container_config,
+                                                   host=host)
         except exception.NovaException:
             self.vif_driver.unplug(instance, vif)
 

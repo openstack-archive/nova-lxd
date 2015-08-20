@@ -14,17 +14,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.from oslo_config import cfg
 
-from pylxd import api
-
-from oslo_config import cfg
-from oslo_log import log as logging
-
 from nova.compute import task_states
 from nova import exception
 from nova import i18n
 from nova import image
+from oslo_config import cfg
+from oslo_log import log as logging
 
-from nclxd.nova.virt.lxd import container_utils
+from pylxd import api
+
+from nclxd.nova.virt.lxd import container_client
 
 _ = i18n._
 
@@ -37,39 +36,44 @@ IMAGE_API = image.API()
 class LXDSnapshot(object):
 
     def __init__(self):
-        self.container_utils = container_utils.LXDContainerUtils()
+        self.container_client = container_client.LXDContainerClient()
         self.lxd = api.API()
 
-    def snapshot(self, context, instance, image_id, update_task_state):
+    def snapshot(self, context, instance, image_id, update_task_state, host=None):
         LOG.debug('in snapshot')
         update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
 
         snapshot = IMAGE_API.get(context, image_id)
 
         ''' Create a snapshot of the running contianer'''
-        self.create_container_snapshot(snapshot, instance.uuid)
+        self.create_container_snapshot(snapshot, instance.name)
 
         ''' Publish the image to LXD '''
-        (state, data) = self.container_utils.container_stop(instance.uuid)
-        self.container_utils.wait_for_container(
-            data.get('operation').split('/')[3])
-        fingerprint = self.create_lxd_image(snapshot, instance.uuid)
+        (state, data) = self.container_client.client('stop', instance=instance.name,
+                                                             host=host)
+        self.container_client.client('wait',
+            oid=data.get('operation').split('/')[3],
+            host=host)
+        fingerprint = self.create_lxd_image(snapshot, instance.name)
         self.create_glance_image(context, image_id, snapshot, fingerprint)
 
         update_task_state(task_state=task_states.IMAGE_UPLOADING,
                           expected_state=task_states.IMAGE_PENDING_UPLOAD)
-        (state, data) = self.container_utils.container_start(instance.uuid)
-        self.container_utils.wait_for_container(
-            data.get('operation').split('/')[3])
+        (state, data) = self.container_client.client('start', instnace=instance.name,
+                                                     host=host)
+        self.container_client.client('wait',
+                                     oid=data.get('operation').split('/')[3],
+                                     host=host)
 
-    def create_container_snapshot(self, snapshot, instance_name):
+    def create_container_snapshot(self, snapshot, instance_name, host=None):
         LOG.debug('Creating container snapshot')
         container_snapshot = {'name': snapshot['name'],
                               'stateful': False}
         (state, data) = self.lxd.container_snapshot_create(instance_name,
                                                            container_snapshot)
-        self.container_utils.wait_for_container(
-            data.get('operation').split('/')[3])
+        self.container_client.client('wait',
+                                     oid=data.get('operation').split('/')[3],
+                                     host=host)
 
     def create_lxd_image(self, snapshot, instance_name):
         LOG.debug('Uploading image to LXD image store.')

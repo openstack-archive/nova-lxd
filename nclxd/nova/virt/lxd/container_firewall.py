@@ -14,7 +14,6 @@
 #    under the License.
 
 from nova.virt import firewall
-
 from oslo_config import cfg
 from oslo_log import log as logging
 
