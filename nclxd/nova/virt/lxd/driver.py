@@ -73,7 +73,7 @@ class LXDDriver(driver.ComputeDriver):
         try:
             return instance.uuid in self.list_instance_uuids()
         except NotImplementedError:
-            return instance.uuid in self.list_instances()
+            return instance.name in self.list_instances()
 
     def estimate_instance_overhead(self, instance_info):
         return {'memory_mb': 0}

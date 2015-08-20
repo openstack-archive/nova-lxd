@@ -80,7 +80,7 @@ class LXDContainerOperations(object):
                 'block_device_info': block_device_info})
         LOG.debug(msg, instance=instance)
 
-        name = instance.uuid
+        name = instance.name
         if rescue:
             name = name_label
         if self.container_utils.container_defined(name):
@@ -95,7 +95,7 @@ class LXDContainerOperations(object):
                         name_label=None, rescue=False):
         LOG.debug('Creating instance')
 
-        name = instance.uuid
+        name = instance.name
         if rescue:
             name = name_label
 
@@ -156,9 +156,9 @@ class LXDContainerOperations(object):
 
     def start_instance(self, instance, network_info, rescue=False):
         LOG.debug('Staring instance')
-        name = instance.uuid
+        name = instance.name
         if rescue:
-            name = '%s-rescue' % instance.uuid
+            name = '%s-rescue' % instance.name
 
         timeout = CONF.vif_plugging_timeout
         # check to see if neutron is ready before
@@ -184,7 +184,7 @@ class LXDContainerOperations(object):
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
         LOG.debug('container reboot')
-        return self.container_utils.container_reboot(instance.uuid)
+        return self.container_utils.container_reboot(instance.name)
 
     def plug_vifs(self, instance, network_info):
         for viface in network_info:
@@ -198,43 +198,43 @@ class LXDContainerOperations(object):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        self.container_utils.container_destroy(instance.uuid)
+        self.container_utils.container_destroy(instance.name)
         self.cleanup(context, instance, network_info, block_device_info)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        return self.container_utils.container_stop(instance.uuid)
+        return self.container_utils.container_stop(instance.name)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
-        return self.container_utils.container_start(instance.uuid)
+        return self.container_utils.container_start(instance.name)
 
     def pause(self, instance):
-        return self.container_utils.container_pause(instance.uuid)
+        return self.container_utils.container_pause(instance.name)
 
     def unpause(self, instance):
-        return self.container_utils.container_unpause(instance.uuid)
+        return self.container_utils.container_unpause(instance.name)
 
     def suspend(self, context, instance):
-        return self.container_utils.container_pause(instance.uuid)
+        return self.container_utils.container_pause(instance.name)
 
     def resume(self, context, instance, network_info, block_device_info=None):
-        return self.container_utils.container_unpause(instance.uuid)
+        return self.container_utils.container_unpause(instance.name)
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
         LOG.debug('Container rescue')
-        self.container_utils.container_stop(instance.uuid)
-        rescue_name_label = '%s-rescue' % instance.uuid
+        self.container_utils.container_stop(instance.name)
+        rescue_name_label = '%s-rescue' % instance.name
         if self.container_utils.container_defined(rescue_name_label):
-            msg = _('Instace is arleady in Rescue mode: %s') % instance.uuid
+            msg = _('Instace is arleady in Rescue mode: %s') % instance.name
             raise exception.NovaException(msg)
         self.spawn(context, instance, image_meta, [], rescue_password,
                    network_info, name_label=rescue_name_label, rescue=True)
 
     def unrescue(self, instance, network_info):
         LOG.debug('Conainer unrescue')
-        self.container_utils.container_start(instance.uuid)
-        rescue = '%s-rescue' % instance.uuid
+        self.container_utils.container_start(instance.name)
+        rescue = '%s-rescue' % instance.name
         self.container_utils.container_destroy(rescue)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
@@ -243,7 +243,7 @@ class LXDContainerOperations(object):
                                                       block_device_info)
 
     def get_info(self, instance):
-        container_state = self.container_utils.container_state(instance.uuid)
+        container_state = self.container_utils.container_state(instance.name)
         return hardware.InstanceInfo(state=container_state,
                                      max_mem_kb=0,
                                      mem_kb=0,
@@ -253,12 +253,12 @@ class LXDContainerOperations(object):
     def get_console_output(self, context, instance):
         LOG.debug('in console output')
 
-        console_log = self.container_dir.get_console_path(instance.uuid)
+        console_log = self.container_dir.get_console_path(instance.name)
         uid = pwd.getpwuid(os.getuid()).pw_uid
         utils.execute('chown', '%s:%s' % (uid, uid),
                       console_log, run_as_root=True)
         utils.execute('chmod', '755',
-                      self.container_dir.get_container_dir(instance.uuid),
+                      self.container_dir.get_container_dir(instance.name),
                       run_as_root=True)
         with open(console_log, 'rb') as fp:
             log_data, remaning = utils.last_bytes(fp,
@@ -272,7 +272,7 @@ class LXDContainerOperations(object):
             container_config = (
                 self.container_config.configure_container_net_device(instance,
                                                                      vif))
-            self.container_utils.container_update(instance.uuid,
+            self.container_utils.container_update(instance.name,
                                                   container_config)
         except exception.NovaException:
             self.vif_driver.unplug(instance, vif)
@@ -290,7 +290,7 @@ class LXDContainerOperations(object):
     def _neutron_failed_callback(self, event_name, instance):
         LOG.error(_LE('Neutron Reported failure on event '
                       '%(event)s for instance %(uuid)s'),
-                  {'event': event_name, 'uuid': instance.uuid})
+                  {'event': event_name, 'uuid': instance.name})
         if CONF.vif_plugging_is_fatal:
             raise exception.VirtualInterfaceCreateException()
 
