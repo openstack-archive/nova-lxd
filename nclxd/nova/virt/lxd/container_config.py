@@ -33,6 +33,7 @@ import six
 from nclxd.nova.virt.lxd import container_client
 from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils
+from nclxd.nova.virt.lxd import vif
 
 _ = i18n._
 _LE = i18n._LE
@@ -49,6 +50,7 @@ class LXDContainerConfig(object):
         self.container_dir = container_utils.LXDContainerDirectories()
         self.container_client = container_client.LXDContainerClient()
         self.img_driver = importutils.import_object(CONF.lxd.img_driver)
+        self.vif_driver = vif.LXDGenericDriver()
 
     def _init_container_config(self):
         config = {}
@@ -113,17 +115,6 @@ class LXDContainerConfig(object):
             LOG.debug(pprint.pprint(container_configdrive))
             self.container_client.client('update', instnace=name,
                                          container_config=container_configdrive,
-                                         host=host)
-
-        if network_info:
-            container_network_devices = (
-                self.configure_network_devices(
-                    container_config,
-                    instance,
-                    network_info))
-            LOG.debug(pprint.pprint(container_network_devices))
-            self.container_client.client('update', instance=name,
-                                         container_config=container_network_devices,
                                          host=host)
 
         if rescue:
@@ -215,21 +206,26 @@ class LXDContainerConfig(object):
 
 
     def configure_network_devices(self, container_config,
-                                  instance, network_info):
+                                  instance, network_info, host=None):
         LOG.debug('Get network devices')
 
-        ''' ugh this is ugly'''
-        for vif in network_info:
-            vif_id = vif['id'][:11]
-            mac = vif['address']
+        if not network_info:
+            return 
 
-            bridge = 'qbr%s' % vif_id
+        cfg = self.vif_driver.get_config(instance,
+                                             network_info)
 
-            self.add_config(container_config, 'devices', bridge,
-                            data={'nictype': 'bridged',
-                                  'hwaddr': mac,
-                                  'parent': bridge,
-                                  'type': 'nic'})
+        container_network_devices = self.add_config(container_config, 
+                                        'devices',cfg['bridge'],
+                                        data={'nictype': 'bridged',
+                                              'hwaddr': cfg['mac_address'],
+                                              'parent': cfg['bridge'],
+                                              'type': 'nic'})
+
+        LOG.debug(pprint.pprint(container_config))
+        self.container_client.client('update', instance=instance.uuid,
+                                     container_config=container_network_devices,
+                                     host=host)
 
         return container_config
 

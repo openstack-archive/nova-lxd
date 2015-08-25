@@ -112,7 +112,7 @@ class LXDContainerOperations(object):
             with self.virtapi.wait_for_instance_event(
                     instance, events, deadline=timeout,
                     error_callback=self._neutron_failed_callback):
-                self.plug_vifs(container_config, instance, network_info)
+                container_config = self.plug_vifs(container_config, instance, network_info)
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed to connect networking to instance'))
 
@@ -130,8 +130,11 @@ class LXDContainerOperations(object):
 
     def plug_vifs(self, container_config, instance, network_info):
         for viface in network_info:
+            container_config = self.container_config.configure_network_devices(
+                    container_config, instance, viface)
             self.vif_driver.plug(instance, viface)
         self._start_firewall(instance, network_info)
+        return container_config
 
     def unplug_vifs(self, instance, network_info):
         for viface in network_info:
