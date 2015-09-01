@@ -78,6 +78,11 @@ class LXDGenericDriver(object):
                 _("Unexpected vif_type=%s") % vif_type)
         return func(instance, vif)
 
+    def get_config_bridge(self, instance, vif):
+        conf = {'bridge': self.get_bridge_name(vif),
+                'mac_address': vif['address']}
+        return conf
+
     def get_config_ovs_hybrid(self, instance, vif):
         conf = {'bridge': self.get_br_name(vif['id']),
                 'mac_address': vif['address']}
@@ -113,6 +118,30 @@ class LXDGenericDriver(object):
             raise exception.NovaException(
                 _("Unexpected vif_type=%s") % vif_type)
         return func(instance, vif)
+
+    def plug_bridge(self, instance, vif):
+        network = vif['network']
+        if (not network.get_meta('multi_host', False) and
+            network.get_meta('should_create_bridge', False)):
+            if network.get_meta('should_create_vlan', False):
+                iface = CONF.vlan_interface or \
+                        network.get_meta('bridge_interface')
+                LOG.debug('Ensuring vlan %(vlan)s and bridge %(bridge)s',
+                          {'vlan': network.get_meta('vlan'),
+                           'bridge': self.get_bridge_name(vif)},
+                           instance=instance)
+                linux_net.LinuxBridgeInterfaceDriver.ensure_vlan_bridge(
+                            network.get_meta('vlan'),
+                            self.get_bridge_name(vif),
+                            iface)
+        else:
+            iface = CONF.flat_interface or \
+                network.get_meta('bridge_interface')
+            LOG.debug("Ensuring bridge %s",
+                      self.get_bridge_name(vif), instance=instance)
+            linux_net.LinuxBridgeInterfaceDriver.ensure_bridge(
+                                self.get_bridge_name(vif),
+                                iface)
 
     def plug_ovs(self, instance, vif):
         if self.get_firewall_required(vif) or vif.is_hybrid_plug_enabled():
