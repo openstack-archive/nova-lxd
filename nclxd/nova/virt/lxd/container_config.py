@@ -26,7 +26,6 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import fileutils
-from oslo_utils import importutils
 from oslo_utils import units
 import six
 
@@ -49,7 +48,7 @@ class LXDContainerConfig(object):
     def __init__(self):
         self.container_dir = container_utils.LXDContainerDirectories()
         self.container_client = container_client.LXDContainerClient()
-        self.img_driver = importutils.import_object(CONF.lxd.img_driver)
+        self.container_image = container_image.LXDContainerImage()
         self.vif_driver = vif.LXDGenericDriver()
 
     def _init_container_config(self):
@@ -93,7 +92,7 @@ class LXDContainerConfig(object):
             container_config, instance)
 
         ''' Create an LXD image '''
-        self.img_driver.setup_image(context, instance, image_meta, host=host)
+        self.container_image.setup_image(context, instance, image_meta, host=host)
         container_config = (
             self.add_config(container_config, 'source',
                             self.configure_lxd_image(container_config,

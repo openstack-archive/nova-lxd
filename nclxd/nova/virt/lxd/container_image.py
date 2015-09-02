@@ -37,171 +37,128 @@ CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 IMAGE_API = image.API()
 
-
-def get_lxd_image(image_meta):
-    return image_meta['properties'].get('lxd_image_alias', None)
-
-def update_image(context, instance):
-    image_meta = {
-        'properties': {
-            'lxd_image_alias': instance.image_ref
-        }
-    }
-    IMAGE_API.update(context,
-                     instance.image_ref,
-                     image_meta)
-
-def setup_alias(instance, data):
-    lxd = api.API()
-
-    try:
-        alias_config = {
-           'name': instance.image_ref,
-           'target': data['metadata']['fingerprint']
-        }
-        LOG.debug('Creating alias: %s' % alias_config)
-        lxd.alias_create(alias_config)
-    except lxd_exceptions.APIError as ex:
-        raise exception.ImageUnacceptable(
-            image_id=instance.image_ref,
-            reason=_('Image already exists: %s' % ex))
-
-def images_upload(path, filename):
-    lxd = api.API()
-    headers = {}
-
-    if isinstance(path, str):
-        headers['Content-Type'] = "application/octet-stream"
-        try:
-            status, data = lxd.image_upload(data=open(path, 'rb'), 
-                                            headers=headers)
-        except lxd_exceptions as ex:
-            raise exception.ImageUnacceptable(
-                image_id=instance.image_ref,
-                reason=_('Failed to upload image: %s' % ex))
-    else:
-        meta_path, rootfs_path = path
-        boundary = str(uuid.uuid1())
-
-        form = []
-        for name, path in [("metadata", meta_path),
-                           ("rootfs", rootfs_path)]:
-            filename = os.path.basename(path)
-            form.append("--%s" % boundary)
-            form.append("Content-Disposition: form-data; "
-                        "name=%s; filename=%s" % (name, filename))
-            form.append("Content-Type: application/octet-stream")
-            form.append("")
-            with open(path, "rb") as fd:
-                form.append(fd.read())
-
-        form.append("--%s--" % boundary)
-        form.append("")
-
-        body = b""
-        for entry in form:
-            if isinstance(entry, bytes):
-                body += entry + b"\r\n"
-            else:
-                body += entry.encode() + b"\r\n"
-
-        headers['Content-Type'] = "multipart/form-data; boundary=%s" \
-                % boundary
-
-        try:
-            status, data = lxd.image_upload(data=body,
-                                            headers=headers)
-        except lxd_exceptions as ex:
-            raise exception.ImageUnacceptable(
-                image_id=instance.image_ref,
-                reason=_('Failed to upload image: %s' % ex))
-
-    return data
-
-class LXDBaseImage(object):
-    def __init__(self):
-        pass
-
-    def setup_image(self, context, instance, image_meta, host=None):
-        pass
-
-    def destroy_image(self, context, instance, image_meta):
-        pass
-
-class LXDContainerImage(LXDBaseImage):
+class LXDContainerImage(object):
     def __init__(self):
         self.container_client = container_client.LXDContainerClient()
         self.container_dir = container_utils.LXDContainerDirectories()
 
     def setup_image(self, context, instance, image_meta, host=None):
-        LOG.debug('Fetching image info from LXD')
+        LOG.debug('Fetching image info from glance')
 
-        lxd_image = get_lxd_image(image_meta)
+        if self.container_client.client('alias_defined',
+                                        instance=instance.image_ref,
+                                        host=host):
+            return
+
+        lxd_image = self._get_lxd_image(image_meta)
         if lxd_image is not None:
-            return 
-
-        LOG.debug("Uploading file data %(image_ref)s to LXD",
-                  {'image_ref': instance.image_ref})
+            return
 
         base_dir = self.container_dir.get_base_dir()
         if not os.path.exists(base_dir):
             fileutils.ensure_tree(base_dir)
 
-        container_image = self.container_dir.get_container_image(image_meta)
-        IMAGE_API.download(context, instance.image_ref, dest_path=container_image)
+        container_rootfs_img = (
+            self.container_dir.get_container_rootfs_image(
+                image_meta))
+        IMAGE_API.download(context, instance.image_ref, dest_path=container_rootfs_img)
+        lxd_image_manifest = self._get_lxd_manifest(image_meta)
+        if lxd_image_manifest is not None:
+            container_manifest_img = (
+                self.container_dir.get_container_manifest_image(
+                    image_meta))
+            IMAGE_API.download(context, lxd_image_manifest,
+                               dest_path=container_manifest_img)
+            img_info = self._image_upload((container_manifest_img, container_rootfs_img),
+                           container_manifest_img.split('/')[-1])
+        else:
+            img_info = self._image_upload(container_rootfs_img,
+                               container_rootfs_img.split("/")[-1])
 
-        ''' Upload LXD image(s) '''
-        (target_metadata, target_rootfs) = self._get_image_contents(container_image, 
-                                                                    image_meta)
-        data = images_upload((target_metadata, target_rootfs),
-                              target_metadata.split('/')[-1])
-        setup_alias(instance, data)
-        update_image(context, instance)
+        self._setup_alias(instance, img_info, image_meta, context)
 
-    def _get_image_contents(self, container_image, image_meta):
-        LOG.debug('Extracting LXD files')
+    def _get_lxd_image(self, image_meta):
+        return image_meta['properties'].get('lxd-image-alias', None)
 
-        base_dir = self.container_dir.get_base_dir()
-        with tarfile.open(container_image, mode='r') as tar:
-            for tar_info in tar:
-                if tar_info.name.endswith('-lxd.tar.xz'):
-                    target_metadata = os.path.join(base_dir, tar_info.name)
-                    tar.extract(tar_info.name,
-                                path=base_dir)
-                elif tar_info.name.endswith('-root.tar.xz'):
-                    target_rootfs = os.path.join(base_dir, tar_info.name)
-                    tar.extract(tar_info.name, 
-                                path=base_dir)
-            return (target_metadata, target_rootfs)
+    def _get_lxd_manifest(self, image_meta):
+        return image_meta['properties'].get('lxd-manifest', None)
 
-    def destroy_image(self, context, instance, image_meta):
-        pass
+    def _image_upload(self, path, filename):
+        LOG.debug('Uploading Image to LXD.')
+        lxd = api.API()
+        headers = {}
 
-class LXDOpenStackImage(LXDBaseImage):
+        if isinstance(path, str):
+            headers['Content-Type'] = "application/octet-stream"
+            try:
+                status, data = lxd.image_upload(data=open(path, 'rb'),
+                                            headers=headers)
+            except lxd_exceptions as ex:
+                raise exception.ImageUnacceptable(
+                    image_id=instance.image_ref,
+                    reason=_('Failed to upload image: %s' % ex))
+        else:
+            meta_path, rootfs_path = path
+            boundary = str(uuid.uuid1())
 
-    def __init__(self):
-        self.container_dir = container_utils.LXDContainerDirectories()
+            form = []
+            for name, path in [("metadata", meta_path),
+                               ("rootfs", rootfs_path)]:
+                filename = os.path.basename(path)
+                form.append("--%s" % boundary)
+                form.append("Content-Disposition: form-data; "
+                            "name=%s; filename=%s" % (name, filename))
+                form.append("Content-Type: application/octet-stream")
+                form.append("")
+                with open(path, "rb") as fd:
+                    form.append(fd.read())
 
-    def setup_image(self, context, instance, image_meta, host=None):
-        lxd_image = get_lxd_image(image_meta)
-        if lxd_image is not None:
-                return
+            form.append("--%s--" % boundary)
+            form.append("")
 
-        LOG.debug("Uploading image file data %(image_ref)s to LXD",
-                      {'image_ref': instance.image_ref})
+            body = b""
+            for entry in form:
+                if isinstance(entry, bytes):
+                    body += entry + b"\r\n"
+                else:
+                    body += entry.encode() + b"\r\n"
 
-        base_dir = self.container_dir.get_base_dir()
-        if not os.path.exists(base_dir):
-            fileutils.ensure_tree(base_dir)
+            headers['Content-Type'] = "multipart/form-data; boundary=%s" \
+                    % boundary
 
-        container_image = self.container_dir.get_container_image(image_meta)
-        IMAGE_API.download(context, instance.image_ref, dest_path=container_image)
+            try:
+                status, data = lxd.image_upload(data=body,
+                                                headers=headers)
+            except lxd_exceptions as ex:
+                raise exception.ImageUnacceptable(
+                    image_id=instance.image_ref,
+                    reason=_('Failed to upload image: %s' % ex))
 
-        ''' Upload the image to LXD '''
-        data = upload_image(container_image, container_image.split("/")[-1])
-        setup_alias(container_image, data)
-        update_image(context, instance)
+        return data
 
-    def destroy_image(self):
-        pass
+    def _setup_alias(self, instance, img_info, image_meta, context):
+        LOG.debug('Updating image and metadata')
 
+        lxd = api.API()
+        try:
+            alias_config = {
+                'name': instance.image_ref,
+                'target': img_info['metadata']['fingerprint']
+            }
+            LOG.debug('Creating alias: %s' % alias_config)
+            lxd.alias_create(alias_config)
+        except lxd_exceptions.APIError as ex:
+            raise exception.ImageUnacceptable(
+                image_id=instance.image_ref,
+                reason=_('Image already exists: %s' % ex))
+
+        image_meta = {
+            'properties': {
+                'lxd-image-alias': instance.image_ref,
+                'lxd-manifest': self._get_lxd_manifest(image_meta)
+            }
+        }
+
+        IMAGE_API.update(context,
+                         instance.image_ref,
+                         image_meta)

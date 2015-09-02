@@ -221,3 +221,13 @@ class LXDContainerClient(object):
             else:
                 msg = _('Failed to determine image: %s') % ex
                 raise exception.NovaException(msg)
+
+    def container_alias_defined(self, lxd, *args, **kwargs):
+        try:
+            return lxd.alias_defined(kwargs['instance'])
+        except lxd_exceptions.APIError as ex:
+            if ex.status_code == 404:
+                return False
+            else:
+                msg = _('Failed to determine alias: %s') % ex
+                raise exception.NovaException(msg)
