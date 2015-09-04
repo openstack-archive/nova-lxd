@@ -22,11 +22,14 @@ import shutil
 from nova import exception
 from nova import i18n
 from nova import utils
+from nova.compute import vm_states
 from nova.virt import configdrive
 from nova.virt import driver
 from nova.virt import hardware
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_service import loopingcall
+from oslo_utils import excutils
 from oslo_utils import fileutils
 from oslo_utils import importutils
 from oslo_utils import units
@@ -41,6 +44,7 @@ from nclxd.nova.virt.lxd import vif
 _ = i18n._
 _LE = i18n._LE
 _LW = i18n._LW
+_LI= i18n._LI
 
 CONF = cfg.CONF
 CONF.import_opt('vif_plugging_timeout', 'nova.virt.driver')
@@ -118,8 +122,19 @@ class LXDContainerOperations(object):
 
         (state, data) = self.container_client.client('start', instance=name,
                                                      host=host)
-        self.container_client.client('wait', oid=data.get('operation').split('/')[3],
-                                     host=host)
+        operation_id = data.get('operation').split('/')[3]
+        timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_active,
+                                                     operation_id, instance,
+                                                     host)
+
+        try:
+            timer.start(interval=CONF.lxd.retry_interval).wait()
+            LOG.info(_LI('Succefully launched container %s'),
+                         instance.uuid, instance=instance)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                 LOG.error(_LE("Error deploying instance %(instance)s"),
+                           {'instance': instance.uuid})
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None,
@@ -258,3 +273,19 @@ class LXDContainerOperations(object):
 
     def _stop_firewall(self, instance, network_info):
         self.firewall_driver.unfilter_instance(instance, network_info)
+
+    def _wait_for_active(self, operation_id, instance, host=None):
+        instance.refresh()
+
+        (state, data) = self.container_client.client('operation_info',
+                        oid=operation_id, host=host)
+        operation_status = data['metadata']['status_code']
+        if operation_status in [200, 202]:
+            instance.vm_state = vm_states.ACTIVE
+            instance.save()
+            raise loopingcall.LoopingCallDone()
+        elif operation_status in [400, 401]:
+            instance.vm_state = vm_states.ERROR
+            insance.save()
+            raise loopingcall.LoopingCallDone()
+

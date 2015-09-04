@@ -44,7 +44,10 @@ lxd_opts = [
                help='Default LXD profile'),
     cfg.StrOpt('lxd_port',
                default=8443,
-               help='Default LXD Port')
+               help='Default LXD Port'),
+    cfg.IntOpt('retry_interval',
+                default=2,
+                 help='How often to retry in seconds when a request does conflict'),
 ]
 
 CONF = cfg.CONF

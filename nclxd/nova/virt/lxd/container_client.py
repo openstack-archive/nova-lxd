@@ -14,7 +14,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from nova.compute import power_state
 from nova import exception
 from nova import i18n
 from oslo_config import cfg
@@ -23,26 +22,13 @@ from oslo_log import log as logging
 from pylxd import api
 from pylxd import exceptions as lxd_exceptions
 
+from nclxd.nova.virt.lxd import constants
 from nclxd.nova.virt.lxd import container_utils
 
 _ = i18n._
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
-
-LXD_POWER_STATES = {
-    'RUNNING': power_state.RUNNING,
-    'STOPPED': power_state.SHUTDOWN,
-    'STARTING': power_state.NOSTATE,
-    'STOPPING': power_state.SHUTDOWN,
-    'ABORTING': power_state.CRASHED,
-    'FREEZING': power_state.PAUSED,
-    'FROZEN': power_state.SUSPENDED,
-    'THAWED': power_state.PAUSED,
-    'PENDING': power_state.NOSTATE,
-    'Success': power_state.RUNNING,
-    'UNKNOWN': power_state.NOSTATE
-}
 
 class LXDContainerClient(object):
 
@@ -137,7 +123,7 @@ class LXDContainerClient(object):
         LOG.debug('container state')
         try:
             container_state = lxd.container_state(kwargs['instance'])
-            state = LXD_POWER_STATES[container_state]
+            state = constants.LXD_POWER_STATES[container_state]
         except lxd_exceptions.APIError:
             state = power_state.NOSTATE
         return state
@@ -231,3 +217,11 @@ class LXDContainerClient(object):
             else:
                 msg = _('Failed to determine alias: %s') % ex
                 raise exception.NovaException(msg)
+
+    # operations
+    def container_operation_info(self, lxd, *args, **kwargs):
+        try:
+            return lxd.operation_info(kwargs['oid'])
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to migrate container: %s') % ex
+            raise exception.NovaException(msg)
