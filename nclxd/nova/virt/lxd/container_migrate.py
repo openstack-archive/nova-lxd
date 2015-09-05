@@ -43,19 +43,6 @@ class LXDContainerMigrate(object):
                                    retry_interval=0, host=None):
         LOG.debug("!! migrate_disk_and_power_off called", instance=instance)
 
-        container_config = (
-                            self.container_config.configure_container_migrate(
-                                instance, network_info))
-
-        LOG.debug(pprint.pprint(container_config))
-        self.container_client.client('stop', instance=instance.uuid,
-                                     host=host)
-        (state, data) = self.container_client.client('init', 
-                                     container_config=container_config,
-                                     host=dest)
-        self.container_client.client('wait',
-                                     oid=data.get('operation').split('/')[3],
-                                     host=dest)
         # disk_info is not used
         return ""
 
@@ -70,8 +57,6 @@ class LXDContainerMigrate(object):
                          network_info, image_meta, resize_instance=False,
                          block_device_info=None, power_on=True):
         LOG.debug("!! finish_migration called", instance=instance)
-        if power_on:
-            self.container_ops.start_instance(instance, network_info)
 
     def live_migration(self, context, instance_ref, dest, post_method,
                        recover_method, block_migration=False,

@@ -128,25 +128,6 @@ class LXDContainerConfig(object):
 
         return container_config
 
-    def configure_container_migrate(self, instance, network_info, host=None):
-        LOG.debug('Creating LXD migration config')
-
-        container_config = self._init_container_config()
-        container_config = self.configure_container_config(instance.uuid,
-            container_config, instance)
-        container_config = self.configure_lxd_ws(container_config, instance)
-        if network_info:
-            container_network_devices = (
-                self.configure_network_devices(
-                            container_config,
-                            instance,
-                            network_info))
-            self.container_client.client('update', instance=instance.uuid,
-                            container_config=container_network_devices,
-                            host=host)
-
-        return container_config
-
     def configure_container_config(self, name, container_config, instance):
         LOG.debug('Configure LXD container')
 
