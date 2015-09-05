@@ -122,8 +122,8 @@ class LXDContainerClient(object):
     def container_state(self, lxd, *args, **kwargs):
         LOG.debug('container state')
         try:
-            container_state = lxd.container_state(kwargs['instance'])
-            state = constants.LXD_POWER_STATES[container_state]
+            (state, data) = lxd.container_state(kwargs['instance'])
+            state = constants.LXD_POWER_STATES[data['metadata']['status_code']]
         except lxd_exceptions.APIError:
             state = power_state.NOSTATE
         return state

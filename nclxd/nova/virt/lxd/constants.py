@@ -17,15 +17,19 @@
 from nova.compute import power_state
 
 LXD_POWER_STATES = {
-    'RUNNING': power_state.RUNNING,
-    'STOPPED': power_state.SHUTDOWN,
-    'STARTING': power_state.NOSTATE,
-    'STOPPING': power_state.SHUTDOWN,
-    'ABORTING': power_state.CRASHED,
-    'FREEZING': power_state.PAUSED,
-    'FROZEN': power_state.SUSPENDED,
-    'THAWED': power_state.PAUSED,
-    'PENDING': power_state.NOSTATE,
-    'Success': power_state.RUNNING,
-    'UNKNOWN': power_state.NOSTATE
+ 100: power_state.RUNNING,
+ 101: power_state.RUNNING,
+ 102: power_state.SHUTDOWN,
+ 103: power_state.RUNNING,
+ 104: power_state.SHUTDOWN,
+ 105: power_state.NOSTATE,
+ 106: power_state.NOSTATE,
+ 107: power_state.SHUTDOWN,
+ 108: power_state.CRASHED,
+ 109: power_state.SUSPENDED,
+ 110: power_state.SUSPENDED,
+ 111: power_state.SUSPENDED,
+ 200: power_state.RUNNING,
+ 400: power_state.CRASHED,
+ 401: power_state.NOSTATE
 }
