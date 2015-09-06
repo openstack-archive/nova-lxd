@@ -158,8 +158,6 @@ class LXDContainerOperations(object):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, host=None):
-        self.container_client.client('stop', instance=instance.uuid,
-                                     host=host)
         self.container_client.client('destroy', instance=instance.uuid,
                                      host=host)
         self.cleanup(context, instance, network_info, block_device_info)
