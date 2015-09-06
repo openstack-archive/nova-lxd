@@ -41,7 +41,7 @@ class LXDContainerMigrate(object):
                                    flavor, network_info,
                                    block_device_info=None, timeout=0,
                                    retry_interval=0, host=None):
-        LOG.debug("!! migrate_disk_and_power_off called", instance=instance)
+        LOG.debug("migrate_disk_and_power_off called", instance=instance)
 
         # disk_info is not used
         return ""
@@ -56,7 +56,7 @@ class LXDContainerMigrate(object):
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance=False,
                          block_device_info=None, power_on=True):
-        LOG.debug("!! finish_migration called", instance=instance)
+        LOG.debug("finish_migration called", instance=instance)
 
     def live_migration(self, context, instance_ref, dest, post_method,
                        recover_method, block_migration=False,
@@ -74,21 +74,21 @@ class LXDContainerMigrate(object):
 
     def post_live_migration_at_destination(self, ctxt, instance_ref,
                                            network_info, block_migration):
-        LOG.debug("!! post_live_migration_at_destination called",
+        LOG.debug("post_live_migration_at_destination called",
                   instance=instance_ref)
 
     def check_can_live_migrate_destination(self, ctxt, instance_ref,
                                            src_compute_info, dst_compute_info,
                                            block_migration=False,
                                            disk_over_commit=False):
-        LOG.debug("!! check_can_live_migrate_destination called", instance_ref)
+        LOG.debug("check_can_live_migrate_destination called", instance_ref)
         return {}
 
     def check_can_live_migrate_destination_cleanup(self, ctxt,
                                                    dest_check_data):
-        LOG.debug("!! check_can_live_migrate_destination_cleanup called")
+        LOG.debug("check_can_live_migrate_destination_cleanup called")
 
     def check_can_live_migrate_source(self, ctxt, instance_ref,
                                       dest_check_data):
-        LOG.debug("!! check_can_live_migrate_source called", instance_ref)
+        LOG.debug("check_can_live_migrate_source called", instance_ref)
         return dest_check_data

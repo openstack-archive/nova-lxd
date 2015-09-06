@@ -164,27 +164,6 @@ class LXDContainerConfig(object):
                          })
         return container_config
 
-    def configure_lxd_ws(self, container_config, instance, host=None):
-        LOG.debug('Creating LXD websocket')
-
-        container_ws = self.container_client.client('migrate', instance=instance.uuid,
-                                                    host=host)
-        container_url = "wss://%s:%s/1.0/operations/%s/websocket" % (CONF.my_ip,
-                                                                    CONF.lxd.lxd_port,
-                                                                    container_ws['operation'])
-        self.add_config(container_config, 'source',
-                        {'base-image': '',
-                         "mode": "pull",
-                         "operation": container_url,
-                         "secrets": {
-                           "control": container_ws['control'],
-                           "fs": container_ws['fs']
-                         },
-                         "type": "migration"
-                         })
-        return container_config
-
-
     def configure_network_devices(self, container_config,
                                   instance, network_info, host=None):
         LOG.debug('Get network devices')
