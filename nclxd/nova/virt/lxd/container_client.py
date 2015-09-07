@@ -16,6 +16,7 @@
 
 from nova import exception
 from nova import i18n
+from nova.compute import power_state
 from oslo_config import cfg
 from oslo_log import log as logging
 
