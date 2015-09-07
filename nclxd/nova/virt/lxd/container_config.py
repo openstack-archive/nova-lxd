@@ -98,12 +98,6 @@ class LXDContainerConfig(object):
                             self.configure_lxd_image(container_config,
                                                      instance, image_meta)))
 
-        LOG.debug(pprint.pprint(container_config))
-        (state, data) = self.container_client.client('init', container_config=container_config,
-                                                     host=instance.host)
-        self.container_client.client('wait', oid=data.get('operation').split('/')[3],
-                                     host=instance.host)
-
         if configdrive.required_by(instance):
             container_configdrive = (
                 self.configure_container_configdrive(
@@ -112,9 +106,6 @@ class LXDContainerConfig(object):
                     injected_files,
                     admin_password))
             LOG.debug(pprint.pprint(container_configdrive))
-            self.container_client.client('update', instnace=name,
-                                         container_config=container_configdrive,
-                                         host=instance.host)
 
         if rescue:
             container_rescue_devices = (
@@ -122,9 +113,12 @@ class LXDContainerConfig(object):
                     container_config,
                     instance))
             LOG.debug(pprint.pprint(container_rescue_devices))
-            self.container_client.client('update', instnace=name,
-                                         container_config=container_rescue_devices,
-                                         host=instance.host)
+
+        LOG.debug(pprint.pprint(container_config))
+        (state, data) = self.container_client.client('init', container_config=container_config,
+                                                     host=instance.host)
+        self.container_client.client('wait', oid=data.get('operation').split('/')[3],
+                                     host=instance.host)
 
         return container_config
 
