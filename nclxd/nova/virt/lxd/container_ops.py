@@ -66,12 +66,12 @@ class LXDContainerOperations(object):
 
         self.vif_driver = vif.LXDGenericDriver()
 
-    def list_instances(self, host=None):
+    def list_instances(self):
         return self.container_client.client('list', host=None)
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None,
-              name_label=None, rescue=False, host=None):
+              name_label=None, rescue=False):
         msg = ('Spawning container '
                'network_info=%(network_info)s '
                'image_meta=%(image_meta)s '
@@ -87,7 +87,7 @@ class LXDContainerOperations(object):
         if rescue:
             name = name_label
 
-        if self.container_client.client('defined', instance=name, host=host):
+        if self.container_client.client('defined', instance=name, host=instance.host):
             raise exception.InstanceExists(name=name)
 
         container_config = self.container_config.create_container(context, instance, image_meta,
@@ -96,7 +96,7 @@ class LXDContainerOperations(object):
 
         self.start_instance(container_config, instance, network_info, rescue)
 
-    def start_instance(self, container_config, instance, network_info, rescue=False, host=None):
+    def start_instance(self, container_config, instance, network_info, rescue=False):
         LOG.debug('Staring instance')
         name = instance.uuid
         if rescue:
@@ -106,7 +106,7 @@ class LXDContainerOperations(object):
         # check to see if neutron is ready before
         # doing anything else
         if (not self.container_client.client('running', instance=name,
-                                             host=host) and
+                                             host=instance.host) and
                 utils.is_neutron() and timeout):
             events = self._get_neutron_events(network_info)
         else:
@@ -121,11 +121,11 @@ class LXDContainerOperations(object):
             LOG.info(_LW('Failed to connect networking to instance'))
 
         (state, data) = self.container_client.client('start', instance=name,
-                                                     host=host)
+                                                     host=instance.host)
         operation_id = data.get('operation').split('/')[3]
         timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_active,
                                                      operation_id, instance,
-                                                     host)
+                                                     instance.host)
 
         try:
             timer.start(interval=CONF.lxd.retry_interval).wait()
@@ -137,11 +137,10 @@ class LXDContainerOperations(object):
                            {'instance': instance.uuid})
 
     def reboot(self, context, instance, network_info, reboot_type,
-               block_device_info=None, bad_volumes_callback=None,
-               host=None):
+               block_device_info=None, bad_volumes_callback=None):
         LOG.debug('container reboot')
         return self.container_client.client('reboot', instance=instance.uuid,
-                                            host=host)
+                                            host=isntance.host)
 
     def plug_vifs(self, container_config, instance, network_info):
         for viface in network_info:
@@ -157,51 +156,56 @@ class LXDContainerOperations(object):
         self._start_firewall(instance, network_info)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
-                destroy_disks=True, migrate_data=None, host=None):
+                destroy_disks=True, migrate_data=None):
         self.container_client.client('destroy', instance=instance.uuid,
-                                     host=host)
+                                     host=instance.host)
         self.cleanup(context, instance, network_info, block_device_info)
 
-    def power_off(self, instance, timeout=0, retry_interval=0, host=None):
+    def power_off(self, instance, timeout=0, retry_interval=0):
         return self.container_client.client('stop', instance=instance.uuid,
-                                            host=host)
+                                            host=instance.host)
 
     def power_on(self, context, instance, network_info,
-                 block_device_info=None, host=None):
+                 block_device_info=None):
         return self.container_client.client('start', instance=instance.uuid,
-                                            host=host)
+                                            host=instance.host)
 
-    def pause(self, instance, host=None):
-        return self.container_client.client('pause', instance=instance.uuid, host=host)
+    def pause(self, instance):
+        return self.container_client.client('pause', instance=instance.uuid,
+                                            host=instance.host)
 
-    def unpause(self, instance, host=None):
-        return self.container_client.client('unpause', instance=instance.uuid, host=host)
+    def unpause(self, instance):
+        return self.container_client.client('unpause', instance=instance.uuid,
+                                            host=instance.host)
 
-    def suspend(self, context, instance, host=None):
-        return self.container_client.client('pause', instance=instance.uuid, host=host)
+    def suspend(self, context, instance):
+        return self.container_client.client('pause', instance=instance.uuid,
+                                            host=instance.host)
 
-    def resume(self, context, instance, network_info, block_device_info=None, host=None):
-        return self.container_client.client('unpause', instance=instance.uuid, host=host)
+    def resume(self, context, instance, network_info, block_device_info=None):
+        return self.container_client.client('unpause', instance=instance.uuid,
+                                            host=instance.host)
 
     def rescue(self, context, instance, network_info, image_meta,
-               rescue_password, host=None):
+               rescue_password):
         LOG.debug('Container rescue')
-        self.container_client.client('stop', instance=instance.uuid, host=host)
+        self.container_client.client('stop', instance=instance.uuid,
+                                     host=instance.host)
         rescue_name_label = '%s-rescue' % instance.uuid
         if self.container_client.client('defined', instance=rescue_name_label,
-                                        host=host):
+                                        host=instance.host):
             msg = _('Instace is arleady in Rescue mode: %s') % instance.uuid
             raise exception.NovaException(msg)
         self.spawn(context, instance, image_meta, [], rescue_password,
                    network_info, name_label=rescue_name_label, rescue=True)
 
-    def unrescue(self, instance, network_info, host=None):
+    def unrescue(self, instance, network_info):
         LOG.debug('Conainer unrescue')
         self.container_client.client('start', instance=instance.uuid,
-                                      host=host)
+                                      host=instance.host)
         rescue = '%s-rescue' % instance.uuid
         self.container_client.client('destroy', instance=instance.uuid,
-                                     host=host)
+                                     host=instance.host)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
@@ -210,9 +214,9 @@ class LXDContainerOperations(object):
         if os.path.exists(container_dir):
             shutil.rmtree(container_dir)
 
-    def get_info(self, instance, host=None):
+    def get_info(self, instance):
         container_state = self.container_client.client('state', instance=instance.uuid,
-                                                       host=host)
+                                                       host=instance.host)
         return hardware.InstanceInfo(state=container_state,
                                      max_mem_kb=0,
                                      mem_kb=0,
@@ -234,7 +238,7 @@ class LXDContainerOperations(object):
                                                   MAX_CONSOLE_BYTES)
             return log_data
 
-    def container_attach_interface(self, instance, image_meta, vif, host=None):
+    def container_attach_interface(self, instance, image_meta, vif):
         try:
             self.vif_driver.plug(instance, vif)
             self.firewall_driver.setup_basic_filtering(instance, vif)
@@ -243,7 +247,7 @@ class LXDContainerOperations(object):
                                                                      vif))
             self.container_client.client('update', instance=instance.uuid,
                                                    container_config=container_config,
-                                                   host=host)
+                                                   host=instance.host)
         except exception.NovaException:
             self.vif_driver.unplug(instance, vif)
 
@@ -272,11 +276,11 @@ class LXDContainerOperations(object):
     def _stop_firewall(self, instance, network_info):
         self.firewall_driver.unfilter_instance(instance, network_info)
 
-    def _wait_for_active(self, operation_id, instance, host=None):
+    def _wait_for_active(self, operation_id, instance):
         instance.refresh()
 
         (state, data) = self.container_client.client('operation_info',
-                        oid=operation_id, host=host)
+                        oid=operation_id, host=instance.host)
         operation_status = data['metadata']['status_code']
         if operation_status in [200, 202]:
             instance.vm_state = vm_states.ACTIVE
@@ -284,6 +288,6 @@ class LXDContainerOperations(object):
             raise loopingcall.LoopingCallDone()
         elif operation_status in [400, 401]:
             instance.vm_state = vm_states.ERROR
-            insance.save()
+            instance.save()
             raise loopingcall.LoopingCallDone()
 

@@ -40,7 +40,7 @@ class LXDContainerMigrate(object):
     def migrate_disk_and_power_off(self, context, instance, dest,
                                    flavor, network_info,
                                    block_device_info=None, timeout=0,
-                                   retry_interval=0, host=None):
+                                   retry_interval=0):
         LOG.debug("migrate_disk_and_power_off called", instance=instance)
 
         # disk_info is not used

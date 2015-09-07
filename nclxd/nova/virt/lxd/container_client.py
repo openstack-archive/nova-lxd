@@ -29,6 +29,7 @@ from nclxd.nova.virt.lxd import container_utils
 _ = i18n._
 
 CONF = cfg.CONF
+CONF.import_opt('host', 'nova.netconf')
 LOG = logging.getLogger(__name__)
 
 class LXDContainerClient(object):
@@ -37,7 +38,7 @@ class LXDContainerClient(object):
         self.container_dir = container_utils.LXDContainerDirectories()
 
     def client(self, func, *args, **kwargs):
-        if kwargs['host'] is None:
+        if kwargs['host'] == CONF.host:
             lxd_client = api.API()
         else:
             try:

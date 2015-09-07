@@ -59,7 +59,7 @@ class LXDContainerConfig(object):
 
     def create_container(self, context, instance, image_meta, injected_files,
                         admin_password, network_info, block_device_info,
-                        name_label=None, rescue=False, host=None):
+                        name_label=None, rescue=False):
 
         LOG.debug('Creating instance')
 
@@ -92,7 +92,7 @@ class LXDContainerConfig(object):
             container_config, instance)
 
         ''' Create an LXD image '''
-        self.container_image.setup_image(context, instance, image_meta, host=host)
+        self.container_image.setup_image(context, instance, image_meta, host=instance.host)
         container_config = (
             self.add_config(container_config, 'source',
                             self.configure_lxd_image(container_config,
@@ -100,9 +100,9 @@ class LXDContainerConfig(object):
 
         LOG.debug(pprint.pprint(container_config))
         (state, data) = self.container_client.client('init', container_config=container_config,
-                                                     host=host)
+                                                     host=instance.host)
         self.container_client.client('wait', oid=data.get('operation').split('/')[3],
-                                     host=host)
+                                     host=instance.host)
 
         if configdrive.required_by(instance):
             container_configdrive = (
@@ -114,7 +114,7 @@ class LXDContainerConfig(object):
             LOG.debug(pprint.pprint(container_configdrive))
             self.container_client.client('update', instnace=name,
                                          container_config=container_configdrive,
-                                         host=host)
+                                         host=instance.host)
 
         if rescue:
             container_rescue_devices = (
@@ -124,7 +124,7 @@ class LXDContainerConfig(object):
             LOG.debug(pprint.pprint(container_rescue_devices))
             self.container_client.client('update', instnace=name,
                                          container_config=container_rescue_devices,
-                                         host=host)
+                                         host=instance.host)
 
         return container_config
 
@@ -165,7 +165,7 @@ class LXDContainerConfig(object):
         return container_config
 
     def configure_network_devices(self, container_config,
-                                  instance, network_info, host=None):
+                                  instance, network_info):
         LOG.debug('Get network devices')
 
         if not network_info:
@@ -184,7 +184,7 @@ class LXDContainerConfig(object):
         LOG.debug(pprint.pprint(container_config))
         self.container_client.client('update', instance=instance.uuid,
                                      container_config=container_network_devices,
-                                     host=host)
+                                     host=instance.host)
 
         return container_config
 
@@ -253,11 +253,11 @@ class LXDContainerConfig(object):
                   'type': 'nic'})
         return container_config
 
-    def _get_container_config(self, instance, network_info, host=None):
+    def _get_container_config(self, instance, network_info):
         container_update = self._init_container_config()
 
         container_old = self.container_client.client('config', instance=instance.uuid,
-                                                      host=host)
+                                                      host=instance.host)
         container_config = self._convert(container_old['config'])
         container_devices = self._convert(container_old['devices'])
 
@@ -268,7 +268,7 @@ class LXDContainerConfig(object):
 
         return container_update
 
-    def _get_network_device(self, instance, host=None):
+    def _get_network_device(self, instance):
         data = self.container_client.client('info', instance=instance, host=None)
         lines = open('/proc/%s/net/dev' % data['init']).readlines()
         interfaces = []

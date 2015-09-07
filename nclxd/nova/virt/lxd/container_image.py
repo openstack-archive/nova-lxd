@@ -42,12 +42,12 @@ class LXDContainerImage(object):
         self.container_client = container_client.LXDContainerClient()
         self.container_dir = container_utils.LXDContainerDirectories()
 
-    def setup_image(self, context, instance, image_meta, host=None):
+    def setup_image(self, context, instance, image_meta):
         LOG.debug('Fetching image info from glance')
 
         if self.container_client.client('alias_defined',
                                         instance=instance.image_ref,
-                                        host=host):
+                                        host=instance.host):
             return
 
         lxd_image = self._get_lxd_image(image_meta)
