@@ -227,3 +227,34 @@ class LXDContainerClient(object):
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to migrate container: %s') % ex
             raise exception.NovaException(msg)
+
+    # snapshot
+    def container_snapshot_create(self, lxd, *args, **kwargs):
+        try:
+            return lxd.container_snapshot_create(kwargs['instance'],
+                                                kwargs['container_snapshot'])
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to create snapshot: %s') % ex
+            raise exception.NovaException(msg)
+
+    def container_publish(self, lxd, *args, **kwargs):
+        try:
+            return lxd.container_publish(kwargs['container_image'])
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to publish snapshot: %s') % ex
+            raise exception.NovaException(msg)
+
+    def container_alias_create(self, lxd, *args, **kwargs):
+        try:
+            return lxd.alias_create(kwargs['alias'])
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to create alias: %s') % ex
+            raise exception.NovaException(msg)
+
+    def container_image_export(self, lxd, *args, **kwargs):
+        try:
+            return lxd.image_export(kwargs['fingerprint'])
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to create alias: %s') % ex
+            raise exception.NovaException(msg)
+
