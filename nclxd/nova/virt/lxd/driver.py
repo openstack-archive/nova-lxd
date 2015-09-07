@@ -181,7 +181,7 @@ class LXDDriver(driver.ComputeDriver):
         return self.container_ops.pause(instance)
 
     def unpause(self, instance):
-        raise NotImplementedError()
+        return self.container_ops.unpause(instance)
 
     def suspend(self, context, instance):
         raise NotImplementedError()

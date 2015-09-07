@@ -168,14 +168,14 @@ class LXDContainerOperations(object):
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None, host=None):
-        return self.container_client.client('start', instnace=instance.uuid,
+        return self.container_client.client('start', instance=instance.uuid,
                                             host=host)
 
     def pause(self, instance, host=None):
         return self.container_client.client('pause', instance=instance.uuid, host=host)
 
     def unpause(self, instance, host=None):
-        return self.container_client.client('unpause', instnace=instance.uuid, host=host)
+        return self.container_client.client('unpause', instance=instance.uuid, host=host)
 
     def suspend(self, context, instance, host=None):
         return self.container_client.client('pause', instance=instance.uuid, host=host)
