@@ -47,7 +47,7 @@ class LXDContainerMigrate(object):
         return ""
 
     def confirm_migration(self, migration, instance, network_info):
-        LOG.debug("!! confirm_migration called", instance=instance)
+        LOG.debug("confirm_migration called", instance=instance)
 
     def finish_revert_migration(self, context, instance, network_info,
                                 block_device_info=None, power_on=True):
@@ -61,12 +61,12 @@ class LXDContainerMigrate(object):
     def live_migration(self, context, instance_ref, dest, post_method,
                        recover_method, block_migration=False,
                        migrate_data=None):
-        LOG.debug("!! live_migration called", instance=instance_ref)
+        LOG.debug("live_migration called", instance=instance_ref)
         post_method(context, instance_ref, dest, block_migration)
 
     def pre_live_migration(self, context, instance, block_device_info,
                            network_info):
-        LOG.debug("!! pre_live_migration called", instance=instance)
+        LOG.debug("pre_live_migration called", instance=instance)
 
     def post_live_migration(self, context, instance, block_device_info):
         LOG.debug("post_live_migration", instance=instance)
