@@ -39,7 +39,7 @@ class LXDSnapshot(object):
         self.container_client = container_client.LXDContainerClient()
         self.lxd = api.API()
 
-    def snapshot(self, context, instance, image_id, update_task_state, host=None):
+    def snapshot(self, context, instance, image_id, update_task_state):
         LOG.debug('in snapshot')
         update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
 

@@ -124,8 +124,7 @@ class LXDContainerOperations(object):
                                                      host=instance.host)
         operation_id = data.get('operation').split('/')[3]
         timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_active,
-                                                     operation_id, instance,
-                                                     instance.host)
+                                                     operation_id, instance)
 
         try:
             timer.start(interval=CONF.lxd.retry_interval).wait()
