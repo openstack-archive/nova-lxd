@@ -88,8 +88,8 @@ class LXDContainerClient(object):
     def container_pause(self, lxd, *args, **kwargs):
         LOG.debug('container pause')
         try:
-            return lxd.container_freeze(kwargs['instance'],
-                                             CONF.lxd.timeout)
+            return lxd.container_suspend(kwargs['instance'],
+                                         CONF.lxd.timeout)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return
@@ -100,8 +100,8 @@ class LXDContainerClient(object):
     def container_unpause(self, lxd, *args, **kwargs):
         LOG.debug('container unpause')
         try:
-            return lxd.container_unfreeze(kwargs['instance'],
-                                               CONF.lxd.timeout)
+            return lxd.container_resume(kwargs['instance'],
+                                        CONF.lxd.timeout)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return

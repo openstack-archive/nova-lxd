@@ -184,10 +184,10 @@ class LXDDriver(driver.ComputeDriver):
         return self.container_ops.unpause(instance)
 
     def suspend(self, context, instance):
-        raise NotImplementedError()
+        return self.container_ops.suspend(context, instance)
 
     def resume(self, context, instance, network_info, block_device_info=None):
-        raise NotImplementedError()
+        return self.container_ops.resume(context, instance, network_info, block_device_info)
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
