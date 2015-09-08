@@ -16,7 +16,6 @@
 
 import hashlib
 import os
-import tarfile
 import uuid
 
 from nova import exception
@@ -61,12 +60,18 @@ class LXDContainerImage(object):
         container_rootfs_img = (
             self.container_dir.get_container_rootfs_image(
                 image_meta))
+        if os.path.exists(container_rootfs_img):
+            return
+
         IMAGE_API.download(context, instance.image_ref, dest_path=container_rootfs_img)
         lxd_image_manifest = self._get_lxd_manifest(image_meta)
         if lxd_image_manifest is not None:
             container_manifest_img = (
                 self.container_dir.get_container_manifest_image(
                     image_meta))
+            if os.path.exists(container_manifest_img):
+                return
+
             IMAGE_API.download(context, lxd_image_manifest,
                                dest_path=container_manifest_img)
             img_info = self._image_upload((container_manifest_img, container_rootfs_img),
