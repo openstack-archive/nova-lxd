@@ -35,7 +35,7 @@ LOG = logging.getLogger(__name__)
 class LXDContainerClient(object):
 
     def __init__(self):
-        self.container_dir = container_utils.LXDContainerDirectories()
+        pass
 
     def client(self, func, *args, **kwargs):
         if kwargs['host'] == CONF.host:
@@ -51,6 +51,7 @@ class LXDContainerClient(object):
         return func(lxd_client, *args, **kwargs)
 
     def container_list(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - Container list')
         try:
             return lxd.container_list()
         except lxd_exceptions.APIError as ex:
@@ -58,7 +59,7 @@ class LXDContainerClient(object):
             raise exception.NovaException(msg)
 
     def container_running(self, lxd, *args, **kwargs):
-        LOG.debug('container running')
+        LOG.debug('REST API - container running')
         try:
             return lxd.container_running(kwargs['instance'])
         except lxd_exceptions.APIError as ex:
@@ -66,7 +67,7 @@ class LXDContainerClient(object):
             raise exception.NovaException(msg)
 
     def container_start(self, lxd, *args, **kwargs):
-        LOG.debug('container start')
+        LOG.debug('REST API - container start')
         try:
             return lxd.container_start(kwargs['instance'],
                                             CONF.lxd.timeout)
@@ -75,7 +76,7 @@ class LXDContainerClient(object):
             raise exception.NovaException(msg)
 
     def container_stop(self, lxd, *args, **kwargs):
-        LOG.debug('container stop')
+        LOG.debug('REST API - container stop')
         try:
             return lxd.container_stop(kwargs['instance'],
                                            CONF.lxd.timeout)
@@ -87,7 +88,7 @@ class LXDContainerClient(object):
                 raise exception.NovaException(msg)
 
     def container_pause(self, lxd, *args, **kwargs):
-        LOG.debug('container pause')
+        LOG.debug('REST API - container pause')
         try:
             return lxd.container_suspend(kwargs['instance'],
                                          CONF.lxd.timeout)
@@ -99,7 +100,7 @@ class LXDContainerClient(object):
                 raise exception.NovaException(msg)
 
     def container_unpause(self, lxd, *args, **kwargs):
-        LOG.debug('container unpause')
+        LOG.debug('REST API - container unpause')
         try:
             return lxd.container_resume(kwargs['instance'],
                                         CONF.lxd.timeout)
@@ -111,7 +112,7 @@ class LXDContainerClient(object):
                 raise exception.NovaException(msg)
 
     def container_destroy(self, lxd, *args, **kwargs):
-        LOG.debug('Container destroy')
+        LOG.debug('REST API - Container destroy')
         try:
             return lxd.container_destroy(kwargs['instance'])
         except lxd_exceptions.APIError as ex:
@@ -122,7 +123,7 @@ class LXDContainerClient(object):
                 raise exception.NovaException(msg)
 
     def container_state(self, lxd, *args, **kwargs):
-        LOG.debug('container state')
+        LOG.debug('REST API - container state')
         try:
             (state, data) = lxd.container_state(kwargs['instance'])
             state = constants.LXD_POWER_STATES[data['metadata']['status_code']]
@@ -131,7 +132,7 @@ class LXDContainerClient(object):
         return state
 
     def container_info(self, lxd, *args, **kwargs):
-        LOG.debug('container info')
+        LOG.debug('REST API - container info')
         try:
             return lxd.container_info(kwargs['instance'])
         except lxd_exceptions.APIError as ex:
@@ -139,7 +140,7 @@ class LXDContainerClient(object):
             raise exception.NovaException(msg)
 
     def container_init(self, lxd, *args, **kwargs):
-        LOG.debug('container init')
+        LOG.debug('REST API - container init')
         try:
             return lxd.container_init(kwargs['container_config'])
         except lxd_exceptions.APIError as ex:
@@ -147,7 +148,7 @@ class LXDContainerClient(object):
             raise exception.NovaException(msg)
 
     def container_update(self, lxd, *args, **kwargs):
-        LOG.debug('Updating container')
+        LOG.debug('REST API - Updating container')
         try:
             return lxd.container_update(kwargs['instance'],
                                              kwargs['container_config'])
@@ -156,7 +157,7 @@ class LXDContainerClient(object):
             raise exception.NovaException(msg)
 
     def container_defined(self, lxd, *args, **kwargs):
-        LOG.debug('container defined')
+        LOG.debug('REST API - container defined')
         try:
             return lxd.container_defined(kwargs['instance'])
         except lxd_exceptions.APIError as ex:
@@ -167,6 +168,7 @@ class LXDContainerClient(object):
                 raise exception.NovaException(msg)
 
     def container_reboot(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - container defined')
         try:
             return lxd.container_reboot(kwargs['instance'])
         except lxd_exceptions.APIError as ex:
@@ -177,6 +179,7 @@ class LXDContainerClient(object):
                 raise exception.NovaException(msg)
 
     def container_config(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - container defined')
         try:
             return lxd.get_container_config(kwargs['instance'])
         except lxd_exceptions.APIError as ex:
@@ -184,6 +187,7 @@ class LXDContainerClient(object):
             raise exception.NovaException(msg)
 
     def container_migrate(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - container defined')
         try:
             return lxd.container_migrate(kwargs['instance'])
         except lxd_exceptions.APIError as ex:
@@ -191,6 +195,7 @@ class LXDContainerClient(object):
             raise exception.NovaException(msg)
 
     def container_wait(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - container defined')
         if not kwargs['oid']:
             msg = _('Unable to determine container operation')
             raise exception.NovaException(msg)
@@ -201,6 +206,7 @@ class LXDContainerClient(object):
 
     # container images
     def container_image_defined(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - container image defined')
         try:
             return lxd.image_defined(kwargs['instance'])
         except lxd_exceptions.APIError as ex:
@@ -211,6 +217,7 @@ class LXDContainerClient(object):
                 raise exception.NovaException(msg)
 
     def container_alias_defined(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - container alias defined')
         try:
             return lxd.alias_defined(kwargs['instance'])
         except lxd_exceptions.APIError as ex:
@@ -222,6 +229,7 @@ class LXDContainerClient(object):
 
     # operations
     def container_operation_info(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - container operation info')
         try:
             return lxd.operation_info(kwargs['oid'])
         except lxd_exceptions.APIError as ex:
@@ -230,6 +238,7 @@ class LXDContainerClient(object):
 
     # snapshot
     def container_snapshot_create(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - container snapshot create')
         try:
             return lxd.container_snapshot_create(kwargs['instance'],
                                                 kwargs['container_snapshot'])
@@ -238,6 +247,7 @@ class LXDContainerClient(object):
             raise exception.NovaException(msg)
 
     def container_publish(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - container publish')
         try:
             return lxd.container_publish(kwargs['container_image'])
         except lxd_exceptions.APIError as ex:
@@ -245,6 +255,7 @@ class LXDContainerClient(object):
             raise exception.NovaException(msg)
 
     def container_alias_create(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - container alias create')
         try:
             return lxd.alias_create(kwargs['alias'])
         except lxd_exceptions.APIError as ex:
@@ -252,6 +263,7 @@ class LXDContainerClient(object):
             raise exception.NovaException(msg)
 
     def container_image_export(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - container image export')
         try:
             return lxd.image_export(kwargs['fingerprint'])
         except lxd_exceptions.APIError as ex:

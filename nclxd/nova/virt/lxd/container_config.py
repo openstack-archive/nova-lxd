@@ -61,7 +61,7 @@ class LXDContainerConfig(object):
                         admin_password, network_info, block_device_info,
                         name_label=None, rescue=False):
 
-        LOG.debug('Creating instance')
+        LOG.debug('Creating container config')
 
         name = instance.uuid
         if rescue:
@@ -123,7 +123,7 @@ class LXDContainerConfig(object):
         return container_config
 
     def configure_container_config(self, name, container_config, instance):
-        LOG.debug('Configure LXD container')
+        LOG.debug('Configure LXD container config')
 
         ''' Set the limits. '''
         flavor = instance.flavor
@@ -149,7 +149,7 @@ class LXDContainerConfig(object):
         return container_config
 
     def configure_lxd_image(self, container_config, instance, image_meta):
-        LOG.debug('Getting LXD image')
+        LOG.debug('Getting LXD image source')
 
 
         self.add_config(container_config, 'source',
@@ -160,7 +160,7 @@ class LXDContainerConfig(object):
 
     def configure_network_devices(self, container_config,
                                   instance, network_info):
-        LOG.debug('Get network devices')
+        LOG.debug('Configure LXD network device')
 
         if not network_info:
             return 
@@ -183,7 +183,7 @@ class LXDContainerConfig(object):
         return container_config
 
     def configure_disk_path(self, container_config, vfs_type, instance):
-        LOG.debug('Create disk path')
+        LOG.debug('Creating LXD disk path')
         config_drive = self.container_dir.get_container_configdrive(
             instance.uuid)
         self.add_config(container_config, 'devices', str(vfs_type),
@@ -193,7 +193,7 @@ class LXDContainerConfig(object):
         return container_config
 
     def configure_container_rescuedisk(self, container_config, instance):
-        LOG.debug('Create rescue disk')
+        LOG.debug('Creating LXD rescue disk')
         rescue_path = self.container_dir.get_container_rootfs(instance.uuid)
         self.add_config(container_config, 'devices', 'rescue',
                         data={'path': 'mnt',
@@ -203,7 +203,7 @@ class LXDContainerConfig(object):
 
     def configure_container_configdrive(self, container_config, instance,
                                         injected_files, admin_password):
-        LOG.debug('Create config drive')
+        LOG.debug('Creating LXD config drive')
         if CONF.config_drive_format not in ('fs', None):
             msg = (_('Invalid config drive format: %s')
                    % CONF.config_drive_format)
@@ -233,7 +233,7 @@ class LXDContainerConfig(object):
         return container_config
 
     def configure_container_net_device(self, instance, vif):
-        LOG.debug('Configure container device')
+        LOG.debug('Configure LXD network device')
         container_config = self._get_container_config(instance, vif)
         bridge = 'qbr%s' % vif['id'][:11]
 
@@ -248,6 +248,7 @@ class LXDContainerConfig(object):
         return container_config
 
     def _get_container_config(self, instance, network_info):
+        LOG.debug('Fetching LXD configuration')
         container_update = self._init_container_config()
 
         container_old = self.container_client.client('config', instance=instance.uuid,
