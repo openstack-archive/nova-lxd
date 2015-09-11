@@ -165,7 +165,7 @@ class LXDContainerConfig(object):
             return 
 
         cfg = self.vif_driver.get_config(instance,
-                                             network_info)
+                                        network_info)
 
         container_network_devices = self.add_config(container_config, 
                                         'devices',cfg['bridge'],
@@ -251,7 +251,7 @@ class LXDContainerConfig(object):
         container_update = self._init_container_config()
 
         container_old = self.container_client.client('config', instance=instance.uuid,
-                                                      host=instance.host)
+                                                     host=instance.host)
         container_config = self._convert(container_old['config'])
         container_devices = self._convert(container_old['devices'])
 
