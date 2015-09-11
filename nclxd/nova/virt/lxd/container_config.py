@@ -234,15 +234,16 @@ class LXDContainerConfig(object):
     def configure_container_net_device(self, instance, vif):
         LOG.debug('Configure LXD network device')
         container_config = self._get_container_config(instance, vif)
-        bridge = 'qbr%s' % vif['id'][:11]
+
+        container_network_config = self.vif_driver.get_config(instance, vif)
 
         container_config = self.add_config(
             container_config, 'devices',
-            bridge,
+            container_network_config['bridge'],
             data={'name': self._get_network_device(instance.uuid),
                   'nictype': 'bridged',
                   'hwaddr': vif['address'],
-                  'parent': bridge,
+                  'parent': container_network_config['bridge'],
                   'type': 'nic'})
         return container_config
 
