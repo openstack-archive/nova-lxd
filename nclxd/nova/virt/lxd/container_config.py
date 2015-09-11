@@ -114,7 +114,6 @@ class LXDContainerConfig(object):
                     instance))
             LOG.debug(pprint.pprint(container_rescue_devices))
 
-        LOG.debug(pprint.pprint(container_config))
         (state, data) = self.container_client.client('init', container_config=container_config,
                                                      host=instance.host)
         self.container_client.client('wait', oid=data.get('operation').split('/')[3],
