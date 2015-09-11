@@ -105,7 +105,7 @@ class LXDContainerOperations(object):
         timeout = CONF.vif_plugging_timeout
         # check to see if neutron is ready before
         # doing anything else
-        if (not self.container_client.client('running', instance=name,
+        if (self.container_client.client('defined', instance=name,
                                              host=instance.host) and
                 utils.is_neutron() and timeout):
             events = self._get_neutron_events(network_info)
