@@ -15,7 +15,6 @@
 #    under the License.
 
 import os
-import pprint
 import pwd
 import shutil
 
@@ -30,14 +29,11 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_service import loopingcall
 from oslo_utils import excutils
-from oslo_utils import fileutils
-from oslo_utils import importutils
 from oslo_utils import units
 
 from nclxd.nova.virt.lxd import container_config
 from nclxd.nova.virt.lxd import container_client
 from nclxd.nova.virt.lxd import container_firewall
-from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils
 from nclxd.nova.virt.lxd import vif
 
@@ -139,7 +135,7 @@ class LXDContainerOperations(object):
                block_device_info=None, bad_volumes_callback=None):
         LOG.debug('container reboot')
         return self.container_client.client('reboot', instance=instance.uuid,
-                                            host=isntance.host)
+                                            host=instance.host)
 
     def plug_vifs(self, container_config, instance, network_info):
         for viface in network_info:

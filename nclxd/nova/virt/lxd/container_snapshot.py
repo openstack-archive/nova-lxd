@@ -15,14 +15,11 @@
 #    under the License.from oslo_config import cfg
 
 from nova.compute import task_states
-from nova.compute import vm_states
 from nova import exception
 from nova import i18n
 from nova import image
 from oslo_config import cfg
 from oslo_log import log as logging
-
-from pylxd import api
 
 from nclxd.nova.virt.lxd import container_client
 
@@ -49,7 +46,7 @@ class LXDSnapshot(object):
 
         ''' Publish the image to LXD '''
         (state, data) = self.container_client.client('stop', instance=instance.uuid,
-                                                             host=instance.host)
+                                                     host=instance.host)
         self.container_client.client('wait',
             oid=data.get('operation').split('/')[3],
             host=instance.host)
@@ -68,9 +65,9 @@ class LXDSnapshot(object):
         container_snapshot = {'name': snapshot['name'],
                               'stateful': False}
         (state, data) = self.container_client.client('snapshot_create',
-                            instance=instance.uuid, 
-                            container_snapshot=container_snapshot,
-                            host=instance.host)
+                                instance=instance.uuid,
+                                container_snapshot=container_snapshot,
+                                host=instance.host)
         self.container_client.client('wait',
                                      oid=data.get('operation').split('/')[3],
                                      host=instance.host)

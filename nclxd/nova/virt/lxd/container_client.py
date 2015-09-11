@@ -24,7 +24,6 @@ from pylxd import api
 from pylxd import exceptions as lxd_exceptions
 
 from nclxd.nova.virt.lxd import constants
-from nclxd.nova.virt.lxd import container_utils
 
 _ = i18n._
 
@@ -44,7 +43,7 @@ class LXDContainerClient(object):
             try:
                 lxd_client = api.API(host=kwargs['host'])
             except lxd_exceptions.APIError as ex:
-                msg = ('Unable to connect to %s %s') % (kwargs['host'],
+                msg = _('Unable to connect to %s %s') % (kwargs['host'],
                                                         ex)
                 raise exception.NovaException(msg)
         func = getattr(self, "container_%s" % func)
@@ -63,7 +62,7 @@ class LXDContainerClient(object):
         try:
             return lxd.container_running(kwargs['instance'])
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to start container: %s') % ex
+            msg = _('Failed to determine running container: %s') % ex
             raise exception.NovaException(msg)
 
     def container_start(self, lxd, *args, **kwargs):
@@ -79,7 +78,7 @@ class LXDContainerClient(object):
         LOG.debug('REST API - container stop')
         try:
             return lxd.container_stop(kwargs['instance'],
-                                           CONF.lxd.timeout)
+                                      CONF.lxd.timeout)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return
@@ -127,7 +126,7 @@ class LXDContainerClient(object):
         try:
             (state, data) = lxd.container_state(kwargs['instance'])
             state = constants.LXD_POWER_STATES[data['metadata']['status_code']]
-        except lxd_exceptions.APIError:
+        except lxd_exceptions.APIError as ex:
             state = power_state.NOSTATE
         return state
 
@@ -151,7 +150,7 @@ class LXDContainerClient(object):
         LOG.debug('REST API - Updating container')
         try:
             return lxd.container_update(kwargs['instance'],
-                                             kwargs['container_config'])
+                                        kwargs['container_config'])
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to update container: %s') % ex
             raise exception.NovaException(msg)
@@ -224,7 +223,7 @@ class LXDContainerClient(object):
             if ex.status_code == 404:
                 return False
             else:
-                msg = _('Failed to determine alias: %s') % ex
+                msg = _('Failed to determine image alias: %s') % ex
                 raise exception.NovaException(msg)
 
     # operations
@@ -269,4 +268,3 @@ class LXDContainerClient(object):
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to create alias: %s') % ex
             raise exception.NovaException(msg)
-

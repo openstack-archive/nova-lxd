@@ -75,10 +75,12 @@ class LXDContainerImage(object):
             IMAGE_API.download(context, lxd_image_manifest,
                                dest_path=container_manifest_img)
             img_info = self._image_upload((container_manifest_img, container_rootfs_img),
-                           container_manifest_img.split('/')[-1], False)
+                           container_manifest_img.split('/')[-1], False,
+                           instance)
         else:
             img_info = self._image_upload(container_rootfs_img,
-                               container_rootfs_img.split("/")[-1], True)
+                               container_rootfs_img.split("/")[-1], True,
+                               instance)
 
         self._setup_alias(instance, img_info, image_meta, context)
 
@@ -88,7 +90,7 @@ class LXDContainerImage(object):
     def _get_lxd_manifest(self, image_meta):
         return image_meta['properties'].get('lxd-manifest', None)
 
-    def _image_upload(self, path, filename, split):
+    def _image_upload(self, path, filename, split, instance):
         LOG.debug('Uploading Image to LXD.')
         lxd = api.API()
         headers = {}
