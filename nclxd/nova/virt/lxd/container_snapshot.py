@@ -30,6 +30,7 @@ LOG = logging.getLogger(__name__)
 
 IMAGE_API = image.API()
 
+
 class LXDSnapshot(object):
 
     def __init__(self):
@@ -48,10 +49,11 @@ class LXDSnapshot(object):
         (state, data) = self.container_client.client('stop', instance=instance.uuid,
                                                      host=instance.host)
         self.container_client.client('wait',
-            oid=data.get('operation').split('/')[3],
-            host=instance.host)
+                                     oid=data.get('operation').split('/')[3],
+                                     host=instance.host)
         fingerprint = self.create_lxd_image(snapshot, instance)
-        self.create_glance_image(context, image_id, snapshot, fingerprint, instance)
+        self.create_glance_image(
+            context, image_id, snapshot, fingerprint, instance)
 
         update_task_state(task_state=task_states.IMAGE_UPLOADING,
                           expected_state=task_states.IMAGE_PENDING_UPLOAD)
@@ -59,15 +61,14 @@ class LXDSnapshot(object):
         (state, data) = self.container_client.client('start', instance=instance.uuid,
                                                      host=instance.host)
 
-
     def create_container_snapshot(self, snapshot, instance):
         LOG.debug('Creating container snapshot')
         container_snapshot = {'name': snapshot['name'],
                               'stateful': False}
         (state, data) = self.container_client.client('snapshot_create',
-                                instance=instance.uuid,
-                                container_snapshot=container_snapshot,
-                                host=instance.host)
+                                                     instance=instance.uuid,
+                                                     container_snapshot=container_snapshot,
+                                                     host=instance.host)
         self.container_client.client('wait',
                                      oid=data.get('operation').split('/')[3],
                                      host=instance.host)
@@ -83,8 +84,8 @@ class LXDSnapshot(object):
         }
         LOG.debug(container_image)
         (state, data) = self.container_client.client('publish',
-                            container_image=container_image,
-                            host=instance.host)
+                                                     container_image=container_image,
+                                                     host=instance.host)
 
         LOG.debug('Creating LXD alias')
         fingerprint = str(data['metadata']['fingerprint'])
@@ -92,8 +93,8 @@ class LXDSnapshot(object):
                           'target': fingerprint}
         LOG.debug(snapshot_alias)
         self.container_client.client('alias_create',
-                            alias=snapshot_alias,
-                            host=instance.host)
+                                     alias=snapshot_alias,
+                                     host=instance.host)
         return fingerprint
 
     def create_glance_image(self, context, image_id, snapshot, fingerprint, instance):
@@ -102,12 +103,12 @@ class LXDSnapshot(object):
                           "disk_format": "raw",
                           "container_format": "bare",
                           "properties": {
-                            'lxd-image-alias': fingerprint
-                          }}
+            'lxd-image-alias': fingerprint
+        }}
         try:
             data = self.container_client.client('image_export',
-                    fingerprint=fingerprint,
-                    host=instance.host)
+                                                fingerprint=fingerprint,
+                                                host=instance.host)
             IMAGE_API.update(context, image_id, image_metadata, data)
         except Exception as ex:
             msg = _("Failed: %s") % ex

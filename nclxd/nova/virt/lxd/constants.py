@@ -17,7 +17,7 @@
 from nova.compute import power_state
 
 LXD_POWER_STATES = {
- 100: power_state.RUNNING,
+    100: power_state.RUNNING,
  101: power_state.RUNNING,
  102: power_state.SHUTDOWN,
  103: power_state.RUNNING,

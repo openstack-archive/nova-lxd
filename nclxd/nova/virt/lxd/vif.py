@@ -31,6 +31,7 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDGenericDriver(object):
+
     def get_vif_devname(self, vif):
         if 'devname' in vif:
             return vif['devname']
@@ -122,16 +123,16 @@ class LXDGenericDriver(object):
     def plug_bridge(self, instance, vif):
         network = vif['network']
         if (not network.get_meta('multi_host', False) and
-            network.get_meta('should_create_bridge', False)):
+                network.get_meta('should_create_bridge', False)):
             if network.get_meta('should_create_vlan', False):
                 iface = CONF.vlan_interface or \
-                        network.get_meta('bridge_interface')
+                    network.get_meta('bridge_interface')
                 LOG.debug('Ensuring vlan %(vlan)s and bridge %(bridge)s',
                           {'vlan': network.get_meta('vlan'),
                            'bridge': self.get_bridge_name(vif)},
-                           instance=instance)
+                          instance=instance)
                 linux_net.LinuxBridgeInterfaceDriver.ensure_vlan_bridge(
-                            network.get_meta('vlan'),
+                    network.get_meta('vlan'),
                             self.get_bridge_name(vif),
                             iface)
         else:
@@ -140,7 +141,7 @@ class LXDGenericDriver(object):
             LOG.debug("Ensuring bridge %s",
                       self.get_bridge_name(vif), instance=instance)
             linux_net.LinuxBridgeInterfaceDriver.ensure_bridge(
-                                self.get_bridge_name(vif),
+                self.get_bridge_name(vif),
                                 iface)
 
     def plug_ovs(self, instance, vif):
@@ -164,9 +165,9 @@ class LXDGenericDriver(object):
             utils.execute('tee',
                           ('/sys/class/net/%s/bridge/multicast_snooping' %
                            br_name),
-                           process_input='0',
-                           run_as_root=True,
-                           check_exit_code=[0, 1])
+                          process_input='0',
+                          run_as_root=True,
+                          check_exit_code=[0, 1])
 
         if not linux_net.device_exists(v2_name):
             linux_net._create_veth_pair(v1_name, v2_name)
@@ -175,6 +176,7 @@ class LXDGenericDriver(object):
             linux_net.create_ovs_vif_port(self.get_bridge_name(vif),
                                           v2_name, iface_id,
                                           vif['address'], instance.uuid)
+
     def unplug(self, instance, vif):
         vif_type = vif['type']
 
@@ -216,7 +218,7 @@ class LXDGenericDriver(object):
                                               v2_name)
         except processutils.ProcessExecutionError:
             LOG.exception(_LE("Failed while unplugging vif"),
-                         instance=instance)
+                          instance=instance)
 
     def unplug_ovs_bridge(self, instance, vif):
         pass
