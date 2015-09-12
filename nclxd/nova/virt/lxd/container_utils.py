@@ -279,7 +279,7 @@ class LXDContainerUtils(object):
         (state, data) = self.container_client.client('snapshot_create',
                                                      instance=instance.uuid,
                                                      container_snapshot=container_snapshot,
-                                                     host=instance.host
+                                                     host=instance.host)
 
         def _wait_for_snapshot(oid, instance):
             (state, data) = self.container_client.client('operation_info',
