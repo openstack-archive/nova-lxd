@@ -168,7 +168,7 @@ class LXDContainerUtils(object):
             return
 
         def _wait_for_destroy(oid, instance):
-            (state, data) = self.container_client.client('operation_show',
+            (state, data) = self.container_client.client('operation_info',
                                                          oid=oid, host=instance.host)
 
             status_code = data['metadata']['status_code']
