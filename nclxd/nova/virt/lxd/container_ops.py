@@ -49,7 +49,6 @@ LOG = logging.getLogger(__name__)
 
 MAX_CONSOLE_BYTES = 100 * units.Ki
 
-
 class LXDContainerOperations(object):
 
     def __init__(self, virtapi):
@@ -58,6 +57,7 @@ class LXDContainerOperations(object):
         self.container_config = container_config.LXDContainerConfig()
         self.container_client = container_client.LXDContainerClient()
         self.container_dir = container_utils.LXDContainerDirectories()
+        self.container_utils = container_utils.LXDContainerUtils()
         self.firewall_driver = container_firewall.LXDContainerFirewall()
 
         self.vif_driver = vif.LXDGenericDriver()
@@ -116,26 +116,12 @@ class LXDContainerOperations(object):
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed to connect networking to instance'))
 
-        (state, data) = self.container_client.client('start', instance=name,
-                                                     host=instance.host)
-        operation_id = data.get('operation').split('/')[3]
-        timer = loopingcall.FixedIntervalLoopingCall(self._wait_for_active,
-                                                     operation_id, instance)
-
-        try:
-            timer.start(interval=CONF.lxd.retry_interval).wait()
-            LOG.info(_LI('Succefully launched container %s'),
-                         instance.uuid, instance=instance)
-        except Exception:
-            with excutils.save_and_reraise_exception():
-                 LOG.error(_LE("Error deploying instance %(instance)s"),
-                           {'instance': instance.uuid})
+        self.container_utils.container_start(name, instance)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
         LOG.debug('container reboot')
-        return self.container_client.client('reboot', instance=instance.uuid,
-                                            host=instance.host)
+        return self.container_utils.container_reboot(instance.uuid, instance)
 
     def plug_vifs(self, container_config, instance, network_info):
         for viface in network_info:
@@ -152,34 +138,29 @@ class LXDContainerOperations(object):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        self.container_client.client('destroy', instance=instance.uuid,
-                                     host=instance.host)
+        self.container_utils.container_destroy(instance.uuid, instance)
         self.cleanup(context, instance, network_info, block_device_info)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        return self.container_client.client('stop', instance=instance.uuid,
-                                            host=instance.host)
+        return self.container_utils.container_stop(instance.uuid, instance)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
-        return self.container_client.client('start', instance=instance.uuid,
-                                            host=instance.host)
+        return self.container_utils.container_start(instance.uuid, instance)
 
     def pause(self, instance):
-        return self.container_client.client('pause', instance=instance.uuid,
-                                            host=instance.host)
+        return self.container_utils.container_pause(instance.uuid, instance)
 
     def unpause(self, instance):
-        return self.container_client.client('unpause', instance=instance.uuid,
-                                            host=instance.host)
+        return self.container_utils.container_unpause(instance.uuid, instance)
 
     def suspend(self, context, instance):
-        return self.container_client.client('pause', instance=instance.uuid,
-                                            host=instance.host)
+        return self.container_utils.container_pause(instance.uuid, instance)
+
 
     def resume(self, context, instance, network_info, block_device_info=None):
-        return self.container_client.client('unpause', instance=instance.uuid,
-                                            host=instance.host)
+        return self.container_utils.container_unpause(instance.uuid, instance)
+
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
