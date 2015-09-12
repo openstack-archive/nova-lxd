@@ -46,8 +46,8 @@ lxd_opts = [
                default=8443,
                help='Default LXD Port'),
     cfg.IntOpt('retry_interval',
-                default=2,
-                 help='How often to retry in seconds when a request does conflict'),
+               default=2,
+               help='How often to retry in seconds when a request does conflict'),
 ]
 
 CONF = cfg.CONF
@@ -56,6 +56,7 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDDriver(driver.ComputeDriver):
+
     """LXD Lightervisor."""
 
     capabilities = {
@@ -156,7 +157,8 @@ class LXDDriver(driver.ComputeDriver):
                                    flavor, network_info,
                                    block_device_info=None,
                                    timeout=0, retry_interval=0):
-        return self.container_migrate.migrate_disk_and_power_off(context, instance, dest, flavor,
+        return self.container_migrate.migrate_disk_and_power_off(
+            context, instance, dest, flavor,
                                                                  network_info, block_device_info, timeout,
                                                                  retry_interval)
 
@@ -170,7 +172,8 @@ class LXDDriver(driver.ComputeDriver):
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance,
                          block_device_info=None, power_on=True):
-        return self.container_migrate.finish_migration(context, migration, instance, disk_info,
+        return self.container_migrate.finish_migration(
+            context, migration, instance, disk_info,
                                                        network_info, image_meta, resize_instance,
                                                        block_device_info, power_on)
 
@@ -214,7 +217,8 @@ class LXDDriver(driver.ComputeDriver):
 
     def pre_live_migration(self, context, instance, block_device_info,
                            network_info, disk_info, migrate_data=None):
-        return self.container_migrate.pre_live_migration(context, instance, block_device_info,
+        return self.container_migrate.pre_live_migration(
+            context, instance, block_device_info,
                                                          network_info)
 
     def live_migration(self, context, instance, dest,
@@ -228,12 +232,12 @@ class LXDDriver(driver.ComputeDriver):
                             migrate_data=None):
         return self.container_migrate.post_live_migration(context, instance, block_device_info)
 
-
     def post_live_migration_at_destination(self, context, instance,
                                            network_info,
                                            block_migration=False,
                                            block_device_info=None):
-        return self.container_migrate.post_live_migration_at_destination(context, instance, network_info,
+        return self.container_migrate.post_live_migration_at_destination(
+            context, instance, network_info,
                                                                          block_migration, block_device_info)
 
     def check_instance_shared_storage_local(self, context, instance):

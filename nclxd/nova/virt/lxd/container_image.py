@@ -36,7 +36,9 @@ CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 IMAGE_API = image.API()
 
+
 class LXDContainerImage(object):
+
     def __init__(self):
         self.container_client = container_client.LXDContainerClient()
         self.container_dir = container_utils.LXDContainerDirectories()
@@ -63,7 +65,8 @@ class LXDContainerImage(object):
         if os.path.exists(container_rootfs_img):
             return
 
-        IMAGE_API.download(context, instance.image_ref, dest_path=container_rootfs_img)
+        IMAGE_API.download(
+            context, instance.image_ref, dest_path=container_rootfs_img)
         lxd_image_manifest = self._get_lxd_manifest(image_meta)
         if lxd_image_manifest is not None:
             container_manifest_img = (
@@ -74,13 +77,15 @@ class LXDContainerImage(object):
 
             IMAGE_API.download(context, lxd_image_manifest,
                                dest_path=container_manifest_img)
-            img_info = self._image_upload((container_manifest_img, container_rootfs_img),
+            img_info = self._image_upload(
+                (container_manifest_img, container_rootfs_img),
                            container_manifest_img.split('/')[-1], False,
                            instance)
         else:
             img_info = self._image_upload(container_rootfs_img,
-                               container_rootfs_img.split("/")[-1], True,
-                               instance)
+                                          container_rootfs_img.split(
+                                              "/")[-1], True,
+                                          instance)
 
         self._setup_alias(instance, img_info, image_meta, context)
 
@@ -132,7 +137,7 @@ class LXDContainerImage(object):
                     body += entry.encode() + b"\r\n"
 
             headers['Content-Type'] = "multipart/form-data; boundary=%s" \
-                    % boundary
+                % boundary
 
             try:
                 status, data = lxd.image_upload(data=body,

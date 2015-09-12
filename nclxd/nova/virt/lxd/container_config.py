@@ -58,8 +58,8 @@ class LXDContainerConfig(object):
         return config
 
     def create_container(self, context, instance, image_meta, injected_files,
-                        admin_password, network_info, block_device_info,
-                        name_label=None, rescue=False):
+                         admin_password, network_info, block_device_info,
+                         name_label=None, rescue=False):
 
         LOG.debug('Creating container config')
 
@@ -89,7 +89,7 @@ class LXDContainerConfig(object):
 
         container_config = self._init_container_config()
         container_config = self.configure_container_config(name,
-            container_config, instance)
+                                                           container_config, instance)
 
         ''' Create an LXD image '''
         self.container_image.setup_image(context, instance, image_meta)
@@ -116,7 +116,8 @@ class LXDContainerConfig(object):
 
         (state, data) = self.container_client.client('init', container_config=container_config,
                                                      host=instance.host)
-        self.container_client.client('wait', oid=data.get('operation').split('/')[3],
+        self.container_client.client(
+            'wait', oid=data.get('operation').split('/')[3],
                                      host=instance.host)
 
         return container_config
@@ -150,7 +151,6 @@ class LXDContainerConfig(object):
     def configure_lxd_image(self, container_config, instance, image_meta):
         LOG.debug('Getting LXD image source')
 
-
         self.add_config(container_config, 'source',
                         {'type': 'image',
                          'alias': instance.image_ref
@@ -162,17 +162,17 @@ class LXDContainerConfig(object):
         LOG.debug('Configure LXD network device')
 
         if not network_info:
-            return 
+            return
 
         cfg = self.vif_driver.get_config(instance,
-                                        network_info)
+                                         network_info)
 
-        container_network_devices = self.add_config(container_config, 
-                                        'devices',cfg['bridge'],
-                                        data={'nictype': 'bridged',
-                                              'hwaddr': cfg['mac_address'],
-                                              'parent': cfg['bridge'],
-                                              'type': 'nic'})
+        container_network_devices = self.add_config(container_config,
+                                                    'devices', cfg['bridge'],
+                                                    data={'nictype': 'bridged',
+                                                          'hwaddr': cfg['mac_address'],
+                                                          'parent': cfg['bridge'],
+                                                          'type': 'nic'})
 
         LOG.debug(pprint.pprint(container_config))
         self.container_client.client('update', instance=instance.uuid,
@@ -251,7 +251,8 @@ class LXDContainerConfig(object):
         LOG.debug('Fetching LXD configuration')
         container_update = self._init_container_config()
 
-        container_old = self.container_client.client('config', instance=instance.uuid,
+        container_old = self.container_client.client(
+            'config', instance=instance.uuid,
                                                      host=instance.host)
         container_config = self._convert(container_old['config'])
         container_devices = self._convert(container_old['devices'])
@@ -264,7 +265,8 @@ class LXDContainerConfig(object):
         return container_update
 
     def _get_network_device(self, instance):
-        data = self.container_client.client('info', instance=instance, host=None)
+        data = self.container_client.client(
+            'info', instance=instance, host=None)
         lines = open('/proc/%s/net/dev' % data['init']).readlines()
         interfaces = []
         for line in lines[2:]:

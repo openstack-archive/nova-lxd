@@ -31,12 +31,14 @@ import container_client
 _ = i18n._
 _LE = i18n._LE
 _LW = i18n._LW
-_LI= i18n._LI
+_LI = i18n._LI
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
+
 class LXDContainerUtils(object):
+
     def __init__(self):
         self.container_client = container_client.LXDContainerClient()
 
@@ -44,11 +46,12 @@ class LXDContainerUtils(object):
         instance.refresh()
         (state, data) = self.container_client.client('start', instance=instance_name,
                                                      host=instance.host)
+
         def _wait_for_start(id, instance):
             instance.refresh()
             (state, data) = self.container_client.client('operation_info',
-                                                        oid=id,
-                                                        host=instance.host)
+                                                         oid=id,
+                                                         host=instance.host)
             status_code = data['metadata']['status_code']
             if status_code in [100, 101, 200]:
                 instance.vm_sate = vm_states.ACTIVE
@@ -77,22 +80,22 @@ class LXDContainerUtils(object):
         try:
             timer.start(interval=CONF.lxd.retry_interval).wait()
             LOG.info(_LI('Succesfully launched container %s'),
-                         instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception:
             with excutils.save_and_reraise_exception():
-                 LOG.error(_LE("Error deploying instance %(instance)s"),
-                           {'instance': instance.uuid})
-
+                LOG.error(_LE("Error deploying instance %(instance)s"),
+                          {'instance': instance.uuid})
 
     def container_stop(self, instance_name, instance):
         instance.refresh()
         (state, data) = self.container_client.client('stop', instance=instance_name,
                                                      host=instance.host)
+
         def _wait_for_stop(id, instance):
             instance.refresh()
             (state, data) = self.container_client.client('operation_info',
-                                                        oid=id,
-                                                        host=instance.host)
+                                                         oid=id,
+                                                         host=instance.host)
             status_code = data['metadata']['status_code']
             if status_code in [100, 102, 200]:
                 instance.power_state = power_state.NOSTATE
@@ -111,7 +114,6 @@ class LXDContainerUtils(object):
                 instance.save()
                 raise loopingcall.LoopingCallDone()
 
-
         operation_id = data.get('operation').split('/')[3]
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_stop,
                                                      operation_id, instance)
@@ -119,12 +121,11 @@ class LXDContainerUtils(object):
         try:
             timer.start(interval=CONF.lxd.retry_interval).wait()
             LOG.info(_LI('Succesfully stopped container %s'),
-                         instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception:
             with excutils.save_and_reraise_exception():
-                 LOG.error(_LE("Error deploying instance %(instance)s"),
-                           {'instance': instance.uuid})
-
+                LOG.error(_LE("Error deploying instance %(instance)s"),
+                          {'instance': instance.uuid})
 
     def container_reboot(self, instance_name,  instance):
         instance.refresh()
@@ -134,8 +135,8 @@ class LXDContainerUtils(object):
         def _wait_for_reboot(oid, instance):
             instance.refresh()
             (state, data) = self.container_client.client('operation_info',
-                                                        oid=id,
-                                                        host=instance.host)
+                                                         oid=id,
+                                                         host=instance.host)
             status_code = data['metadata']['status_code']
             if status_code in [100, 101, 103, 200]:
                 instance.power_state = power_state.RUNNING
@@ -148,7 +149,6 @@ class LXDContainerUtils(object):
                 instance.save()
                 raise loopingcall.LoopingCallDone()
 
-
         operation_id = data.get('operation').split('/')[3]
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_reboot,
                                                      operation_id, instance)
@@ -156,20 +156,20 @@ class LXDContainerUtils(object):
         try:
             timer.start(interval=CONF.lxd.retry_interval).wait()
             LOG.info(_LI('Succesfully rebooted container %s'),
-                         instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception:
             with excutils.save_and_reraise_exception():
-                 LOG.error(_LE("Error deploying instance %(instance)s"),
-                           {'instance': instance.uuid})
+                LOG.error(_LE("Error deploying instance %(instance)s"),
+                          {'instance': instance.uuid})
 
     def container_destroy(self, instance_name, instance):
         if not self.container_client.client('defined', instance=instance_name,
-                                        host=instance.host):
+                                            host=instance.host):
             return
 
         def _wait_for_destroy(oid, instance):
             (state, data) = self.container_client.client('operation_show',
-                        oid=oid, host=instance.host)
+                                                         oid=oid, host=instance.host)
 
             status_code = data['metadata']['status_code']
             if status_code in [100, 200]:
@@ -181,8 +181,8 @@ class LXDContainerUtils(object):
             else:
                 LOG.debug('Waiting for delete')
 
-        (state, data) = self.container_client.client('destroy',instance=instance.uuid,
-                                     host=instance.host)
+        (state, data) = self.container_client.client('destroy', instance=instance.uuid,
+                                                     host=instance.host)
         operation_id = data.get('operation').split('/')[3]
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_destroy,
                                                      operation_id, instance)
@@ -190,12 +190,11 @@ class LXDContainerUtils(object):
         try:
             timer.start(interval=CONF.lxd.retry_interval).wait()
             LOG.info(_LI('Succesfully destroyed container %s'),
-                         instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception:
             with excutils.save_and_reraise_exception():
-                 LOG.error(_LE("Error deploying instance %(instance)s"),
-                           {'instance': instance.uuid})
-
+                LOG.error(_LE("Error deploying instance %(instance)s"),
+                          {'instance': instance.uuid})
 
     def container_pause(self, instance_name, instance):
         instance.refresh()
@@ -205,8 +204,8 @@ class LXDContainerUtils(object):
         def _wait_for_pause(id, instance):
             instance.refresh()
             (state, data) = self.container_client.client('operation_info',
-                                                        oid=id,
-                                                        host=instance.host)
+                                                         oid=id,
+                                                         host=instance.host)
             status_code = data['metadata']['status_code']
             if status_code in [100, 200, 110]:
                 instance.power_state = power_state.PAUSED
@@ -217,7 +216,7 @@ class LXDContainerUtils(object):
                 instance.power_stae = power_state.NOSTATE
                 instance.task_state = task_states.PAUSING
                 instance.save()
-            elif status_code in [400, 401]
+            elif status_code in [400, 401]:
                 instance.power_stae = power_state.CRASHED
                 instance.state()
             else:
@@ -231,28 +230,30 @@ class LXDContainerUtils(object):
         try:
             timer.start(interval=CONF.lxd.retry_interval).wait()
             LOG.info(_LI('Succesfully paused container %s'),
-                         instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception:
             with excutils.save_and_reraise_exception():
-                 LOG.error(_LE("Error deploying instance %(instance)s"),
-                           {'instance': instance.uuid})
-
+                LOG.error(_LE("Error deploying instance %(instance)s"),
+                          {'instance': instance.uuid})
 
     def conatainer_unpause(self, instance_name, instance):
         (state, data) = self.container_client.client('unpause', instance=instance_name,
                                                      host=instance.host)
+
         def _wait_for_unpause(id, instance):
             instance.refresh()
             (state, data) = self.container_client.client('operation_info',
-                                                        oid=id,
-                                                        host=instance.host)
+                                                         oid=id,
+                                                         host=instance.host)
             status_code = data['metadata']['status_code']
             if status_code in [100, 110, 200]:
                 instance.power_state = power_state.RUNNING
                 instance.vm_state = vm_states.ACTIVE
                 instance.save()
             if status_code == 109:
-            elif status_code in [400, 401]
+                instance.task_state = task_states.RESTORING
+                instance.save()
+            elif status_code in [400, 401]:
                 instance.power_stae = power_state.CRASHED
                 instance.state()
             else:
@@ -264,15 +265,14 @@ class LXDContainerUtils(object):
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_unpause,
                                                      operation_id, instance)
 
-
         try:
             timer.start(interval=CONF.lxd.retry_interval).wait()
             LOG.info(_LI('Succesfully unpaused container %s'),
-                         instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception:
             with excutils.save_and_reraise_exception():
-                 LOG.error(_LE("Error deploying instance %(instance)s"),
-                           {'instance': instance.uuid})
+                LOG.error(_LE("Error deploying instance %(instance)s"),
+                          {'instance': instance.uuid})
 
 
 class LXDContainerDirectories(object):

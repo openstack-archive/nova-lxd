@@ -31,6 +31,7 @@ CONF = cfg.CONF
 CONF.import_opt('host', 'nova.netconf')
 LOG = logging.getLogger(__name__)
 
+
 class LXDContainerClient(object):
 
     def __init__(self):
@@ -44,7 +45,7 @@ class LXDContainerClient(object):
                 lxd_client = api.API(host=kwargs['host'])
             except lxd_exceptions.APIError as ex:
                 msg = _('Unable to connect to %s %s') % (kwargs['host'],
-                                                        ex)
+                                                         ex)
                 raise exception.NovaException(msg)
         func = getattr(self, "container_%s" % func)
         return func(lxd_client, *args, **kwargs)
@@ -69,7 +70,7 @@ class LXDContainerClient(object):
         LOG.debug('REST API - container start')
         try:
             return lxd.container_start(kwargs['instance'],
-                                            CONF.lxd.timeout)
+                                       CONF.lxd.timeout)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to start container: %s') % ex
             raise exception.NovaException(msg)
@@ -240,7 +241,7 @@ class LXDContainerClient(object):
         LOG.debug('REST API - container snapshot create')
         try:
             return lxd.container_snapshot_create(kwargs['instance'],
-                                                kwargs['container_snapshot'])
+                                                 kwargs['container_snapshot'])
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to create snapshot: %s') % ex
             raise exception.NovaException(msg)

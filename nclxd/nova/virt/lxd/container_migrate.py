@@ -30,7 +30,9 @@ _ = i18n._
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
+
 class LXDContainerMigrate(object):
+
     def __init__(self, virtapi):
         self.virtapi = virtapi
         self.container_config = container_config.LXDContainerConfig()
