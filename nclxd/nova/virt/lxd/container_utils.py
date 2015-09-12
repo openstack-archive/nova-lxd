@@ -250,6 +250,7 @@ class LXDContainerUtils(object):
                 instance.power_state = power_state.RUNNING
                 instance.vm_state = vm_states.ACTIVE
                 instance.save()
+                raise loopingcall.LoopingCallDone()
             if status_code == 109:
                 instance.task_state = task_states.RESTORING
                 instance.save()
@@ -263,6 +264,39 @@ class LXDContainerUtils(object):
 
         operation_id = data.get('operation').split('/')[3]
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_unpause,
+                                                     operation_id, instance)
+
+        try:
+            timer.start(interval=CONF.lxd.retry_interval).wait()
+            LOG.info(_LI('Succesfully unpaused container %s'),
+                     instance.uuid, instance=instance)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Error deploying instance %(instance)s"),
+                          {'instance': instance.uuid})
+
+    def container_snapshot(self, container_snapshot, instance):
+        (state, data) = self.container_client.client('snapshot_create',
+                                                     instance=instance.uuid,
+                                                     container_snapshot=container_snapshot,
+                                                     host=instance.host
+
+        def _wait_for_snapshot(oid, instance):
+            (state, data) = self.container_client.client('operation_info',
+                                                         oid=oid,
+                                                         host=instance.host)
+            status_code = data['metadata']['status_code']
+            if status_code in [200, 100]:
+                LOG.debug('Created snaspshot')
+                raise loopingcall.LoopingCallDone()
+            elif status_code in [400, 401]:
+                LOG.debug('Failed to create snapshot')
+                raise loopingcall.LoopingCallDone()
+            else:
+                LOG.debug('Creating snapshot')
+
+        operation_id = data.get('operation').split('/')[3]
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_snapshot,
                                                      operation_id, instance)
 
         try:
