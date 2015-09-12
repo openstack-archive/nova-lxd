@@ -217,7 +217,7 @@ class LXDContainerUtils(object):
                 instance.power_stae = power_state.NOSTATE
                 instance.task_state = task_states.PAUSING
                 instance.save()
-            elif status_code in [400, 401]
+            elif status_code in [400, 401]:
                 instance.power_stae = power_state.CRASHED
                 instance.state()
             else:
@@ -252,7 +252,9 @@ class LXDContainerUtils(object):
                 instance.vm_state = vm_states.ACTIVE
                 instance.save()
             if status_code == 109:
-            elif status_code in [400, 401]
+                instance.task_state = task_states.RESTORING
+                instance.save()
+            elif status_code in [400, 401]:
                 instance.power_stae = power_state.CRASHED
                 instance.state()
             else:
