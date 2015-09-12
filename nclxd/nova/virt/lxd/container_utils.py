@@ -98,10 +98,10 @@ class LXDContainerUtils(object):
                                                          host=instance.host)
             status_code = data['metadata']['status_code']
             if status_code in [100, 102, 200]:
-                instance.power_state = power_state.NOSTATE
-                instance.vm_state = power_state.SHUTDOWN
+                instance.power_state = power_state.SHUTDOWN
                 instance.task_state = None
                 instance.save()
+                raise loopingcall.LoopingCallDone()
             elif status_code == 107:
                 instance.power_state = power_state.NOSTATE
                 instance.vm_state = vm_states.ACTIVE
