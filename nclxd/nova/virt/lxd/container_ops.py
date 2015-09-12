@@ -173,6 +173,13 @@ class LXDContainerOperations(object):
             return
         self.container_utils.container_stop(instance.uuid, instance)
 
+    def _create_local_snapshot(self, instance):
+        LOG.debug('Creating rescue image')
+
+        container_snapshot = {'name': instance.uuid,
+                              'stateful': False}
+        self.container_utils.container_snapsot(container_snapshot, instance)
+
 
     def unrescue(self, instance, network_info):
         LOG.debug('Conainer unrescue')
