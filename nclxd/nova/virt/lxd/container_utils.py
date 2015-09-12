@@ -99,13 +99,11 @@ class LXDContainerUtils(object):
             status_code = data['metadata']['status_code']
             if status_code in [100, 102, 200]:
                 instance.power_state = power_state.SHUTDOWN
-                instance.task_state = None
                 instance.save()
                 raise loopingcall.LoopingCallDone()
             elif status_code == 107:
                 instance.power_state = power_state.NOSTATE
                 instance.vm_state = vm_states.ACTIVE
-                instance.task_state = task_states.POWERING_OFF
                 instance.save()
                 raise loopingcall.LoopingCallDone()
             elif status_code in [400, 401]:
@@ -209,19 +207,16 @@ class LXDContainerUtils(object):
             status_code = data['metadata']['status_code']
             if status_code in [100, 200, 110]:
                 instance.power_state = power_state.PAUSED
-                instance.task_state = task_states.SCHEDULING
                 instance.save()
                 raise loopingcall.LoopingCallDone()
             elif status_code == 109:
                 instance.power_stae = power_state.NOSTATE
-                instance.task_state = task_states.PAUSING
                 instance.save()
             elif status_code in [400, 401]:
                 instance.power_stae = power_state.CRASHED
                 instance.state()
             else:
-                instance.power_stae = power_state.NOSTATE
-                instance.task_sate = task_states.SCHEDULING
+                instance.power_stae = power_state.NOSTA
                 instance.state()
 
         operation_id = data.get('operation').split('/')[3]
@@ -252,14 +247,12 @@ class LXDContainerUtils(object):
                 instance.save()
                 raise loopingcall.LoopingCallDone()
             if status_code == 109:
-                instance.task_state = task_states.RESTORING
                 instance.save()
             elif status_code in [400, 401]:
                 instance.power_stae = power_state.CRASHED
                 instance.state()
             else:
                 instance.power_stae = power_state.NOSTATE
-                instance.task_sate = task_states.SCHEDULING
                 instance.state()
 
         operation_id = data.get('operation').split('/')[3]
