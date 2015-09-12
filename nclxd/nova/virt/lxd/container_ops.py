@@ -166,23 +166,22 @@ class LXDContainerOperations(object):
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
         LOG.debug('Container rescue')
-        self.container_client.client('stop', instance=instance.uuid,
-                                     host=instance.host)
         rescue_name_label = '%s-rescue' % instance.uuid
-        if self.container_client.client('defined', instance=rescue_name_label,
-                                        host=instance.host):
-            msg = _('Instace is arleady in Rescue mode: %s') % instance.uuid
-            raise exception.NovaException(msg)
-        self.spawn(context, instance, image_meta, [], rescue_password,
-                   network_info, name_label=rescue_name_label, rescue=True)
+
+        if not self.container_client.client('defined', instance=instance.uuid,
+                                           host=instance.host):
+            return
+        self.container_utils.container_stop(instance.uuid, instance)
+
 
     def unrescue(self, instance, network_info):
         LOG.debug('Conainer unrescue')
-        self.container_client.client('start', instance=instance.uuid,
-                                     host=instance.host)
-        rescue = '%s-rescue' % instance.uuid
-        self.container_client.client('destroy', instance=instance.uuid,
-                                     host=instance.host)
+
+        if not self.container_client.client('defined', instance=instance.uuid,
+                                            host=instance.host):
+            return
+
+
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
