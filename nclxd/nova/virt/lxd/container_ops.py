@@ -177,7 +177,7 @@ class LXDContainerOperations(object):
     def _create_local_snapshot(self, instance):
         LOG.debug('Creating rescue image')
 
-        container_snapshot = {'name': instance.uuid,
+        container_snapshot = {'name': '%s-snap' % instance.uuid,
                               'stateful': False}
         self.container_utils.container_snapshot(container_snapshot, instance)
 
