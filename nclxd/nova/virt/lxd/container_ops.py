@@ -172,6 +172,7 @@ class LXDContainerOperations(object):
                                            host=instance.host):
             return
         self.container_utils.container_stop(instance.uuid, instance)
+        self._create_local_snapshot(instance)
 
     def _create_local_snapshot(self, instance):
         LOG.debug('Creating rescue image')
