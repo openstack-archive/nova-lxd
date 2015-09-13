@@ -179,7 +179,7 @@ class LXDContainerOperations(object):
 
         container_snapshot = {'name': instance.uuid,
                               'stateful': False}
-        self.container_utils.container_snapsot(container_snapshot, instance)
+        self.container_utils.container_snapshot(container_snapshot, instance)
 
 
     def unrescue(self, instance, network_info):
