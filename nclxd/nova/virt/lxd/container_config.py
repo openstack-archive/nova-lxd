@@ -58,15 +58,10 @@ class LXDContainerConfig(object):
         return config
 
     def create_container(self, context, instance, image_meta, injected_files,
-                         admin_password, network_info, block_device_info,
-                         name_label=None, rescue=False):
-
+                         admin_password, network_info, block_device_info, rescue):
         LOG.debug('Creating container config')
 
         name = instance.uuid
-        if rescue:
-            name = name_label
-
         # Ensure the directory exists and is writable
         fileutils.ensure_tree(
             self.container_dir.get_instance_dir(name))
@@ -84,9 +79,6 @@ class LXDContainerConfig(object):
             raise exception.NovaException(msg)
 
         name = instance.uuid
-        if rescue:
-            name = name_label
-
         container_config = self._init_container_config()
         container_config = self.configure_container_config(name,
                                                            container_config, instance)
@@ -193,7 +185,7 @@ class LXDContainerConfig(object):
 
     def configure_container_rescuedisk(self, container_config, instance):
         LOG.debug('Creating LXD rescue disk')
-        rescue_path = self.container_dir.get_container_rootfs(instance.uuid)
+        rescue_path = self.container_dir.get_container_rescue(instance.uuid)
         self.add_config(container_config, 'devices', 'rescue',
                         data={'path': 'mnt',
                               'source': rescue_path,

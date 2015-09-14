@@ -98,14 +98,12 @@ class LXDContainerUtils(object):
                                                          host=instance.host)
             status_code = data['metadata']['status_code']
             if status_code in [100, 102, 200]:
-                instance.power_state = power_state.NOSTATE
-                instance.vm_state = power_state.SHUTDOWN
-                instance.task_state = None
+                instance.power_state = power_state.SHUTDOWN
                 instance.save()
+                raise loopingcall.LoopingCallDone()
             elif status_code == 107:
                 instance.power_state = power_state.NOSTATE
                 instance.vm_state = vm_states.ACTIVE
-                instance.task_state = task_states.POWERING_OFF
                 instance.save()
                 raise loopingcall.LoopingCallDone()
             elif status_code in [400, 401]:
@@ -168,7 +166,7 @@ class LXDContainerUtils(object):
             return
 
         def _wait_for_destroy(oid, instance):
-            (state, data) = self.container_client.client('operation_show',
+            (state, data) = self.container_client.client('operation_info',
                                                          oid=oid, host=instance.host)
 
             status_code = data['metadata']['status_code']
@@ -209,19 +207,16 @@ class LXDContainerUtils(object):
             status_code = data['metadata']['status_code']
             if status_code in [100, 200, 110]:
                 instance.power_state = power_state.PAUSED
-                instance.task_state = task_states.SCHEDULING
                 instance.save()
                 raise loopingcall.LoopingCallDone()
             elif status_code == 109:
                 instance.power_stae = power_state.NOSTATE
-                instance.task_state = task_states.PAUSING
                 instance.save()
             elif status_code in [400, 401]:
                 instance.power_stae = power_state.CRASHED
                 instance.state()
             else:
-                instance.power_stae = power_state.NOSTATE
-                instance.task_sate = task_states.SCHEDULING
+                instance.power_stae = power_state.NOSTA
                 instance.state()
 
         operation_id = data.get('operation').split('/')[3]
@@ -250,15 +245,14 @@ class LXDContainerUtils(object):
                 instance.power_state = power_state.RUNNING
                 instance.vm_state = vm_states.ACTIVE
                 instance.save()
+                raise loopingcall.LoopingCallDone()
             if status_code == 109:
-                instance.task_state = task_states.RESTORING
                 instance.save()
             elif status_code in [400, 401]:
                 instance.power_stae = power_state.CRASHED
                 instance.state()
             else:
                 instance.power_stae = power_state.NOSTATE
-                instance.task_sate = task_states.SCHEDULING
                 instance.state()
 
         operation_id = data.get('operation').split('/')[3]
@@ -272,6 +266,106 @@ class LXDContainerUtils(object):
         except Exception:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE("Error deploying instance %(instance)s"),
+                          {'instance': instance.uuid})
+
+    def container_snapshot(self, container_snapshot, instance):
+        (state, data) = self.container_client.client('snapshot_create',
+                                                     instance=instance.uuid,
+                                                     container_snapshot=container_snapshot,
+                                                     host=instance.host)
+
+        def _wait_for_snapshot(oid, instance):
+            (state, data) = self.container_client.client('operation_info',
+                                                         oid=oid,
+                                                         host=instance.host)
+            status_code = data['metadata']['status_code']
+            if status_code in [200, 100]:
+                LOG.debug('Created snaspshot')
+                raise loopingcall.LoopingCallDone()
+            elif status_code in [400, 401]:
+                LOG.debug('Failed to create snapshot')
+                raise loopingcall.LoopingCallDone()
+            else:
+                LOG.debug('Creating snapshot')
+
+        operation_id = data.get('operation').split('/')[3]
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_snapshot,
+                                                     operation_id, instance)
+
+        try:
+            timer.start(interval=CONF.lxd.retry_interval).wait()
+            LOG.info(_LI('Succesfully unpaused container %s'),
+                     instance.uuid, instance=instance)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Error deploying instance %(instance)s"),
+                          {'instance': instance.uuid})
+
+    def container_copy(self, container_config, instance):
+        LOG.debug('Copying container')
+
+        (state, data) = self.container_client.client('local_copy',
+                                                     container_config=container_config,
+                                                     host=instance.host)
+        def _wait_for_copy(oid, instance):
+            (state, data) = self.container_client.client('operation_info',
+                                                         oid=oid,
+                                                         host=instance.host)
+            status_code = data['metadata']['status_code']
+            if status_code in [200, 100]:
+                LOG.debug('Copied snapshot')
+                raise loopingcall.LoopingCallDone()
+            elif status_code in [400, 401]:
+                LOG.debug('Failed to copy snapshot')
+                raise loopingcall.LoopingCallDone()
+            else:
+                LOG.debug('Copying snapshot')
+
+        operation_id = data.get('operation').split('/')[3]
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_copy,
+                                                     operation_id, instance)
+
+        try:
+            timer.start(interval=CONF.lxd.retry_interval).wait()
+            LOG.info(_LI('Succesfully unpaused container %s'),
+                     instance.uuid, instance=instance)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Error deploying instance %(instance)s"),
+                          {'instance': instance.uuid})
+
+    def container_move(self, old_name, container_config, instance):
+        LOG.debug('Renaming container')
+
+        (state, data) = self.container_client.client('local_move',
+                                                     instance=old_name,
+                                                     container_config=container_config,
+                                                     host=instance.host)
+        def _wait_for_move(oid, instance):
+            (state, data) = self.container_client.client('operation_info',
+                                                         oid=oid,
+                                                         host=instance.host)
+            status_code = data['metadata']['status_code']
+            if status_code in [200, 100]:
+                LOG.debug('Moved container')
+                raise loopingcall.LoopingCallDone()
+            elif status_code in [400, 401]:
+                LOG.debug('Failed to move contianer')
+                raise loopingcall.LoopingCallDone()
+            else:
+                LOG.debug('Moving snapshot')
+
+        operation_id = data.get('operation').split('/')[3]
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_move,
+                                                     operation_id, instance)
+
+        try:
+            timer.start(interval=CONF.lxd.retry_interval).wait()
+            LOG.info(_LI('Succesfully moved container %s'),
+                     instance.uuid, instance=instance)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Error moving instance %(instance)s"),
                           {'instance': instance.uuid})
 
 
@@ -324,4 +418,10 @@ class LXDContainerDirectories(object):
         return os.path.join(CONF.lxd.root_dir,
                             'containers',
                             instance,
+                            'rootfs')
+
+    def get_container_rescue(self, instance):
+        return os.path.join(CONF.lxd.root_dir,
+                            'containers',
+                            '%s-backup' % instance,
                             'rootfs')

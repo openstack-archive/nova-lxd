@@ -18,6 +18,7 @@ import os
 import pwd
 import shutil
 
+from nova import context
 from nova import exception
 from nova import i18n
 from nova import utils
@@ -68,7 +69,7 @@ class LXDContainerOperations(object):
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None,
-              name_label=None, rescue=False):
+              need_vif_plugged=True, rescue=False):
         msg = ('Spawning container '
                'network_info=%(network_info)s '
                'image_meta=%(image_meta)s '
@@ -81,8 +82,6 @@ class LXDContainerOperations(object):
         LOG.debug(msg, instance=instance)
 
         name = instance.uuid
-        if rescue:
-            name = name_label
 
         if self.container_client.client('defined', instance=name, host=instance.host):
             raise exception.InstanceExists(name=name)
@@ -90,22 +89,20 @@ class LXDContainerOperations(object):
         container_config = self.container_config.create_container(
             context, instance, image_meta,
                              injected_files, admin_password, network_info,
-                             block_device_info, name_label, rescue)
+                             block_device_info,rescue=False)
 
-        self.start_instance(container_config, instance, network_info, rescue)
+        self.start_instance(container_config, instance, network_info, need_vif_plugged)
 
-    def start_instance(self, container_config, instance, network_info, rescue=False):
+    def start_instance(self, container_config, instance, network_info, need_vif_plugged):
         LOG.debug('Staring instance')
         name = instance.uuid
-        if rescue:
-            name = '%s-rescue' % instance.uuid
 
         timeout = CONF.vif_plugging_timeout
         # check to see if neutron is ready before
         # doing anything else
         if (self.container_client.client('defined', instance=name,
-           host=instance.host) and
-                utils.is_neutron() and timeout):
+           host=instance.host) and need_vif_plugged and
+            utils.is_neutron() and timeout):
             events = self._get_neutron_events(network_info)
         else:
             events = []
@@ -115,7 +112,8 @@ class LXDContainerOperations(object):
                     instance, events, deadline=timeout,
                     error_callback=self._neutron_failed_callback):
                 container_config = self.plug_vifs(
-                    container_config, instance, network_info)
+                    container_config, instance, network_info,
+                    need_vif_plugged)
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed to connect networking to instance'))
 
@@ -126,11 +124,12 @@ class LXDContainerOperations(object):
         LOG.debug('container reboot')
         return self.container_utils.container_reboot(instance.uuid, instance)
 
-    def plug_vifs(self, container_config, instance, network_info):
+    def plug_vifs(self, container_config, instance, network_info, need_vif_plugged):
         for viface in network_info:
             container_config = self.container_config.configure_network_devices(
                 container_config, instance, viface)
-            self.vif_driver.plug(instance, viface)
+            if need_vif_plugged:
+                self.vif_driver.plug(instance, viface)
         self._start_firewall(instance, network_info)
         return container_config
 
@@ -166,23 +165,50 @@ class LXDContainerOperations(object):
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
         LOG.debug('Container rescue')
-        self.container_client.client('stop', instance=instance.uuid,
-                                     host=instance.host)
-        rescue_name_label = '%s-rescue' % instance.uuid
-        if self.container_client.client('defined', instance=rescue_name_label,
-                                        host=instance.host):
-            msg = _('Instace is arleady in Rescue mode: %s') % instance.uuid
-            raise exception.NovaException(msg)
-        self.spawn(context, instance, image_meta, [], rescue_password,
-                   network_info, name_label=rescue_name_label, rescue=True)
+        if not self.container_client.client('defined', instance=instance.uuid,
+                                           host=instance.host):
+            return
+
+        self.container_utils.container_stop(instance.uuid, instance)
+        self._container_local_copy(instance)
+        self.container_utils.container_destroy(instance.uuid, instance)
+
+        self.spawn(context, instance, image_meta, injected_files=None,
+              admin_password=None, network_info=network_info, block_device_info=None,
+              need_vif_plugged=False, rescue=True)
+
+
+    def _container_local_copy(self, instance):
+        ''' Creating snasphot  '''
+        container_snapshot = {
+            'name': 'snap',
+            'stateful': False
+        }
+        self.container_utils.container_snapshot(container_snapshot, instance)
+
+        ''' Creating container copy '''
+        container_copy = {
+            "config": None,
+            "name": "%s-backup" % instance.uuid,
+            "profiles": None,
+            "source": {
+                 "source": "%s/snap" % instance.uuid,
+                "type": "copy"
+                }
+
+        }
+        self.container_utils.container_copy(container_copy, instance)
+
 
     def unrescue(self, instance, network_info):
         LOG.debug('Conainer unrescue')
-        self.container_client.client('start', instance=instance.uuid,
-                                     host=instance.host)
-        rescue = '%s-rescue' % instance.uuid
-        self.container_client.client('destroy', instance=instance.uuid,
-                                     host=instance.host)
+        old_name = '%s-backup' % instance.uuid
+        container_config = {
+            'name': '%s' % instance.uuid
+        }
+
+        self.container_utils.container_move(old_name, container_config, instance)
+        self.container_utils.container_destroy(instance.uuid, instance)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):

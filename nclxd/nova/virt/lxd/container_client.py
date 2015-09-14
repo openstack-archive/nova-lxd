@@ -236,6 +236,24 @@ class LXDContainerClient(object):
             msg = _('Failed to migrate container: %s') % ex
             raise exception.NovaException(msg)
 
+    def container_local_copy(self, lxd, *args, **kwargs):
+        LOG.debug('REST API - container local copy')
+        try:
+            return lxd.container_local_copy(kwargs['container_config'])
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to migrate container: %s') % ex
+            raise exception.NovaException(msg)
+
+    def container_local_move(self, lxd, *args, **kwargs):
+        LOG.debug('REST API = container local move')
+        try:
+            return lxd.container_local_move(
+                    kwargs['instance'],
+                    kwargs['container_config'])
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to migrate container: %s') % ex
+            raise exception.NovaException(msg)
+
     # snapshot
     def container_snapshot_create(self, lxd, *args, **kwargs):
         LOG.debug('REST API - container snapshot create')
