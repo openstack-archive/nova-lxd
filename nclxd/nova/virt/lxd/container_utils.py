@@ -301,6 +301,73 @@ class LXDContainerUtils(object):
                 LOG.error(_LE("Error deploying instance %(instance)s"),
                           {'instance': instance.uuid})
 
+    def container_copy(self, container_config, instance):
+        LOG.debug('Copying container')
+
+        (state, data) = self.container_client.client('local_copy',
+                                                     container_config=container_config,
+                                                     host=instance.host)
+        def _wait_for_copy(oid, instance):
+            (state, data) = self.container_client.client('operation_info',
+                                                         oid=oid,
+                                                         host=instance.host)
+            status_code = data['metadata']['status_code']
+            if status_code in [200, 100]:
+                LOG.debug('Copied snapshot')
+                raise loopingcall.LoopingCallDone()
+            elif status_code in [400, 401]:
+                LOG.debug('Failed to copy snapshot')
+                raise loopingcall.LoopingCallDone()
+            else:
+                LOG.debug('Copying snapshot')
+
+        operation_id = data.get('operation').split('/')[3]
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_copy,
+                                                     operation_id, instance)
+
+        try:
+            timer.start(interval=CONF.lxd.retry_interval).wait()
+            LOG.info(_LI('Succesfully unpaused container %s'),
+                     instance.uuid, instance=instance)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Error deploying instance %(instance)s"),
+                          {'instance': instance.uuid})
+
+    def container_move(self, old_name, container_config, instance):
+        LOG.debug('Renaming container')
+
+        (state, data) = self.container_client.client('local_move',
+                                                     instance=old_name,
+                                                     container_config=container_config,
+                                                     host=instance.host)
+        def _wait_for_move(oid, instance):
+            (state, data) = self.container_client.client('operation_info',
+                                                         oid=oid,
+                                                         host=instance.host)
+            status_code = data['metadata']['status_code']
+            if status_code in [200, 100]:
+                LOG.debug('Moved container')
+                raise loopingcall.LoopingCallDone()
+            elif status_code in [400, 401]:
+                LOG.debug('Failed to move contianer')
+                raise loopingcall.LoopingCallDone()
+            else:
+                LOG.debug('Moving snapshot')
+
+        operation_id = data.get('operation').split('/')[3]
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_move,
+                                                     operation_id, instance)
+
+        try:
+            timer.start(interval=CONF.lxd.retry_interval).wait()
+            LOG.info(_LI('Succesfully moved container %s'),
+                     instance.uuid, instance=instance)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Error moving instance %(instance)s"),
+                          {'instance': instance.uuid})
+
 
 class LXDContainerDirectories(object):
 
@@ -351,4 +418,10 @@ class LXDContainerDirectories(object):
         return os.path.join(CONF.lxd.root_dir,
                             'containers',
                             instance,
+                            'rootfs')
+
+    def get_container_rescue(self, instance):
+        return os.path.join(CONF.lxd.root_dir,
+                            'containers',
+                            '%s-backup' % instance,
                             'rootfs')
