@@ -22,6 +22,7 @@ from nova import exception
 from nova import i18n
 from nova.virt import configdrive
 from nova.virt import driver
+from nova import utils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -49,6 +50,7 @@ class LXDContainerConfig(object):
         self.container_dir = container_utils.LXDContainerDirectories()
         self.container_client = container_client.LXDContainerClient()
         self.container_image = container_image.LXDContainerImage()
+        self.container_utils = container_utils.LXDContainerUtils()
         self.vif_driver = vif.LXDGenericDriver()
 
     def _init_container_config(self):
@@ -84,7 +86,6 @@ class LXDContainerConfig(object):
                                                            container_config, instance)
 
         ''' Create an LXD image '''
-        self.container_image.setup_image(context, instance, image_meta)
         container_config = (
             self.add_config(container_config, 'source',
                             self.configure_lxd_image(container_config,
@@ -106,11 +107,8 @@ class LXDContainerConfig(object):
                     instance))
             LOG.debug(pprint.pprint(container_rescue_devices))
 
-        (state, data) = self.container_client.client('init', container_config=container_config,
-                                                     host=instance.host)
-        self.container_client.client(
-            'wait', oid=data.get('operation').split('/')[3],
-                                     host=instance.host)
+        utils.spawn(self.container_utils.container_init,
+                    container_config, instance)
 
         return container_config
 

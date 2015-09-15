@@ -368,6 +368,39 @@ class LXDContainerUtils(object):
                 LOG.error(_LE("Error moving instance %(instance)s"),
                           {'instance': instance.uuid})
 
+    def container_init(self, container_config, instance):
+        LOG.debug('Initializing container')
+
+        (state, data) = self.container_client.client('init', container_config=container_config,
+                                                     host=instance.host)
+
+        def _wait_for_init(oid, instance):
+            (state, data) = self.container_client.client('operation_info',
+                                                         oid=oid,
+                                                         host=instance.host)
+            status_code = data['metadata']['status_code']
+            if status_code in [200, 100]:
+                LOG.debug('Initialized container')
+                raise loopingcall.LoopingCallDone()
+            elif status_code in [400, 401]:
+                LOG.debug('Failed to initialized contianer')
+                raise loopingcall.LoopingCallDone()
+            else:
+                LOG.debug('Initializing Container')
+
+        operation_id = data.get('operation').split('/')[3]
+        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_init,
+                                                     operation_id, instance)
+
+        try:
+            timer.start(interval=CONF.lxd.retry_interval).wait()
+            LOG.info(_LI('Succesfully moved container %s'),
+                     instance.uuid, instance=instance)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE("Error moving instance %(instance)s"),
+                          {'instance': instance.uuid})
+
 
 class LXDContainerDirectories(object):
 

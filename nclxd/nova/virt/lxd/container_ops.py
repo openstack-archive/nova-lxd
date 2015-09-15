@@ -35,6 +35,7 @@ from oslo_utils import units
 from nclxd.nova.virt.lxd import container_config
 from nclxd.nova.virt.lxd import container_client
 from nclxd.nova.virt.lxd import container_firewall
+from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils
 from nclxd.nova.virt.lxd import vif
 
@@ -60,6 +61,7 @@ class LXDContainerOperations(object):
         self.container_client = container_client.LXDContainerClient()
         self.container_dir = container_utils.LXDContainerDirectories()
         self.container_utils = container_utils.LXDContainerUtils()
+        self.container_image = container_image.LXDContainerImage()
         self.firewall_driver = container_firewall.LXDContainerFirewall()
 
         self.vif_driver = vif.LXDGenericDriver()
@@ -86,12 +88,16 @@ class LXDContainerOperations(object):
         if self.container_client.client('defined', instance=name, host=instance.host):
             raise exception.InstanceExists(name=name)
 
+        self.container_image.setup_image(context, instance, image_meta)
+
         container_config = self.container_config.create_container(
             context, instance, image_meta,
                              injected_files, admin_password, network_info,
                              block_device_info,rescue=False)
 
-        self.start_instance(container_config, instance, network_info, need_vif_plugged)
+        utils.spawn(
+            self.start_instance, container_config, instance, network_info,
+            need_vif_plugged)
 
     def start_instance(self, container_config, instance, network_info, need_vif_plugged):
         LOG.debug('Staring instance')
