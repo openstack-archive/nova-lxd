@@ -89,15 +89,14 @@ class LXDContainerConfig(object):
         container_config = (
             self.add_config(container_config, 'source',
                             self.configure_lxd_image(container_config,
-                                                     instance, image_meta)))
+                                                     instance)))
 
         if configdrive.required_by(instance):
             container_configdrive = (
                 self.configure_container_configdrive(
                     container_config,
                     instance,
-                    injected_files,
-                    admin_password))
+                    injected_files))
             LOG.debug(pprint.pprint(container_configdrive))
 
         if rescue:
@@ -138,7 +137,7 @@ class LXDContainerConfig(object):
                         % self.container_dir.get_console_path(instance.uuid))
         return container_config
 
-    def configure_lxd_image(self, container_config, instance, image_meta):
+    def configure_lxd_image(self, container_config, instance):
         LOG.debug('Getting LXD image source')
 
         self.add_config(container_config, 'source',
@@ -191,7 +190,7 @@ class LXDContainerConfig(object):
         return container_config
 
     def configure_container_configdrive(self, container_config, instance,
-                                        injected_files, admin_password):
+                                        injected_files):
         LOG.debug('Creating LXD config drive')
         if CONF.config_drive_format not in ('fs', None):
             msg = (_('Invalid config drive format: %s')

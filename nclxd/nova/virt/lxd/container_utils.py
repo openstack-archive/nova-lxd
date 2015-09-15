@@ -43,9 +43,14 @@ class LXDContainerUtils(object):
         self.container_client = container_client.LXDContainerClient()
 
     def container_start(self, instance_name, instance):
+        LOG.debug('Container start')
+
         instance.refresh()
-        (state, data) = self.container_client.client('start', instance=instance_name,
-                                                     host=instance.host)
+        try:
+            (state, data) = self.container_client.client('start', instance=instance_name,
+                                                         host=instance.host)
+        except Exception:
+            LOG.exception(_LE('Failed to start container.'), instance=instnace)
 
         def _wait_for_start(id, instance):
             instance.refresh()
@@ -87,9 +92,14 @@ class LXDContainerUtils(object):
                           {'instance': instance.uuid})
 
     def container_stop(self, instance_name, instance):
+        LOG.debug('Container stop')
+
         instance.refresh()
-        (state, data) = self.container_client.client('stop', instance=instance_name,
-                                                     host=instance.host)
+        try:
+            (state, data) = self.container_client.client('stop', instance=instance_name,
+                                                         host=instance.host)
+        except Exception:
+            LOG.exception(_LE('Failed to stop container.'), instnace=instance)
 
         def _wait_for_stop(id, instance):
             instance.refresh()
@@ -126,9 +136,14 @@ class LXDContainerUtils(object):
                           {'instance': instance.uuid})
 
     def container_reboot(self, instance_name,  instance):
+        LOG.debug('Container reboot')
+
         instance.refresh()
-        (state, data) = self.container_client.client('reboot', instance=instance_name,
-                                                     host=instance.host)
+        try:
+            (state, data) = self.container_client.client('reboot', instance=instance_name,
+                                                         host=instance.host)
+        except Exception:
+            LOG.exception(_LE('Failed to reboot container.'), instance=instance)
 
         def _wait_for_reboot(oid, instance):
             instance.refresh()
@@ -161,6 +176,8 @@ class LXDContainerUtils(object):
                           {'instance': instance.uuid})
 
     def container_destroy(self, instance_name, instance):
+        LOG.debug('Container destroy')
+
         if not self.container_client.client('defined', instance=instance_name,
                                             host=instance.host):
             return
@@ -179,8 +196,12 @@ class LXDContainerUtils(object):
             else:
                 LOG.debug('Waiting for delete')
 
-        (state, data) = self.container_client.client('destroy', instance=instance.uuid,
-                                                     host=instance.host)
+        try:
+            (state, data) = self.container_client.client('destroy', instance=instance.uuid,
+                                                         host=instance.host)
+        except Exception:
+            LOG.exception(_LE('Failed to destroy container.'), instance=instance)
+
         operation_id = data.get('operation').split('/')[3]
         timer = loopingcall.FixedIntervalLoopingCall(_wait_for_destroy,
                                                      operation_id, instance)
@@ -195,9 +216,14 @@ class LXDContainerUtils(object):
                           {'instance': instance.uuid})
 
     def container_pause(self, instance_name, instance):
+        LOG.debug('Container pause')
+
         instance.refresh()
-        (state, data) = self.container_client.client('pause', instance=instance_name,
-                                                     host=instance.host)
+        try:
+            (state, data) = self.container_client.client('pause', instance=instance_name,
+                                                         host=instance.host)
+        except Exception:
+            LOG.exception(_LE('Failed to pause container.'), instance=instance)
 
         def _wait_for_pause(id, instance):
             instance.refresh()
@@ -232,8 +258,12 @@ class LXDContainerUtils(object):
                           {'instance': instance.uuid})
 
     def conatainer_unpause(self, instance_name, instance):
-        (state, data) = self.container_client.client('unpause', instance=instance_name,
-                                                     host=instance.host)
+        LOG.debug('Container unpause')
+        try:
+            (state, data) = self.container_client.client('unpause', instance=instance_name,
+                                                         host=instance.host)
+        except Exception:
+            LOG.exception(_LE('Failed to unpause container.'), instance=instnace)
 
         def _wait_for_unpause(id, instance):
             instance.refresh()
@@ -269,10 +299,13 @@ class LXDContainerUtils(object):
                           {'instance': instance.uuid})
 
     def container_snapshot(self, container_snapshot, instance):
-        (state, data) = self.container_client.client('snapshot_create',
-                                                     instance=instance.uuid,
-                                                     container_snapshot=container_snapshot,
-                                                     host=instance.host)
+        try:
+            (state, data) = self.container_client.client('snapshot_create',
+                                                         instance=instance.uuid,
+                                                         container_snapshot=container_snapshot,
+                                                         host=instance.host)
+        except Exception:
+            LOG.exception(_LE('Failed to create snapshot'), instance=instance)
 
         def _wait_for_snapshot(oid, instance):
             (state, data) = self.container_client.client('operation_info',
@@ -304,9 +337,13 @@ class LXDContainerUtils(object):
     def container_copy(self, container_config, instance):
         LOG.debug('Copying container')
 
-        (state, data) = self.container_client.client('local_copy',
-                                                     container_config=container_config,
-                                                     host=instance.host)
+        try:
+            (state, data) = self.container_client.client('local_copy',
+                                                         container_config=container_config,
+                                                         host=instance.host)
+        except Exception:
+            LOG.exception(_LE('Failed to copy container'), isntance=instnace)
+
         def _wait_for_copy(oid, instance):
             (state, data) = self.container_client.client('operation_info',
                                                          oid=oid,
@@ -337,10 +374,14 @@ class LXDContainerUtils(object):
     def container_move(self, old_name, container_config, instance):
         LOG.debug('Renaming container')
 
-        (state, data) = self.container_client.client('local_move',
-                                                     instance=old_name,
-                                                     container_config=container_config,
-                                                     host=instance.host)
+        try:
+            (state, data) = self.container_client.client('local_move',
+                                                         instance=old_name,
+                                                         container_config=container_config,
+                                                         host=instance.host)
+        except Exception:
+            LOG.exception(_LE('Failed to move container'), instance=instance)
+
         def _wait_for_move(oid, instance):
             (state, data) = self.container_client.client('operation_info',
                                                          oid=oid,
@@ -371,8 +412,11 @@ class LXDContainerUtils(object):
     def container_init(self, container_config, instance):
         LOG.debug('Initializing container')
 
-        (state, data) = self.container_client.client('init', container_config=container_config,
-                                                     host=instance.host)
+        try:
+            (state, data) = self.container_client.client('init', container_config=container_config,
+                                                         host=instance.host)
+        except Exception:
+            LOG.exception(_LE('Failed to initialize conainer'), instance=instance)
 
         def _wait_for_init(oid, instance):
             (state, data) = self.container_client.client('operation_info',
