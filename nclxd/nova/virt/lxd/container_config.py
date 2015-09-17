@@ -17,6 +17,9 @@
 import collections
 import pprint
 
+import eventlet
+import time
+
 from nova.api.metadata import base as instance_metadata
 from nova import exception
 from nova import i18n
@@ -60,8 +63,19 @@ class LXDContainerConfig(object):
         return config
 
     def create_container(self, context, instance, image_meta, injected_files,
-                         admin_password, network_info, block_device_info, rescue):
+                         admin_password, network_info, block_device_info, rescue,
+                         migrate):
         LOG.debug('Creating container config')
+
+        container_config = self._create_container_config(context, instance, image_meta,
+                                injected_files, admin_password, network_info,
+                                block_device_info, rescue, migrate)
+
+        return container_config
+
+    def _create_container_config(self, context, instance, image_meta, injected_files,
+                                 admin_password, network_info, block_device_info, rescue,
+                                 migrate):
 
         name = instance.uuid
         # Ensure the directory exists and is writable
@@ -105,9 +119,6 @@ class LXDContainerConfig(object):
                     container_config,
                     instance))
             LOG.debug(pprint.pprint(container_rescue_devices))
-
-        utils.spawn(self.container_utils.container_init,
-                    container_config, instance)
 
         return container_config
 

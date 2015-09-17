@@ -16,11 +16,16 @@
 
 import os
 
+import time
+
+from eventlet import greenthread
+
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_service import loopingcall
 from oslo_utils import excutils
 
+from nova import exception
 from nova import i18n
 from nova.compute import power_state
 from nova.compute import task_states
@@ -44,259 +49,101 @@ class LXDContainerUtils(object):
 
     def container_start(self, instance_name, instance):
         LOG.debug('Container start')
-
-        instance.refresh()
         try:
             (state, data) = self.container_client.client('start', instance=instance_name,
-                                                         host=instance.host)
-        except Exception:
-            LOG.exception(_LE('Failed to start container.'), instance=instnace)
-
-        def _wait_for_start(id, instance):
-            instance.refresh()
-            (state, data) = self.container_client.client('operation_info',
-                                                         oid=id,
-                                                         host=instance.host)
-            status_code = data['metadata']['status_code']
-            if status_code in [100, 101, 200]:
-                instance.vm_sate = vm_states.ACTIVE
-                instance.save()
-                raise loopingcall.LoopingCallDone()
-            elif status_code in [101, 106]:
-                instance.power_state = power_state.NOSTATE
-                instance.vm_state = vm_states.BUILDING
-                instance.save()
-            elif status_code in [104, 108]:
-                instance.power_state = power_state.CRASHED
-                instance.vm_state = vm_states.ERROR
-                instance.save()
-                raise loopingcall.LoopingCallDone()
-            elif status_code in [400, 401]:
-                instance.power_state = power_state.CRASHED
-                instance.vm_state = vm_states.ERROR
-                instance.save()
-                raise loopingcall.LoopingCallDone()
-
-        operation_id = data.get('operation').split('/')[3]
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_start,
-                                                     operation_id,
-                                                     instance)
-
-        try:
+                                                             host=instance.host)
+            timer = loopingcall.FixedIntervalLoopingCall(
+                     self._wait_for_state,
+                     data.get('operation').split('/')[3],
+                     instance, power_state.RUNNING)
             timer.start(interval=CONF.lxd.retry_interval).wait()
-            LOG.info(_LI('Succesfully launched container %s'),
-                     instance.uuid, instance=instance)
-        except Exception:
+            LOG.info(_LI('Succesfully started instance %s'),
+                instance.uuid, instance=instance)
+        except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Error deploying instance %(instance)s"),
-                          {'instance': instance.uuid})
+                LOG.error(_LE('Failed to start container %(instance)s: %(reason)s'),
+                    {'instance': instance.uuid, 'reason': ex})
 
     def container_stop(self, instance_name, instance):
         LOG.debug('Container stop')
-
-        instance.refresh()
         try:
             (state, data) = self.container_client.client('stop', instance=instance_name,
-                                                         host=instance.host)
-        except Exception:
-            LOG.exception(_LE('Failed to stop container.'), instnace=instance)
-
-        def _wait_for_stop(id, instance):
-            instance.refresh()
-            (state, data) = self.container_client.client('operation_info',
-                                                         oid=id,
-                                                         host=instance.host)
-            status_code = data['metadata']['status_code']
-            if status_code in [100, 102, 200]:
-                instance.power_state = power_state.SHUTDOWN
-                instance.save()
-                raise loopingcall.LoopingCallDone()
-            elif status_code == 107:
-                instance.power_state = power_state.NOSTATE
-                instance.vm_state = vm_states.ACTIVE
-                instance.save()
-                raise loopingcall.LoopingCallDone()
-            elif status_code in [400, 401]:
-                instance.power_state = power_state.CRASHED
-                instance.vm_state = vm_states.ERROR
-                instance.save()
-                raise loopingcall.LoopingCallDone()
-
-        operation_id = data.get('operation').split('/')[3]
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_stop,
-                                                     operation_id, instance)
-
-        try:
+                                                             host=instance.host)
+            timer = loopingcall.FixedIntervalLoopingCall(
+                        self._wait_for_state,
+                        data.get('operation').split('/')[3],
+                        instance, power_state.SHUTDOWN)
             timer.start(interval=CONF.lxd.retry_interval).wait()
             LOG.info(_LI('Succesfully stopped container %s'),
                      instance.uuid, instance=instance)
-        except Exception:
+        except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Error deploying instance %(instance)s"),
-                          {'instance': instance.uuid})
+                LOG.error(_LE('Failed to stop container %(instance)s: %(reason)s'),
+                    {'instance': instance.uuid, 'reason': ex})
 
     def container_reboot(self, instance_name,  instance):
         LOG.debug('Container reboot')
-
-        instance.refresh()
         try:
             (state, data) = self.container_client.client('reboot', instance=instance_name,
-                                                         host=instance.host)
-        except Exception:
-            LOG.exception(_LE('Failed to reboot container.'), instance=instance)
-
-        def _wait_for_reboot(oid, instance):
-            instance.refresh()
-            (state, data) = self.container_client.client('operation_info',
-                                                         oid=id,
-                                                         host=instance.host)
-            status_code = data['metadata']['status_code']
-            if status_code in [100, 101, 103, 200]:
-                instance.power_state = power_state.RUNNING
-                instance.vm_sate = vm_states.ACTIVE
-                instance.save()
-                raise loopingcall.LoopingCallDone()
-            elif status_code in [108, 400, 401]:
-                instance.power_state = power_state.CRASHED
-                instance.vm_state = vm_states.ERROR
-                instance.save()
-                raise loopingcall.LoopingCallDone()
-
-        operation_id = data.get('operation').split('/')[3]
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_reboot,
-                                                     operation_id, instance)
-
-        try:
-            timer.start(interval=CONF.lxd.retry_interval).wait()
+                                                          host=instance.host)
+            self.container_client.client('wait',
+                        oid=data.get('operation').split('/')[3],
+                        host=instance.host)
             LOG.info(_LI('Succesfully rebooted container %s'),
                      instance.uuid, instance=instance)
-        except Exception:
+        except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Error deploying instance %(instance)s"),
-                          {'instance': instance.uuid})
+                LOG.error(_LE('Failed to reboot container %(instance)s: %(reason)s'),
+                    {'instance': instance.uuid, 'reason': ex})
 
     def container_destroy(self, instance_name, instance):
         LOG.debug('Container destroy')
-
-        if not self.container_client.client('defined', instance=instance_name,
-                                            host=instance.host):
-            return
-
-        def _wait_for_destroy(oid, instance):
-            (state, data) = self.container_client.client('operation_info',
-                                                         oid=oid, host=instance.host)
-
-            status_code = data['metadata']['status_code']
-            if status_code in [100, 200]:
-                LOG.debug('Sucessfully deleted')
-                raise loopingcall.LoopingCallDone()
-            if status_code in [400, 401]:
-                LOG.debug('Failed to delete')
-                raise loopingcall.LoopingCallDone()
-            else:
-                LOG.debug('Waiting for delete')
-
         try:
             (state, data) = self.container_client.client('destroy', instance=instance.uuid,
-                                                         host=instance.host)
-        except Exception:
-            LOG.exception(_LE('Failed to destroy container.'), instance=instance)
-
-        operation_id = data.get('operation').split('/')[3]
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_destroy,
-                                                     operation_id, instance)
-
-        try:
-            timer.start(interval=CONF.lxd.retry_interval).wait()
+                                                        host=instance.host)
+            self.container_client.client('wait',
+                        oid=data.get('operation').split('/')[3],
+                        host=instance.host)
             LOG.info(_LI('Succesfully destroyed container %s'),
                      instance.uuid, instance=instance)
-        except Exception:
+        except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Error deploying instance %(instance)s"),
-                          {'instance': instance.uuid})
+                LOG.error(_LE('Failed to destroy container %(instance)s: %(reason)s'),
+                    {'instance': instance.uuid, 'reason': ex})
 
     def container_pause(self, instance_name, instance):
         LOG.debug('Container pause')
-
-        instance.refresh()
         try:
             (state, data) = self.container_client.client('pause', instance=instance_name,
                                                          host=instance.host)
-        except Exception:
-            LOG.exception(_LE('Failed to pause container.'), instance=instance)
-
-        def _wait_for_pause(id, instance):
-            instance.refresh()
-            (state, data) = self.container_client.client('operation_info',
-                                                         oid=id,
-                                                         host=instance.host)
-            status_code = data['metadata']['status_code']
-            if status_code in [100, 200, 110]:
-                instance.power_state = power_state.PAUSED
-                instance.save()
-                raise loopingcall.LoopingCallDone()
-            elif status_code == 109:
-                instance.power_stae = power_state.NOSTATE
-                instance.save()
-            elif status_code in [400, 401]:
-                instance.power_stae = power_state.CRASHED
-                instance.state()
-            else:
-                instance.power_stae = power_state.NOSTA
-                instance.state()
-
-        operation_id = data.get('operation').split('/')[3]
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_pause,
-                                                     operation_id, instance)
-        try:
+            timer = loopingcall.FixedIntervalLoopingCall(
+                        self._wait_for_state,
+                        data.get('operation').split('/')[3],
+                        instance, power_state.SUSPENDED)
             timer.start(interval=CONF.lxd.retry_interval).wait()
             LOG.info(_LI('Succesfully paused container %s'),
                      instance.uuid, instance=instance)
-        except Exception:
+        except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Error deploying instance %(instance)s"),
-                          {'instance': instance.uuid})
+                LOG.error(_LE('Failed to destroy container %(instance)s: %(reason)s'),
+                    {'instance': instance.uuid, 'reason': ex})
 
     def conatainer_unpause(self, instance_name, instance):
         LOG.debug('Container unpause')
         try:
             (state, data) = self.container_client.client('unpause', instance=instance_name,
                                                          host=instance.host)
-        except Exception:
-            LOG.exception(_LE('Failed to unpause container.'), instance=instnace)
-
-        def _wait_for_unpause(id, instance):
-            instance.refresh()
-            (state, data) = self.container_client.client('operation_info',
-                                                         oid=id,
-                                                         host=instance.host)
-            status_code = data['metadata']['status_code']
-            if status_code in [100, 110, 200]:
-                instance.power_state = power_state.RUNNING
-                instance.vm_state = vm_states.ACTIVE
-                instance.save()
-                raise loopingcall.LoopingCallDone()
-            if status_code == 109:
-                instance.save()
-            elif status_code in [400, 401]:
-                instance.power_stae = power_state.CRASHED
-                instance.state()
-            else:
-                instance.power_stae = power_state.NOSTATE
-                instance.state()
-
-        operation_id = data.get('operation').split('/')[3]
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_unpause,
-                                                     operation_id, instance)
-
-        try:
+            timer = loopingcall.FixedIntervalLoopingCall(
+                        self._wait_for_state,
+                        data.get('operation').split('/')[3],
+                        instance, power_state.RUNNING)
             timer.start(interval=CONF.lxd.retry_interval).wait()
-            LOG.info(_LI('Succesfully unpaused container %s'),
-                     instance.uuid, instance=instance)
-        except Exception:
+            LOG.info(_LI('Succesfully resumed container %s'),
+                    instance.uuid, instance=instance)
+        except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Error deploying instance %(instance)s"),
-                          {'instance': instance.uuid})
+                LOG.error(_LE('Failed to destroy container %(instance)s: %(reason)s'),
+                    {'instance': instance.uuid, 'reason': ex})
 
     def container_snapshot(self, container_snapshot, instance):
         try:
@@ -304,147 +151,80 @@ class LXDContainerUtils(object):
                                                          instance=instance.uuid,
                                                          container_snapshot=container_snapshot,
                                                          host=instance.host)
-        except Exception:
-            LOG.exception(_LE('Failed to create snapshot'), instance=instance)
-
-        def _wait_for_snapshot(oid, instance):
-            (state, data) = self.container_client.client('operation_info',
-                                                         oid=oid,
-                                                         host=instance.host)
-            status_code = data['metadata']['status_code']
-            if status_code in [200, 100]:
-                LOG.debug('Created snaspshot')
-                raise loopingcall.LoopingCallDone()
-            elif status_code in [400, 401]:
-                LOG.debug('Failed to create snapshot')
-                raise loopingcall.LoopingCallDone()
-            else:
-                LOG.debug('Creating snapshot')
-
-        operation_id = data.get('operation').split('/')[3]
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_snapshot,
-                                                     operation_id, instance)
-
-        try:
-            timer.start(interval=CONF.lxd.retry_interval).wait()
-            LOG.info(_LI('Succesfully unpaused container %s'),
-                     instance.uuid, instance=instance)
-        except Exception:
+            operation_id = data.get('operation').split('/')[3]
+            self.container_client.client('wait', oid=operation_id,
+                            host=instance.host)
+            LOG.info(_LI('Succesfully snapshotted container %s'),
+                 instance.uuid, instance=instance)
+        except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Error deploying instance %(instance)s"),
-                          {'instance': instance.uuid})
+                LOG.error(_LE('Failed to rename container %(instance)s: %(reason)s'),
+                          {'instance': instance.uuid, 'reason': ex}, host=instance.host)
 
     def container_copy(self, container_config, instance):
         LOG.debug('Copying container')
-
         try:
             (state, data) = self.container_client.client('local_copy',
                                                          container_config=container_config,
                                                          host=instance.host)
-        except Exception:
-            LOG.exception(_LE('Failed to copy container'), isntance=instnace)
-
-        def _wait_for_copy(oid, instance):
-            (state, data) = self.container_client.client('operation_info',
-                                                         oid=oid,
-                                                         host=instance.host)
-            status_code = data['metadata']['status_code']
-            if status_code in [200, 100]:
-                LOG.debug('Copied snapshot')
-                raise loopingcall.LoopingCallDone()
-            elif status_code in [400, 401]:
-                LOG.debug('Failed to copy snapshot')
-                raise loopingcall.LoopingCallDone()
-            else:
-                LOG.debug('Copying snapshot')
-
-        operation_id = data.get('operation').split('/')[3]
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_copy,
-                                                     operation_id, instance)
-
-        try:
-            timer.start(interval=CONF.lxd.retry_interval).wait()
-            LOG.info(_LI('Succesfully unpaused container %s'),
-                     instance.uuid, instance=instance)
-        except Exception:
+            operation_id = data.get('operation').split('/')[3]
+            self.container_client.client('wait', oid=operation_id,
+                            host=instance.host)
+        except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Error deploying instance %(instance)s"),
-                          {'instance': instance.uuid})
+                LOG.error(_LE('Failed to rename container %(instance): %(reason)s'),
+                          {'instance': instance.uuid, 'reason': ex})
 
     def container_move(self, old_name, container_config, instance):
         LOG.debug('Renaming container')
-
         try:
             (state, data) = self.container_client.client('local_move',
                                                          instance=old_name,
                                                          container_config=container_config,
                                                          host=instance.host)
-        except Exception:
-            LOG.exception(_LE('Failed to move container'), instance=instance)
-
-        def _wait_for_move(oid, instance):
-            (state, data) = self.container_client.client('operation_info',
-                                                         oid=oid,
-                                                         host=instance.host)
-            status_code = data['metadata']['status_code']
-            if status_code in [200, 100]:
-                LOG.debug('Moved container')
-                raise loopingcall.LoopingCallDone()
-            elif status_code in [400, 401]:
-                LOG.debug('Failed to move contianer')
-                raise loopingcall.LoopingCallDone()
-            else:
-                LOG.debug('Moving snapshot')
-
-        operation_id = data.get('operation').split('/')[3]
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_move,
-                                                     operation_id, instance)
-
-        try:
-            timer.start(interval=CONF.lxd.retry_interval).wait()
-            LOG.info(_LI('Succesfully moved container %s'),
-                     instance.uuid, instance=instance)
-        except Exception:
+            operation_id = data.get('operation').split('/')[3]
+            self.container_client.client('wait', oid=operation_id,
+                            host=instance.host)
+        except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Error moving instance %(instance)s"),
-                          {'instance': instance.uuid})
+                LOG.error(_LE('Failed to rename container %(instance)s: %(reason)s'),
+                          {'instance': instance.uuid, 'reason': ex})
 
-    def container_init(self, container_config, instance):
+
+    def container_init(self, container_config, instance, host):
         LOG.debug('Initializing container')
-
         try:
-            (state, data) = self.container_client.client('init', container_config=container_config,
-                                                         host=instance.host)
-        except Exception:
-            LOG.exception(_LE('Failed to initialize conainer'), instance=instance)
-
-        def _wait_for_init(oid, instance):
-            (state, data) = self.container_client.client('operation_info',
-                                                         oid=oid,
-                                                         host=instance.host)
-            status_code = data['metadata']['status_code']
-            if status_code in [200, 100]:
-                LOG.debug('Initialized container')
-                raise loopingcall.LoopingCallDone()
-            elif status_code in [400, 401]:
-                LOG.debug('Failed to initialized contianer')
-                raise loopingcall.LoopingCallDone()
-            else:
-                LOG.debug('Initializing Container')
-
-        operation_id = data.get('operation').split('/')[3]
-        timer = loopingcall.FixedIntervalLoopingCall(_wait_for_init,
-                                                     operation_id, instance)
-
-        try:
-            timer.start(interval=CONF.lxd.retry_interval).wait()
-            LOG.info(_LI('Succesfully moved container %s'),
-                     instance.uuid, instance=instance)
-        except Exception:
+            (state, data) = self.container_client.client('init',
+                                    container_config=container_config,
+                                    host=host)
+            operation_id = data.get('operation').split('/')[3]
+            self.container_client.client('wait',
+                    oid=operation_id,
+                    host=instance.host)
+            LOG.info(_LI('Succesfully created container %s'),
+                instance.uuid, instance=instance)
+        except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE("Error moving instance %(instance)s"),
-                          {'instance': instance.uuid})
+                LOG.error(_LE('Failed to create container %(instance)s: %(reason)s'),
+                          {'instance': instance.uuid, 'reason': ex})
 
+    def _wait_for_state(self, operation_id, instance, power_state):
+        instance.refresh()
+        (state, data) = self.container_client.client('operation_info',
+                                oid=operation_id,
+                                host=instance.host)
+        status_code = data['metadata']['status_code']
+        if status_code in [200, 202]:
+            LOG.debug('')
+            instance.power_state = power_state
+            instance.save()
+            raise loopingcall.LoopingCallDone()
+
+        if status_code == 400:
+            LOG.debug('Initialize conainer')
+            instance.power_state = power_state
+            instnace.save()
+            raise loopingcall.LoopingCallDone()
 
 class LXDContainerDirectories(object):
 

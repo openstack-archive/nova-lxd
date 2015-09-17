@@ -17,6 +17,9 @@
 import os
 import pwd
 import shutil
+import time
+
+import eventlet
 
 from nova import context
 from nova import exception
@@ -51,7 +54,6 @@ LOG = logging.getLogger(__name__)
 
 MAX_CONSOLE_BYTES = 100 * units.Ki
 
-
 class LXDContainerOperations(object):
 
     def __init__(self, virtapi):
@@ -71,7 +73,7 @@ class LXDContainerOperations(object):
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None,
-              need_vif_plugged=True, rescue=False):
+              need_vif_plugged=True, rescue=False, host=None):
         msg = ('Spawning container '
                'network_info=%(network_info)s '
                'image_meta=%(image_meta)s '
@@ -83,47 +85,68 @@ class LXDContainerOperations(object):
                 'block_device_info': block_device_info})
         LOG.debug(msg, instance=instance)
 
-        name = instance.uuid
+        start = time.time()
+        try:
+            self.container_image.setup_image(context, instance, image_meta)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Upload image failed: %(e)s'),
+                                  {'e': ex})
 
-        if self.container_client.client('defined', instance=name, host=instance.host):
-            raise exception.InstanceExists(name=name)
+        try:
+            self.create_container(context, instance, image_meta, injected_files, admin_password,
+                                  network_info, block_device_info, rescue, need_vif_plugged, host, 
+                                  migrate=None)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Upload image failed: %(e)s'),
+                                  {'e': ex})
+        end = time.time()
+        total = end - start
+        LOG.debug('Creation took %s seconds to boot.' % total)
 
-        self.container_image.setup_image(context, instance, image_meta)
+    def create_container(self, context, instance, image_meta, injected_files, admin_password,
+                        network_info, block_device_info, rescue, need_vif_plugged, host, migrate):
 
-        container_config = self.container_config.create_container(
-            context, instance, image_meta,
-                             injected_files, admin_password, network_info,
-                             block_device_info,rescue=False)
+        if not host:
+            host = instance.host
 
-        utils.spawn(
-            self.start_instance, container_config, instance, network_info,
-            need_vif_plugged)
+        if not self.container_client.client('defined', instance=instance.uuid, host=instance.host):
+            container_config = self.container_config.create_container(context, instance, image_meta,
+                                    injected_files, admin_password, network_info,
+                                    block_device_info, rescue, migrate)
 
-    def start_instance(self, container_config, instance, network_info, need_vif_plugged):
-        LOG.debug('Staring instance')
-        name = instance.uuid
+            eventlet.spawn(self.container_utils.container_init,
+                                        container_config,
+                                        instance,
+                                        host).wait()
+
+        self._start_container(container_config, instance, network_info, need_vif_plugged)
+
+    def _start_container(self, container_config, instance, network_info, need_vif_plugged):
+        LOG.debug('Starting instance')
 
         timeout = CONF.vif_plugging_timeout
         # check to see if neutron is ready before
         # doing anything else
-        if (self.container_client.client('defined', instance=name,
-           host=instance.host) and need_vif_plugged and
+        if (self.container_client.client('defined', instance=instance.uuid,
+            host=instance.host) and need_vif_plugged and
             utils.is_neutron() and timeout):
-            events = self._get_neutron_events(network_info)
+                events = self._get_neutron_events(network_info)
         else:
-            events = []
+                events = []
 
         try:
             with self.virtapi.wait_for_instance_event(
-                    instance, events, deadline=timeout,
-                    error_callback=self._neutron_failed_callback):
+                instance, events, deadline=timeout,
+                error_callback=self._neutron_failed_callback):
                 container_config = self.plug_vifs(
                     container_config, instance, network_info,
                     need_vif_plugged)
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed to connect networking to instance'))
 
-        self.container_utils.container_start(name, instance)
+        self.container_utils.container_start(instance.uuid, instance)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
@@ -285,18 +308,3 @@ class LXDContainerOperations(object):
 
     def _stop_firewall(self, instance, network_info):
         self.firewall_driver.unfilter_instance(instance, network_info)
-
-    def _wait_for_active(self, operation_id, instance):
-        instance.refresh()
-
-        (state, data) = self.container_client.client('operation_info',
-                                                     oid=operation_id, host=instance.host)
-        operation_status = data['metadata']['status_code']
-        if operation_status in [200, 202]:
-            instance.vm_state = vm_states.ACTIVE
-            instance.save()
-            raise loopingcall.LoopingCallDone()
-        elif operation_status in [400, 401]:
-            instance.vm_state = vm_states.ERROR
-            instance.save()
-            raise loopingcall.LoopingCallDone()
