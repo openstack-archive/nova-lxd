@@ -99,7 +99,11 @@ class LXDContainerUtils(object):
     def container_destroy(self, instance_name, instance):
         LOG.debug('Container destroy')
         try:
-            (state, data) = self.container_client.client('destroy', instance=instance.uuid,
+            if not self.container_client.client('defined', instance=instance_name,
+                                            host=instance.host):
+                return
+
+            (state, data) = self.container_client.client('destroy', instance=instance_name,
                                                         host=instance.host)
             self.container_client.client('wait',
                         oid=data.get('operation').split('/')[3],
@@ -125,7 +129,7 @@ class LXDContainerUtils(object):
                      instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to destroy container %(instance)s: %(reason)s'),
+                LOG.error(_LE('Failed to pause container %(instance)s: %(reason)s'),
                     {'instance': instance.uuid, 'reason': ex})
 
     def conatainer_unpause(self, instance_name, instance):
@@ -142,7 +146,7 @@ class LXDContainerUtils(object):
                     instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to destroy container %(instance)s: %(reason)s'),
+                LOG.error(_LE('Failed to unpause container %(instance)s: %(reason)s'),
                     {'instance': instance.uuid, 'reason': ex})
 
     def container_snapshot(self, container_snapshot, instance):
