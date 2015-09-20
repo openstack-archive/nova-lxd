@@ -64,7 +64,7 @@ class LXDContainerMigrate(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Failed to migration container: %(e)s'),
-                            {'e': e}, instance=instance)
+                            {'e': ex}, instance=instance)
 
         # disk_info is not used
         disk_info = {}
