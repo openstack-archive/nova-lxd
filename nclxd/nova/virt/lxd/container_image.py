@@ -48,7 +48,7 @@ class LXDContainerImage(object):
 
         if self.container_client.client('alias_defined',
                                         instance=instance.image_ref,
-                                        host=instance.host):
+                                        host=instance.node):
             return
 
         lxd_image = self._get_lxd_image(image_meta)

@@ -63,19 +63,17 @@ class LXDContainerConfig(object):
         return config
 
     def create_container(self, context, instance, image_meta, injected_files,
-                         admin_password, network_info, block_device_info, rescue,
-                         migrate):
+                         admin_password, network_info, block_device_info, rescue):
         LOG.debug('Creating container config')
 
         container_config = self._create_container_config(context, instance, image_meta,
                                 injected_files, admin_password, network_info,
-                                block_device_info, rescue, migrate)
+                                block_device_info, rescue)
 
         return container_config
 
     def _create_container_config(self, context, instance, image_meta, injected_files,
-                                 admin_password, network_info, block_device_info, rescue,
-                                 migrate):
+                                 admin_password, network_info, block_device_info, rescue):
 
         name = instance.uuid
         # Ensure the directory exists and is writable
@@ -233,7 +231,7 @@ class LXDContainerConfig(object):
 
     def configure_container_net_device(self, instance, vif):
         LOG.debug('Configure LXD network device')
-        container_config = self._get_container_config(instance, vif)
+        container_config = self.get_container_config(instance)
 
         container_network_config = self.vif_driver.get_config(instance, vif)
 
@@ -247,20 +245,45 @@ class LXDContainerConfig(object):
                   'type': 'nic'})
         return container_config
 
-    def _get_container_config(self, instance, network_info):
+    def configure_container_migrate(self, instance, container_ws):
+        LOG.debug('Creating container config for migration.')
+        container_config = self.get_container_config(instance)
+
+        container_config = self.add_config(container_config, 'source',
+                    self.configure_lxd_ws(container_config, container_ws))
+
+        return container_config
+
+    def configure_lxd_ws(self, container_config, container_ws):
+        container_url = 'wss://%s:8443/1.0/operations/%s/websocket' \
+                % (CONF.my_ip, container_ws['operation'])
+        container_config = self.add_config(container_config, 'source',
+                         {'base-image': '',
+                          "mode": "pull",
+                          "operation": container_url,
+                          "secrets": {
+                            "control": container_ws['control'],
+                            "fs": container_ws['fs']
+                          },
+                          "type": "migration"
+                          })
+        return container_config
+
+    def get_container_config(self, instance):
         LOG.debug('Fetching LXD configuration')
         container_update = self._init_container_config()
 
         container_old = self.container_client.client(
             'config', instance=instance.uuid,
-                                                     host=instance.host)
+            host=instance.host)
+
         container_config = self._convert(container_old['config'])
         container_devices = self._convert(container_old['devices'])
 
+        container_update['name'] = instance.uuid
+        container_update['profiles'] = [str(CONF.lxd.default_profile)]
         container_update['config'] = container_config
         container_update['devices'] = container_devices
-
-        LOG.debug(pprint.pprint(container_update))
 
         return container_update
 

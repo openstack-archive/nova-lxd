@@ -73,7 +73,7 @@ class LXDContainerOperations(object):
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None,
-              need_vif_plugged=True, rescue=False, host=None):
+              need_vif_plugged=True, rescue=False):
         msg = ('Spawning container '
                'network_info=%(network_info)s '
                'image_meta=%(image_meta)s '
@@ -95,8 +95,7 @@ class LXDContainerOperations(object):
 
         try:
             self.create_container(context, instance, image_meta, injected_files, admin_password,
-                                  network_info, block_device_info, rescue, need_vif_plugged, host, 
-                                  migrate=None)
+                                  network_info, block_device_info, rescue, need_vif_plugged)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Upload image failed: %(e)s'),
@@ -106,25 +105,25 @@ class LXDContainerOperations(object):
         LOG.debug('Creation took %s seconds to boot.' % total)
 
     def create_container(self, context, instance, image_meta, injected_files, admin_password,
-                        network_info, block_device_info, rescue, need_vif_plugged, host, migrate):
-
-        if not host:
-            host = instance.host
-
+                        network_info, block_device_info, rescue, need_vif_plugged):
         if not self.container_client.client('defined', instance=instance.uuid, host=instance.host):
             container_config = self.container_config.create_container(context, instance, image_meta,
                                     injected_files, admin_password, network_info,
-                                    block_device_info, rescue, migrate)
+                                    block_device_info, rescue)
 
             eventlet.spawn(self.container_utils.container_init,
                                         container_config,
                                         instance,
-                                        host).wait()
+                                        instance.host).wait()
 
-        self._start_container(container_config, instance, network_info, need_vif_plugged)
+        self.start_container(container_config, instance, network_info, need_vif_plugged)
 
-    def _start_container(self, container_config, instance, network_info, need_vif_plugged):
+    def start_container(self, container_config, instance, network_info, need_vif_plugged):
         LOG.debug('Starting instance')
+
+        if self.container_client.client('running', instance=instance.uuid,
+                    host=instance.host):
+            return
 
         timeout = CONF.vif_plugging_timeout
         # check to see if neutron is ready before
@@ -169,7 +168,7 @@ class LXDContainerOperations(object):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        self.container_utils.container_destroy(instance.uuid, instance)
+        self.container_utils.container_destroy(instance.uuid, instance.host)
         self.cleanup(context, instance, network_info, block_device_info)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
@@ -200,7 +199,7 @@ class LXDContainerOperations(object):
 
         self.container_utils.container_stop(instance.uuid, instance)
         self._container_local_copy(instance)
-        self.container_utils.container_destroy(instance.uuid, instance)
+        self.container_utils.container_destroy(instance.uuid, instance.host)
 
         self.spawn(context, instance, image_meta, injected_files=None,
               admin_password=None, network_info=network_info, block_device_info=None,
@@ -237,7 +236,7 @@ class LXDContainerOperations(object):
         }
 
         self.container_utils.container_move(old_name, container_config, instance)
-        self.container_utils.container_destroy(instance.uuid, instance)
+        self.container_utils.container_destroy(instance.uuid, instance.host)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
@@ -260,6 +259,8 @@ class LXDContainerOperations(object):
         LOG.debug('in console output')
 
         console_log = self.container_dir.get_console_path(instance.uuid)
+        if not os.path.exists(console_log):
+            return
         uid = pwd.getpwuid(os.getuid()).pw_uid
         utils.execute('chown', '%s:%s' % (uid, uid),
                       console_log, run_as_root=True)

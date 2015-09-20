@@ -62,7 +62,7 @@ class LXDContainerUtils(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to start container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid, 'reason': ex})
+                    {'instance': instance.uuid, 'reason': ex}, instance=instance)
 
     def container_stop(self, instance_name, instance):
         LOG.debug('Container stop')
@@ -94,26 +94,26 @@ class LXDContainerUtils(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to reboot container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid, 'reason': ex})
+                    {'instance': instance.uuid, 'reason': ex}, instance=instance)
 
-    def container_destroy(self, instance_name, instance):
+    def container_destroy(self, instance_name, host):
         LOG.debug('Container destroy')
         try:
             if not self.container_client.client('defined', instance=instance_name,
-                                            host=instance.host):
+                                            host=host):
                 return
 
             (state, data) = self.container_client.client('destroy', instance=instance_name,
-                                                        host=instance.host)
+                                                        host=host)
             self.container_client.client('wait',
                         oid=data.get('operation').split('/')[3],
-                        host=instance.host)
+                        host=host)
             LOG.info(_LI('Succesfully destroyed container %s'),
-                     instance.uuid, instance=instance)
+                     instance_name)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to destroy container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid, 'reason': ex})
+                    {'instance': instance_name, 'reason': ex})
 
     def container_pause(self, instance_name, instance):
         LOG.debug('Container pause')
@@ -130,7 +130,7 @@ class LXDContainerUtils(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to pause container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid, 'reason': ex})
+                    {'instance': instance.uuid, 'reason': ex}, instance=instance)
 
     def conatainer_unpause(self, instance_name, instance):
         LOG.debug('Container unpause')
@@ -163,7 +163,7 @@ class LXDContainerUtils(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to rename container %(instance)s: %(reason)s'),
-                          {'instance': instance.uuid, 'reason': ex}, host=instance.host)
+                          {'instance': instance.uuid, 'reason': ex}, instance=instance)
 
     def container_copy(self, container_config, instance):
         LOG.debug('Copying container')
@@ -174,6 +174,8 @@ class LXDContainerUtils(object):
             operation_id = data.get('operation').split('/')[3]
             self.container_client.client('wait', oid=operation_id,
                             host=instance.host)
+            LOG.info(_LI('Succesfully copied container %s'),
+                instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to rename container %(instance): %(reason)s'),
@@ -189,11 +191,25 @@ class LXDContainerUtils(object):
             operation_id = data.get('operation').split('/')[3]
             self.container_client.client('wait', oid=operation_id,
                             host=instance.host)
+            LOG.info(_LI('Succesfully renamed container %s'),
+                instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to rename container %(instance)s: %(reason)s'),
-                          {'instance': instance.uuid, 'reason': ex})
+                          {'instance': instance.uuid, 'reason': ex}, instance=instance)
 
+    def container_migrate(self, instance_name, instance):
+        LOG.debug('Migrate contianer')
+        try:
+            return self.container_client.client('migrate',
+                                instance=instance_name,
+                                host=instance.host)
+            LOG.info(_LI('Succesfully migrated container %s'),
+                instance.uuid, instance=instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to rename container %(instance): %(reason)s'),
+                          {'instance': instance_name, 'reason': ex}, instance=instance)
 
     def container_init(self, container_config, instance, host):
         LOG.debug('Initializing container')
@@ -204,19 +220,22 @@ class LXDContainerUtils(object):
             operation_id = data.get('operation').split('/')[3]
             self.container_client.client('wait',
                     oid=operation_id,
-                    host=instance.host)
+                    host=host)
             LOG.info(_LI('Succesfully created container %s'),
                 instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to create container %(instance)s: %(reason)s'),
-                          {'instance': instance.uuid, 'reason': ex})
+                          {'instance': instance.uuid, 'reason': ex}, instance=instance)
 
-    def _wait_for_state(self, operation_id, instance, power_state):
+    def _wait_for_state(self, operation_id, instance, power_state, host=None):
+        if not host:
+            host = instance.host
+
         instance.refresh()
         (state, data) = self.container_client.client('operation_info',
                                 oid=operation_id,
-                                host=instance.host)
+                                host=host)
         status_code = data['metadata']['status_code']
         if status_code in [200, 202]:
             LOG.debug('')
