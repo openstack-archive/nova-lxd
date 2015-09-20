@@ -38,15 +38,14 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                          self.container_config._init_container_config())
 
     @mock.patch('nclxd.nova.virt.lxd.container_image'
-                '.LXDContainerImage.fetch_image')
+                '.LXDContainerImage.setup_image')
     @tests.annotated_data(
         ('no_rescue', {}, 'fake-uuid'),
         ('rescue', {'name_label': 'rescued', 'rescue': True}, 'rescued'),
     )
     def test_configure_container(self, tag, kwargs, expected, mf):
         instance = tests.MockInstance()
-        context = {}
-        image_meta = {}
+        block_device_info = {}
         self.assertEqual(
             {'config': {'raw.lxc':
                         'lxc.console.logfile=/fake/lxd/root/containers/'
@@ -56,11 +55,9 @@ class LXDTestContainerConfig(test.NoDBTestCase):
              'profiles': ['fake_profile'],
              'source': {'alias': 'None', 'type': 'image'}},
             (self.container_config
-             .configure_container(context,
-                                  instance,
-                                  image_meta,
-                                  **kwargs)))
-        mf.assert_called_once_with(context, instance, image_meta)
+             .create_container(instance,
+                                  None, {}, False)))
+        mf.assert_called_once_with(instance, inected_files, block_device_info, rescue)
 
     @tests.annotated_data(
         ('no_limits', {'memory_mb': -1, 'vcpus': 0},
@@ -72,6 +69,10 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         ('both_limits', {'memory_mb': 4096, 'vcpus': 20},
          {'limits.memory': '4294967296', 'limits.cpus': '20'}),
     )
+    @mock.patch('oslo_utils.fileutils.ensure_tree',
+                        mock.Mock(return_value=None))
+    @mock.patch('os.mkdir',
+                        mock.Mock(return_value=None))
     def test_configure_container_config(self, tag, flavor, expected):
         instance = tests.MockInstance(**flavor)
         config = {'raw.lxc': 'lxc.console.logfile=/fake/lxd/root/containers/'
@@ -117,7 +118,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
             'devices':
             {'rescue': {'path': 'mnt',
                         'source': '/fake/lxd/root/containers/'
-                                  'fake-uuid/rootfs',
+                                  'fake-uuid-backup/rootfs',
                         'type': 'disk'}}},
             self.container_config.configure_container_rescuedisk(
                 {}, instance))
@@ -129,7 +130,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
             self.assertRaises(
                 exception.InstancePowerOnFailure,
                 self.container_config.configure_container_configdrive,
-                {}, instance, {}, 'secret')
+                {}, instance, {})
 
     @mock.patch('nova.api.metadata.base.InstanceMetadata')
     def test_configure_container_configdrive_fail(self, mi):
@@ -138,7 +139,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         self.assertRaises(
             AttributeError,
             self.container_config.configure_container_configdrive,
-            {}, instance, injected_files, 'secret')
+            {}, instance, injected_files)
         mi.assert_called_once_with(
             instance, content=injected_files, extra_md={})
 
@@ -150,7 +151,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         self.assertRaises(
             AttributeError,
             self.container_config.configure_container_configdrive,
-            None, instance, injected_files, 'secret')
+            None, instance, injected_files)
         md.assert_called_once_with(instance_md=mi.return_value)
         (md.return_value.__enter__.return_value
          .make_drive.assert_called_once_with(
@@ -170,7 +171,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                           'source': '/fake/instances/path/'
                                     'fake-uuid/config-drive'}}},
             self.container_config.configure_container_configdrive(
-                {}, instance, injected_files, 'secret'))
+                {}, instance, injected_files))
         md.assert_called_once_with(instance_md=mi.return_value)
         (md.return_value.__enter__.return_value
          .make_drive.assert_called_once_with(

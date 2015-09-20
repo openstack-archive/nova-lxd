@@ -107,16 +107,15 @@ class LXDContainerOperations(object):
     def create_container(self, context, instance, image_meta, injected_files, admin_password,
                         network_info, block_device_info, rescue, need_vif_plugged):
         if not self.container_client.client('defined', instance=instance.uuid, host=instance.host):
-            container_config = self.container_config.create_container(context, instance, image_meta,
-                                    injected_files, admin_password, network_info,
-                                    block_device_info, rescue)
+            container_config = self.container_config.create_container(instance, injected_files,
+                                        block_device_info, rescue)
 
             eventlet.spawn(self.container_utils.container_init,
                                         container_config,
                                         instance,
                                         instance.host).wait()
 
-        self.start_container(container_config, instance, network_info, need_vif_plugged)
+            self.start_container(container_config, instance, network_info, need_vif_plugged)
 
     def start_container(self, container_config, instance, network_info, need_vif_plugged):
         LOG.debug('Starting instance')

@@ -62,23 +62,13 @@ class LXDContainerConfig(object):
         config.setdefault('devices', {})
         return config
 
-    def create_container(self, context, instance, image_meta, injected_files,
-                         admin_password, network_info, block_device_info, rescue):
+    def create_container(self, instance, injected_files,
+                         block_device_info, rescue):
         LOG.debug('Creating container config')
 
-        container_config = self._create_container_config(context, instance, image_meta,
-                                injected_files, admin_password, network_info,
-                                block_device_info, rescue)
-
-        return container_config
-
-    def _create_container_config(self, context, instance, image_meta, injected_files,
-                                 admin_password, network_info, block_device_info, rescue):
-
-        name = instance.uuid
         # Ensure the directory exists and is writable
         fileutils.ensure_tree(
-            self.container_dir.get_instance_dir(name))
+            self.container_dir.get_instance_dir(instance.uuid))
 
         # Check to see if we are using swap.
         swap = driver.block_device_info_get_swap(block_device_info)
@@ -92,10 +82,12 @@ class LXDContainerConfig(object):
             msg = _('Ephemeral block devices is not supported.')
             raise exception.NovaException(msg)
 
-        name = instance.uuid
         container_config = self._init_container_config()
-        container_config = self.configure_container_config(name,
-                                                           container_config, instance)
+        container_config = self.add_config(container_config, 'name',
+                                           instance.uuid)
+        container_config = self.add_config(container_config, 'profiles',
+                                           [str(CONF.lxd.default_profile)])
+        container_config = self.configure_container_config(container_config, instance)
 
         ''' Create an LXD image '''
         container_config = (
@@ -120,18 +112,13 @@ class LXDContainerConfig(object):
 
         return container_config
 
-    def configure_container_config(self, name, container_config, instance):
+    def configure_container_config(self, container_config, instance):
         LOG.debug('Configure LXD container config')
 
         ''' Set the limits. '''
         flavor = instance.flavor
         mem = flavor.memory_mb * units.Mi
         vcpus = flavor.vcpus
-
-        container_config = self.add_config(container_config, 'name',
-                                           name)
-        container_config = self.add_config(container_config, 'profiles',
-                                           [str(CONF.lxd.default_profile)])
 
         if mem >= 0:
             self.add_config(container_config, 'config', 'limits.memory',
