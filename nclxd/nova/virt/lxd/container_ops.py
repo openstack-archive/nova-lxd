@@ -85,6 +85,10 @@ class LXDContainerOperations(object):
                 'block_device_info': block_device_info})
         LOG.debug(msg, instance=instance)
 
+        if self.container_client.client('defined', 
+            instance=instance.uuid, host=instance.host):
+                raise exception.InstanceExists(name=instance.uuid)
+
         start = time.time()
         try:
             self.container_image.setup_image(context, instance, image_meta)
