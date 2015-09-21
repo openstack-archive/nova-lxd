@@ -126,7 +126,8 @@ class LXDContainerMigrate(object):
         pass
 
     def post_live_migration_at_destination(self, ctxt, instance_ref,
-                                           network_info, block_migration):
+                                           network_info, block_migration,
+                                           block_device_info):
         LOG.debug("post_live_migration_at_destination called",
                   instance=instance_ref)
 

@@ -132,7 +132,7 @@ class LXDContainerUtils(object):
                 LOG.error(_LE('Failed to pause container %(instance)s: %(reason)s'),
                     {'instance': instance.uuid, 'reason': ex}, instance=instance)
 
-    def conatainer_unpause(self, instance_name, instance):
+    def container_unpause(self, instance_name, instance):
         LOG.debug('Container unpause')
         try:
             (state, data) = self.container_client.client('unpause', instance=instance_name,

@@ -237,8 +237,7 @@ class LXDDriver(driver.ComputeDriver):
                                            block_migration=False,
                                            block_device_info=None):
         return self.container_migrate.post_live_migration_at_destination(
-            context, instance, network_info,
-                                                                         block_migration, block_device_info)
+            context, instance, network_info, block_migration, block_device_info)
 
     def check_instance_shared_storage_local(self, context, instance):
         raise NotImplementedError()
