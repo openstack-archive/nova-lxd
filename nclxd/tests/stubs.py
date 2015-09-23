@@ -17,6 +17,8 @@ import mock
 
 from nova import context
 from nova.tests.unit import fake_instance
+from nova.tests.unit import fake_network
+from nova.network import model as network_model
 
 
 class MockConf(mock.Mock):
@@ -90,19 +92,17 @@ def annotated_data(*args):
 
     return lambda func: ddt.data(*new_args)(ddt.unpack(func))
 
-def fake_instance():
-    context = context.RequestContext('fake_user', 'fake_project')
-    self._instance_values = {
+def _fake_instance():
+    ctxt = context.RequestContext('fake_user', 'fake_project')
+    _instance_values = {
         'display_name': 'fake_display_name',
         'name': 'fake_name',
         'uuid': 'fake_uuid',
         'vcpus': 1,
         'memory_mb': 512,
-        'image_ref': 'fake_image',
         'root_gb': 10,
         'host': 'fake_host',
         'expected_attrs': ['system_metadata'],
     }
     return fake_instance.fake_instance_obj(
-        context, **self._instance_values)
-
+        ctxt, **_instance_values)
