@@ -90,10 +90,10 @@ class LXDContainerImage(object):
         self._setup_alias(instance, img_info, image_meta, context)
 
     def _get_lxd_image(self, image_meta):
-        return image_meta['properties'].get('lxd-image-alias', None)
+        return image_meta['properties'].get('lxd_image_alias', None)
 
     def _get_lxd_manifest(self, image_meta):
-        return image_meta['properties'].get('lxd-manifest', None)
+        return image_meta['properties'].get('lxd_manifest', None)
 
     def _image_upload(self, path, filename, split, instance):
         LOG.debug('Uploading Image to LXD.')
