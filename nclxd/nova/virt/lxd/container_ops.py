@@ -98,8 +98,8 @@ class LXDContainerOperations(object):
                                   {'e': ex})
 
         try:
-            self.create_container(context, instance, image_meta, injected_files, admin_password,
-                                  network_info, block_device_info, rescue, need_vif_plugged)
+            self.create_container(instance, injected_files, network_info,
+                                  block_device_info, rescue, need_vif_plugged)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Upload image failed: %(e)s'),
@@ -108,8 +108,8 @@ class LXDContainerOperations(object):
         total = end - start
         LOG.debug('Creation took %s seconds to boot.' % total)
 
-    def create_container(self, context, instance, image_meta, injected_files, admin_password,
-                        network_info, block_device_info, rescue, need_vif_plugged):
+    def create_container(self, instance, injected_files, network_info,
+                         block_device_info, rescue, need_vif_plugged):
         if not self.container_client.client('defined', instance=instance.uuid, host=instance.host):
             container_config = self.container_config.create_container(instance, injected_files,
                                         block_device_info, rescue)
