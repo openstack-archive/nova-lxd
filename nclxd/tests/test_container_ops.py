@@ -23,18 +23,18 @@ from pylxd import exceptions as lxd_exception
 
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_utils
-from nclxd import tests
+from nclxd.tests import stubs
 
 
 @ddt.ddt
-@mock.patch.object(container_ops, 'CONF', tests.MockConf())
-@mock.patch.object(container_utils, 'CONF', tests.MockConf())
+@mock.patch.object(container_ops, 'CONF', stubs.MockConf())
+@mock.patch.object(container_utils, 'CONF', stubs.MockConf())
 class LXDTestContainerOps(test.NoDBTestCase):
 
-    @mock.patch.object(container_utils, 'CONF', tests.MockConf())
+    @mock.patch.object(container_utils, 'CONF', stubs.MockConf())
     def setUp(self):
         super(LXDTestContainerOps, self).setUp()
-        self.ml = tests.lxd_mock()
+        self.ml = stubs.lxd_mock()
         lxd_patcher = mock.patch('pylxd.api.API',
                                  mock.Mock(return_value=self.ml))
         lxd_patcher.start()
@@ -56,7 +56,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
         self.addCleanup(vif_patcher.stop)
 
     def test_rescue_defined(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         self.ml.container_defined.return_value = True
         self.assertRaises(
             exception.InstanceExists,
@@ -68,7 +68,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
     @mock.patch('oslo_utils.fileutils.ensure_tree',
                 mock.Mock(return_value=None))
     def test_create_instance_initfail(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         self.ml.container_init.side_effect = (
             lxd_exception.APIError('Fake', 500))
         self.assertRaises(exception.NovaException,
@@ -79,7 +79,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
                 return_value=None)
     @mock.patch.object(container_ops, 'driver')
     def test_create_instance_swap(self, md, mt):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         block_device_info = mock.Mock()
         md.swap_is_usable.return_value = True
         self.assertRaises(
@@ -98,7 +98,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
         container_ops, 'driver',
         mock.Mock(swap_is_usable=mock.Mock(return_value=False)))
     def test_create_instance_ephemeral(self):
-        instance = tests.MockInstance(ephemeral_gb=1)
+        instance = stubs.MockInstance(ephemeral_gb=1)
         self.assertRaises(
             exception.NovaException,
             self.container_ops.create_instance,
@@ -110,7 +110,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
         container_ops, 'driver',
         mock.Mock(swap_is_usable=mock.Mock(return_value=False)))
     @mock.patch.object(container_ops, 'configdrive')
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('configdrive', False, None, True),
         ('network_info', False, mock.Mock(), False),
         ('rescue', True, None, False),
@@ -121,7 +121,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
     def test_create_instance(self, tag, rescue, network_info,
                              configdrive, mcd):
         context = mock.Mock()
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         block_device_info = mock.Mock()
@@ -159,7 +159,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
                 self.mc.configure_container_rescuedisk.return_value)
 
     @mock.patch.object(container_ops, 'utils')
-    @tests.annotated_data(
+    @stubs.annotated_data(
         {'tag': 'rescue', 'rescue': True, 'is_neutron': False, 'timeout': 0},
         {'tag': 'running', 'running': True, 'is_neutron': False, 'timeout': 0},
         {'tag': 'neutron', 'timeout': 0},
@@ -201,7 +201,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
     def test_start_instance(self, mu, tag='', rescue=False, running=False,
                             is_neutron=True, timeout=10, network_info=[],
                             vifs=(), plug_side_effect=None):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         self.ml.container_running.return_value = running
         self.ml.container_start.return_value = (
             200, {'operation': '/1.0/operations/0123456789'})

@@ -22,15 +22,15 @@ import mock
 
 from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils
-from nclxd import tests
+from nclxd.tests import stubs
 
 
 @ddt.ddt
-@mock.patch.object(container_image, 'CONF', tests.MockConf())
-@mock.patch.object(container_utils, 'CONF', tests.MockConf())
+@mock.patch.object(container_image, 'CONF', stubs.MockConf())
+@mock.patch.object(container_utils, 'CONF', stubs.MockConf())
 class LXDTestContainerImage(test.NoDBTestCase):
 
-    @mock.patch.object(container_utils, 'CONF', tests.MockConf())
+    @mock.patch.object(container_utils, 'CONF', stubs.MockConf())
     def setUp(self):
         super(LXDTestContainerImage, self).setUp()
         self.container_image = container_image.LXDContainerImage()
@@ -41,7 +41,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
         self.addCleanup(alias_patcher.stop)
 
     def test_fetch_image_existing_alias(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         context = {}
         image_meta = {'name': 'alias'}
         self.assertEqual(None,
@@ -54,7 +54,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
     @ddt.data(True, False)
     def test_fetch_image_existing_file(self, base_exists, mt, mo):
         mo.side_effect = [base_exists, True]
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         context = {}
         image_meta = {'name': 'new_image'}
         self.assertEqual(None,
@@ -73,7 +73,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
     @mock.patch('oslo_utils.fileutils.ensure_tree', mock.Mock())
     @mock.patch('oslo_utils.fileutils.remove_path_on_error')
     def test_fetch_image_new_defined(self, mf):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         context = {}
         image_meta = {'name': 'new_image'}
         with (
@@ -95,7 +95,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
     @mock.patch('oslo_utils.fileutils.remove_path_on_error',
                 mock.MagicMock())
     def test_fetch_image_new_upload_failed(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         context = {}
         image_meta = {'name': 'new_image'}
         with (
@@ -118,7 +118,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
     @mock.patch('oslo_utils.fileutils.remove_path_on_error',
                 mock.MagicMock())
     def test_fetch_image_new_alias_failed(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         context = {}
         image_meta = {'name': 'new_image'}
         with (
@@ -143,7 +143,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
     @mock.patch('oslo_utils.fileutils.remove_path_on_error',
                 mock.MagicMock())
     def test_fetch_image_new(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         context = {}
         image_meta = {'name': 'new_image'}
         with (

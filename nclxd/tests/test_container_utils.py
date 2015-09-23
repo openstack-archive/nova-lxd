@@ -20,14 +20,14 @@ from nova import exception
 from nova import test
 
 from nclxd.nova.virt.lxd import container_utils
-from nclxd import tests
+from nclxd.tests import stubs
 
 
 class LXDTestContainerUtils(test.NoDBTestCase):
 
     def setUp(self):
         super(LXDTestContainerUtils, self).setUp()
-        self.ml = tests.lxd_mock()
+        self.ml = stubs.lxd_mock()
         lxd_patcher = mock.patch('pylxd.api.API',
                                  mock.Mock(return_value=self.ml))
         lxd_patcher.start()

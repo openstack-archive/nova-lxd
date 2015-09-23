@@ -21,12 +21,12 @@ from nova import test
 
 from nclxd.nova.virt.lxd import container_config
 from nclxd.nova.virt.lxd import container_utils
-from nclxd import tests
+from nclxd.tests import stubs
 
 
 @ddt.ddt
-@mock.patch.object(container_config, 'CONF', tests.MockConf())
-@mock.patch.object(container_utils, 'CONF', tests.MockConf())
+@mock.patch.object(container_config, 'CONF', stubs.MockConf())
+@mock.patch.object(container_utils, 'CONF', stubs.MockConf())
 class LXDTestContainerConfig(test.NoDBTestCase):
 
     def setUp(self):
@@ -39,12 +39,12 @@ class LXDTestContainerConfig(test.NoDBTestCase):
 
     @mock.patch('nclxd.nova.virt.lxd.container_image'
                 '.LXDContainerImage.setup_image')
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('no_rescue', {}, 'fake-uuid'),
         ('rescue', {'name_label': 'rescued', 'rescue': True}, 'rescued'),
     )
     def test_configure_container(self, tag, kwargs, expected, mf):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         block_device_info = {}
         self.assertEqual(
             {'config': {'raw.lxc':
@@ -59,7 +59,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                                   None, {}, False)))
         mf.assert_called_once_with(instance, inected_files, block_device_info, rescue)
 
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('no_limits', {'memory_mb': -1, 'vcpus': 0},
          {}),
         ('mem_limit', {'memory_mb': 2048, 'vcpus': 0},
@@ -74,7 +74,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     @mock.patch('os.mkdir',
                         mock.Mock(return_value=None))
     def test_configure_container_config(self, tag, flavor, expected):
-        instance = tests.MockInstance(**flavor)
+        instance = stubs.MockInstance(**flavor)
         config = {'raw.lxc': 'lxc.console.logfile=/fake/lxd/root/containers/'
                              'fake-uuid/console.log\n'}
         config.update(expected)
@@ -84,7 +84,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                                                              instance))
 
     def test_configure_network_devices(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         network_info = (
             {
                 'id': '0123456789abcdef',
@@ -113,7 +113,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                 {}, instance, network_info))
 
     def test_configure_container_rescuedisk(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         self.assertEqual({
             'devices':
             {'rescue': {'path': 'mnt',
@@ -124,7 +124,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                 {}, instance))
 
     def test_configure_container_configdrive_wrong_format(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         with mock.patch.object(container_config.CONF, 'config_drive_format',
                                new='fake-format'):
             self.assertRaises(
@@ -146,7 +146,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     @mock.patch('nova.api.metadata.base.InstanceMetadata')
     @mock.patch('nova.virt.configdrive.ConfigDriveBuilder')
     def test_configure_container_configdrive_fail_dir(self, md, mi):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         injected_files = mock.Mock()
         self.assertRaises(
             AttributeError,
@@ -162,7 +162,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     @mock.patch('nova.api.metadata.base.InstanceMetadata')
     @mock.patch('nova.virt.configdrive.ConfigDriveBuilder')
     def test_configure_container_configdrive(self, md, mi):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         injected_files = mock.Mock()
         self.assertEqual(
             {'devices': {'configdrive':

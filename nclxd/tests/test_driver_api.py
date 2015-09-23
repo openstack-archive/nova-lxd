@@ -38,7 +38,7 @@ from nclxd.nova.virt.lxd import container_snapshot
 from nclxd.nova.virt.lxd import container_utils
 from nclxd.nova.virt.lxd import driver
 from nclxd.nova.virt.lxd import host
-from nclxd import tests
+from nclxd.tests import stubs
 
 
 class LXDTestConfig(test.NoDBTestCase):
@@ -52,16 +52,16 @@ class LXDTestConfig(test.NoDBTestCase):
 
 
 @ddt.ddt
-@mock.patch.object(container_ops, 'CONF', tests.MockConf())
-@mock.patch.object(container_utils, 'CONF', tests.MockConf())
-@mock.patch.object(driver, 'CONF', tests.MockConf())
-@mock.patch.object(host, 'CONF', tests.MockConf())
+@mock.patch.object(container_ops, 'CONF', stubs.MockConf())
+@mock.patch.object(container_utils, 'CONF', stubs.MockConf())
+@mock.patch.object(driver, 'CONF', stubs.MockConf())
+@mock.patch.object(host, 'CONF', stubs.MockConf())
 class LXDTestDriver(test.NoDBTestCase):
 
-    @mock.patch.object(driver, 'CONF', tests.MockConf())
+    @mock.patch.object(driver, 'CONF', stubs.MockConf())
     def setUp(self):
         super(LXDTestDriver, self).setUp()
-        self.ml = tests.lxd_mock()
+        self.ml = stubs.lxd_mock()
         lxd_patcher = mock.patch('pylxd.api.API',
                                  mock.Mock(return_value=self.ml))
         lxd_patcher.start()
@@ -90,7 +90,7 @@ class LXDTestDriver(test.NoDBTestCase):
         self.ml.profile_create.assert_called_once_with(
             {'name': 'fake_profile'})
 
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('profile_fail', {'profile_list.side_effect':
                           lxd_exceptions.APIError('Fake', 500)}),
         ('no_ping', {'host_ping.return_value': False}),
@@ -105,7 +105,7 @@ class LXDTestDriver(test.NoDBTestCase):
             None
         )
 
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('RUNNING', power_state.RUNNING),
         ('STOPPED', power_state.SHUTDOWN),
         ('STARTING', power_state.NOSTATE),
@@ -120,19 +120,19 @@ class LXDTestDriver(test.NoDBTestCase):
         (lxd_exceptions.APIError('Fake', 500), power_state.NOSTATE),
     )
     def test_get_info(self, side_effect, expected):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         self.ml.container_state.side_effect = [side_effect]
         self.assertEqual(hardware.InstanceInfo(state=expected, num_cpu=2),
                          self.connection.get_info(instance))
 
-    @tests.annotated_data(
+    @stubs.annotated_data(
         (True, 'mock-instance-1'),
         (False, 'fake-instance'),
     )
     def test_instance_exists(self, expected, name):
         self.assertEqual(
             expected,
-            self.connection.instance_exists(tests.MockInstance(name=name)))
+            self.connection.instance_exists(stubs.MockInstance(name=name)))
 
     def test_estimate_instance_overhead(self):
         self.assertEqual(
@@ -151,12 +151,12 @@ class LXDTestDriver(test.NoDBTestCase):
             self.connection.list_instances
         )
 
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('exists', [True], exception.InstanceExists),
         ('fail', lxd_exceptions.APIError('Fake', 500), exception.NovaException)
     )
     def test_spawn_defined(self, tag, side_effect, expected):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         self.ml.container_defined.side_effect = side_effect
         self.assertRaises(
             expected,
@@ -164,13 +164,13 @@ class LXDTestDriver(test.NoDBTestCase):
             {}, instance, {}, [], 'secret')
         self.ml.container_defined.called_once_with('mock_instance')
 
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('undefined', False),
         ('404', lxd_exceptions.APIError('Not found', 404)),
     )
     def test_spawn_new(self, tag, side_effect):
         context = mock.Mock()
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         network_info = mock.Mock()
@@ -188,7 +188,7 @@ class LXDTestDriver(test.NoDBTestCase):
                 network_info, block_device_info, None, False)
 
     def test_destroy_fail(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         self.ml.container_destroy.side_effect = (
             lxd_exceptions.APIError('Fake', 500))
         self.assertRaises(
@@ -198,13 +198,13 @@ class LXDTestDriver(test.NoDBTestCase):
         self.ml.container_destroy.assert_called_with('fake-uuid')
 
     @mock.patch('shutil.rmtree')
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('ack', (202, {}), False),
         ('ack-rmtree', (202, {}), True),
         ('not-found', lxd_exceptions.APIError('Not found', 404), False),
     )
     def test_destroy(self, tag, side_effect, exists, mr):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         self.ml.container_destroy.side_effect = [side_effect]
         with mock.patch('os.path.exists', return_value=exists):
             self.assertEqual(
@@ -221,7 +221,7 @@ class LXDTestDriver(test.NoDBTestCase):
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('shutil.rmtree')
     def test_cleanup(self, mr):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         self.assertEqual(
             None,
             self.connection.cleanup({}, instance, [], [], None, None, None))
@@ -233,7 +233,7 @@ class LXDTestDriver(test.NoDBTestCase):
     @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
     @mock.patch('os.getuid', mock.Mock())
     def test_get_console_output(self, me, mo):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         mo.return_value.__enter__.return_value = six.BytesIO(b'fake contents')
         self.assertEqual(b'fake contents',
                          self.connection.get_console_output({}, instance))
@@ -248,7 +248,7 @@ class LXDTestDriver(test.NoDBTestCase):
         self.assertEqual(calls, me.call_args_list)
 
     @mock.patch.object(host.compute_utils, 'get_machine_ips')
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('found', ['1.2.3.4']),
         ('not-found', ['4.3.2.1']),
     )
@@ -257,7 +257,7 @@ class LXDTestDriver(test.NoDBTestCase):
         self.assertEqual('1.2.3.4', self.connection.get_host_ip_addr())
 
     @mock.patch('six.moves.builtins.open')
-    @tests.annotated_data(
+    @stubs.annotated_data(
         {'tag': 'single-if',
          'net': 'Head\nHead\n\neth0:\n',
          'expected_if': 'eth1',
@@ -286,7 +286,7 @@ class LXDTestDriver(test.NoDBTestCase):
     def test_attach_interface(self, mo, tag, net='', config={},
                               info={'init': 1}, firewall_setup=None,
                               update=None, expected_if='', success=True):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         vif = {
             'id': '0123456789abcdef',
             'address': '00:11:22:33:44:55',
@@ -327,7 +327,7 @@ class LXDTestDriver(test.NoDBTestCase):
                         'nictype': 'bridged'}}})
 
     def test_detach_interface_fail(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         vif = mock.Mock()
         with mock.patch.object(self.connection.container_ops,
                                'vif_driver') as mv:
@@ -338,12 +338,12 @@ class LXDTestDriver(test.NoDBTestCase):
                 self.connection.detach_interface,
                 instance, vif)
 
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('ok', True),
         ('nova-exc', exception.NovaException),
     )
     def test_detach_interface(self, tag, side_effect):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         vif = mock.Mock()
         with mock.patch.object(self.connection.container_ops,
                                'vif_driver') as mv:
@@ -355,12 +355,12 @@ class LXDTestDriver(test.NoDBTestCase):
             mv.unplug.assert_called_once_with(instance, vif)
 
     @mock.patch.object(container_snapshot, 'IMAGE_API')
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('export-fail', lxd_exceptions.APIError('Fake', 500), None),
         ('update-fail', None, exception.NovaException),
     )
     def test_snapshot_fail(self, tag, export_effect, update_effect, mi):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         mi.get.return_value = {'name': 'mock_snapshot'}
         self.ml.container_snapshot_create.return_value = (
             200, {'operation': '/1.0/operations/0123456789'})
@@ -379,7 +379,7 @@ class LXDTestDriver(test.NoDBTestCase):
     @mock.patch.object(container_snapshot, 'IMAGE_API')
     def test_snapshot(self, mi):
         context = mock.Mock()
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         image_id = 'mock_image'
 
         mi.get.return_value = {'name': 'mock_snapshot'}
@@ -429,7 +429,7 @@ class LXDTestDriver(test.NoDBTestCase):
         self.assertEqual(calls, manager.method_calls)
 
     def test_rescue_fail(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         self.ml.container_defined.return_value = True
         self.assertRaises(exception.NovaException,
                           self.connection.rescue,
@@ -437,7 +437,7 @@ class LXDTestDriver(test.NoDBTestCase):
 
     def test_rescue(self):
         context = mock.Mock()
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         image_meta = mock.Mock()
         network_info = mock.Mock()
         self.ml.container_defined.return_value = False
@@ -460,7 +460,7 @@ class LXDTestDriver(test.NoDBTestCase):
             self.assertEqual(calls, mgr.method_calls)
 
     def test_container_unrescue(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         network_info = mock.Mock()
         self.assertEqual(None,
                          self.connection.unrescue(instance,
@@ -540,21 +540,21 @@ class LXDTestDriver(test.NoDBTestCase):
     # methods that simply proxy some arguments through
     simple_methods = (
         ('reboot', 'container_reboot',
-         ({}, tests.MockInstance(), [], None, None, None),
+         ({}, stubs.MockInstance(), [], None, None, None),
          ('fake-uuid',)),
         ('pause', 'container_freeze',
-         (tests.MockInstance(),),
+         (stubs.MockInstance(),),
          ('fake-uuid', 20)),
         ('power_off', 'container_stop',
-         (tests.MockInstance(),),
+         (stubs.MockInstance(),),
          ('fake-uuid', 20)),
         ('power_on', 'container_start',
-         ({}, tests.MockInstance(), []),
+         ({}, stubs.MockInstance(), []),
          ('fake-uuid', 20),
          False),
     )
 
-    @tests.annotated_data(*simple_methods)
+    @stubs.annotated_data(*simple_methods)
     def test_simple_fail(self, name, lxd_name, args, call_args,
                          ignore_404=True):
         call = getattr(self.connection, name)
@@ -565,7 +565,7 @@ class LXDTestDriver(test.NoDBTestCase):
             call, *args)
         lxd_call.assert_called_once_with(*call_args)
 
-    @tests.annotated_data(*simple_methods)
+    @stubs.annotated_data(*simple_methods)
     def test_simple_notfound(self, name, lxd_name, args, call_args,
                              ignore_404=True):
         call = getattr(self.connection, name)
@@ -581,7 +581,7 @@ class LXDTestDriver(test.NoDBTestCase):
                 call, *args)
         lxd_call.assert_called_once_with(*call_args)
 
-    @tests.annotated_data(*simple_methods)
+    @stubs.annotated_data(*simple_methods)
     def test_simple(self, name, lxd_name, args, call_args, ignore_404=True):
         call = getattr(self.connection, name)
         lxd_call = getattr(self.ml, lxd_name)
@@ -590,7 +590,7 @@ class LXDTestDriver(test.NoDBTestCase):
             call(*args))
         lxd_call.assert_called_once_with(*call_args)
 
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('refresh_security_group_rules', (mock.Mock(),)),
         ('refresh_security_group_members', (mock.Mock(),)),
         ('refresh_provider_fw_rules',),
@@ -622,7 +622,7 @@ class LXDTestDriver(test.NoDBTestCase):
             ['mock_hostname'], self.connection.get_available_nodes())
 
     @mock.patch('socket.gethostname', mock.Mock(return_value='mock_hostname'))
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('mock_hostname', True),
         ('wrong_hostname', False),
     )
@@ -700,7 +700,7 @@ class LXDTestDriverNoops(test.NoDBTestCase):
             None,
             call(*([None] * (len(argspec.args) - 1))))
 
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('deallocate_networks_on_reschedule', False),
         ('macs_for_instance', None),
         ('get_per_instance_usage', {}),

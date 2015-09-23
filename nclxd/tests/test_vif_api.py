@@ -24,7 +24,7 @@ from nova.network import model as network_model
 from nova import test
 
 from nclxd.nova.virt.lxd import vif
-from nclxd import tests
+from nclxd.tests import stubs
 
 
 @ddt.ddt
@@ -57,14 +57,14 @@ class LXDTestOVSDriver(test.NoDBTestCase):
         self.mgr.attach_mock(me, 'ex')
 
     def test_nonetype(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         vif_data = {'type': None}
         self.assertRaises(
             exception.NovaException,
             self.vif_driver.plug,
             instance, vif_data)
 
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('id', {}, [True, True]),
         ('ovs-id', {'ovs_interfaceid': '123456789abcdef0'}, [True, True]),
         ('no-bridge', {}, [False, True]),
@@ -72,7 +72,7 @@ class LXDTestOVSDriver(test.NoDBTestCase):
         ('no-bridge-or-v2', {}, [False, False]),
     )
     def test_plug(self, tag, vif_data, exists):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         vif_data = copy.deepcopy(self.vif_data)
         vif_data.update(vif_data)
         self.mgr.net.device_exists.side_effect = exists
@@ -111,7 +111,7 @@ class LXDTestOVSDriver(test.NoDBTestCase):
         self.assertEqual(calls, self.mgr.method_calls)
 
     def test_unplug_fail(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         vif_data = copy.deepcopy(self.vif_data)
         self.mgr.net.device_exists.side_effect = (
             processutils.ProcessExecutionError)
@@ -119,7 +119,7 @@ class LXDTestOVSDriver(test.NoDBTestCase):
             None,
             self.vif_driver.unplug(instance, vif_data))
 
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('id', {}, [True, True]),
         ('ovs-id', {'ovs_interfaceid': '123456789abcdef0'}, [True, True]),
         ('no-bridge', {}, [False, True]),
@@ -127,7 +127,7 @@ class LXDTestOVSDriver(test.NoDBTestCase):
         ('no-bridge-or-v2', {}, [False, False]),
     )
     def test_unplug(self, tag, vif_data, exists):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         vif = copy.deepcopy(self.vif_data)
         self.mgr.net.device_exists.side_effect = exists
         self.assertEqual(
@@ -155,7 +155,7 @@ class LXDTestOVSDriver(test.NoDBTestCase):
 
 
 @ddt.ddt
-@mock.patch.object(vif, 'CONF', tests.MockConf())
+@mock.patch.object(vif, 'CONF', stubs.MockConf())
 class LXDTestBridgeDriver(test.NoDBTestCase):
 
     vif_data = {
@@ -176,7 +176,7 @@ class LXDTestBridgeDriver(test.NoDBTestCase):
         net_patcher.start()
         self.addCleanup(net_patcher.stop)
 
-    @tests.annotated_data(
+    @stubs.annotated_data(
         ('multi', {'multi_host': True}, False, None),
         ('bridge', {'should_create_bridge': True}, False, 'flatif'),
         ('vlan', {'should_create_vlan': True}, False, None),
@@ -197,7 +197,7 @@ class LXDTestBridgeDriver(test.NoDBTestCase):
     )
     def test_plug(self, tag, meta, vlan, iface,
                   flatif='flatif', vlanif='vlanif'):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         vif_data = copy.deepcopy(self.vif_data)
         vif_data['network']['meta'].update(meta)
         vif_data['network'] = network_model.Model(vif_data['network'])
@@ -217,6 +217,6 @@ class LXDTestBridgeDriver(test.NoDBTestCase):
                 self.assertFalse(self.mn.called)
 
     def test_unplug(self):
-        instance = tests.MockInstance()
+        instance = stubs.MockInstance()
         self.assertEqual(None,
                          self.vif_driver.unplug(instance, self.vif_data))
