@@ -14,5 +14,6 @@ oslotest>=1.10.0 # Apache-2.0
 testrepository>=0.0.18
 testscenarios>=0.4
 testtools>=1.4.0
+os-testr
 -e git+https://github.com/lxc/pylxd#egg=pylxd
 -e git+https://github.com/openstack/nova#egg=nova
