@@ -39,7 +39,10 @@ class LXDContainerClient(object):
 
     def client(self, func, *args, **kwargs):
         try:
-            lxd_client = api.API(host=kwargs['host'])
+            if CONF.host == kwargs['host']:
+                lxd_client = api.API()
+            else:
+                lxd_client = api.API(host=kwargs['host'])
         except lxd_exceptions.APIError as ex:
             msg = _('Unable to connect to %s %s') % (kwargs['host'],
                                                     ex)
