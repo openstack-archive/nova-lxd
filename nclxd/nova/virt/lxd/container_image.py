@@ -21,6 +21,7 @@ import uuid
 from nova import exception
 from nova import i18n
 from nova import image
+from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import fileutils
@@ -42,55 +43,54 @@ class LXDContainerImage(object):
     def __init__(self):
         self.container_client = container_client.LXDContainerClient()
         self.container_dir = container_utils.LXDContainerDirectories()
+        self.lock_path = str(os.path.join(CONF.instances_path, 'locks'))
 
     def setup_image(self, context, instance, image_meta):
         LOG.debug('Fetching image info from glance')
 
-        if self.container_client.client('alias_defined',
-                                        instance=instance.image_ref,
-                                        host=instance.node):
-            return
+        with lockutils.lock(self.lock_path,
+                            lock_file_prefix=('lxd-image-%s' %
+                                              instance.image_ref),
+                            external=True):
 
-        lxd_image = self._get_lxd_image(image_meta)
-        if lxd_image is not None:
-            return
-
-        base_dir = self.container_dir.get_base_dir()
-        if not os.path.exists(base_dir):
-            fileutils.ensure_tree(base_dir)
-
-        container_rootfs_img = (
-            self.container_dir.get_container_rootfs_image(
-                image_meta))
-        if os.path.exists(container_rootfs_img):
-            return
-
-        IMAGE_API.download(
-            context, instance.image_ref, dest_path=container_rootfs_img)
-        lxd_image_manifest = self._get_lxd_manifest(image_meta)
-        if lxd_image_manifest is not None:
-            container_manifest_img = (
-                self.container_dir.get_container_manifest_image(
-                    image_meta))
-            if os.path.exists(container_manifest_img):
+            if self.container_client.client('alias_defined',
+                                            instance=instance.image_ref,
+                                            host=instance.node):
                 return
 
-            IMAGE_API.download(context, lxd_image_manifest,
-                               dest_path=container_manifest_img)
-            img_info = self._image_upload(
-                (container_manifest_img, container_rootfs_img),
-                           container_manifest_img.split('/')[-1], False,
-                           instance)
-        else:
-            img_info = self._image_upload(container_rootfs_img,
-                                          container_rootfs_img.split(
-                                              "/")[-1], True,
-                                          instance)
+            base_dir = self.container_dir.get_base_dir()
+            if not os.path.exists(base_dir):
+                fileutils.ensure_tree(base_dir)
 
-        self._setup_alias(instance, img_info, image_meta, context)
+            container_rootfs_img = (
+                self.container_dir.get_container_rootfs_image(
+                    image_meta))
+            if os.path.exists(container_rootfs_img):
+                os.remove(container_rootfs_img)
 
-    def _get_lxd_image(self, image_meta):
-        return image_meta['properties'].get('lxd_image_alias', None)
+            IMAGE_API.download(
+                context, instance.image_ref, dest_path=container_rootfs_img)
+            lxd_image_manifest = self._get_lxd_manifest(image_meta)
+            if lxd_image_manifest is not None:
+                container_manifest_img = (
+                    self.container_dir.get_container_manifest_image(
+                        image_meta))
+                if os.path.exists(container_manifest_img):
+                    os.remove(container_manifest_img)
+
+                IMAGE_API.download(context, lxd_image_manifest,
+                                   dest_path=container_manifest_img)
+                img_info = self._image_upload(
+                    (container_manifest_img, container_rootfs_img),
+                               container_manifest_img.split('/')[-1], False,
+                               instance)
+            else:
+                img_info = self._image_upload(container_rootfs_img,
+                                              container_rootfs_img.split(
+                                                  "/")[-1], True,
+                                              instance)
+
+            self._setup_alias(instance, img_info, image_meta, context)
 
     def _get_lxd_manifest(self, image_meta):
         return image_meta['properties'].get('lxd_manifest', None)
