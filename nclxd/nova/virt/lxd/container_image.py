@@ -164,14 +164,3 @@ class LXDContainerImage(object):
             raise exception.ImageUnacceptable(
                 image_id=instance.image_ref,
                 reason=_('Image already exists: %s' % ex))
-
-        image_meta = {
-            'properties': {
-                'lxd-image-alias': instance.image_ref,
-                'lxd-manifest': self._get_lxd_manifest(image_meta)
-            }
-        }
-
-        IMAGE_API.update(context,
-                         instance.image_ref,
-                         image_meta)
