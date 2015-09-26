@@ -55,8 +55,6 @@ class LXDGenericDriver(object):
                 ("qvo%s" % iface_id)[:network_model.NIC_NAME_LEN])
 
     def get_firewall_required(self, vif):
-        if vif.is_neutron_filtering_enabled():
-            return False
         if CONF.firewall_driver != "nova.virt.firewall.NoopFirewallDriver":
             return True
         return False
@@ -97,7 +95,7 @@ class LXDGenericDriver(object):
         return conf
 
     def get_config_ovs(self, instance, vif):
-        if self.get_firewall_required(vif) or vif.is_hybrid_plug_enabled():
+        if self.get_firewall_required(vif):
             return self.get_config_ovs_hybrid(instance, vif)
         else:
             return self.get_config_ovs_bridge(instance, vif)

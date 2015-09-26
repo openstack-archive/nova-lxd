@@ -53,6 +53,7 @@ class MockInstance(mock.Mock):
             image_ref=image_ref,
             ephemeral_gb=ephemeral_gb,
             *args, **kwargs)
+        self.uuid = uuid
         self.name = name
         self.flavor = mock.Mock(memory_mb=memory_mb, vcpus=vcpus)
 
@@ -92,7 +93,7 @@ def annotated_data(*args):
 
 
 def _fake_instance():
-    ctxt = context.RequestContext('fake_user', 'fake_project')
+    ctxt = context.get_admin_context()
     _instance_values = {
         'display_name': 'fake_display_name',
         'name': 'fake_name',

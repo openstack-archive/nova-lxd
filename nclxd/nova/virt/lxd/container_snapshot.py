@@ -103,9 +103,7 @@ class LXDSnapshot(object):
         LOG.debug('Uploading image to glance')
         image_metadata = {'name': snapshot['name'],
                           "disk_format": "raw",
-                          "container_format": "bare",
-                          "properties": {
-                              'lxd-image-alias': fingerprint}}
+                          "container_format": "bare"}
         try:
             data = self.client.client('image_export',
                                       fingerprint=fingerprint,

@@ -77,11 +77,11 @@ class LXDContainerUtils(object):
                         '%(reason)s'), {'instance': instance.uuid,
                                         'reason': ex})
 
-    def container_reboot(self, instance_name, instance):
+    def container_reboot(self, instance):
         LOG.debug('Container reboot')
         try:
             (state, data) = self.client.client('reboot',
-                                               instance=instance_name,
+                                               instance=instance.uuid,
                                                host=instance.host)
             self.client.client('wait',
                                oid=data.get(

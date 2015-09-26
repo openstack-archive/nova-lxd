@@ -154,7 +154,7 @@ class LXDContainerOperations(object):
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
         LOG.debug('container reboot')
-        return self.container_utils.container_reboot(instance.uuid, instance)
+        return self.container_utils.container_reboot(instance)
 
     def plug_vifs(self, container_config, instance, network_info,
                   need_vif_plugged):
@@ -200,7 +200,8 @@ class LXDContainerOperations(object):
         LOG.debug('Container rescue')
         if not self.container_client.client('defined', instance=instance.uuid,
                                             host=instance.host):
-            return
+            msg = _('Unable to find instance')
+            raise exception.NovaException(msg)
 
         self.container_utils.container_stop(instance.uuid, instance)
         self._container_local_copy(instance)
