@@ -43,11 +43,9 @@ class LXDContainerUtils(object):
         try:
             (state, data) = self.client.client('start', instance=instance_name,
                                                host=instance.host)
-            timer = loopingcall.FixedIntervalLoopingCall(
-                self._wait_for_state,
-                data.get('operation').split('/')[3],
-                instance, power_state.RUNNING)
-            timer.start(interval=CONF.lxd.retry_interval).wait()
+            self.client.client('wait',
+                               oid=data.get('operation').split('/')[3],
+                               host=instance.host)
             LOG.info(_LI('Succesfully started instance %s'),
                      instance.uuid, instance=instance)
         except Exception as ex:

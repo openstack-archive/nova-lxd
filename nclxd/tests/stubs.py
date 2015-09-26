@@ -31,6 +31,7 @@ class MockConf(mock.Mock):
             'vlan_interface': 'vlanif',
             'flat_interface': 'flatif',
         }
+
         default.update(kwargs)
         super(MockConf, self).__init__(*args, **default)
 
@@ -38,6 +39,7 @@ class MockConf(mock.Mock):
             'default_profile': 'fake_profile',
             'root_dir': '/fake/lxd/root',
             'timeout': 20,
+            'retry_interval': 2
         }
         lxd_default.update(lxd_kwargs)
         self.lxd = mock.Mock(lxd_args, **lxd_default)
