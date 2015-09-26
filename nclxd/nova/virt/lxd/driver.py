@@ -14,20 +14,18 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import socket
-
 from nova import i18n
 from nova.virt import driver
-from nova import utils
+import socket
 
 from oslo_config import cfg
 from oslo_log import log as logging
 
 
 from nclxd.nova.virt.lxd import container_firewall
+from nclxd.nova.virt.lxd import container_migrate
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_snapshot
-from nclxd.nova.virt.lxd import container_migrate
 from nclxd.nova.virt.lxd import host
 
 _ = i18n._
@@ -47,7 +45,8 @@ lxd_opts = [
                help='Default LXD Port'),
     cfg.IntOpt('retry_interval',
                default=2,
-               help='How often to retry in seconds when a request does conflict'),
+               help='How often to retry in seconds when a'
+                    'request does conflict'),
 ]
 
 CONF = cfg.CONF
@@ -159,8 +158,8 @@ class LXDDriver(driver.ComputeDriver):
                                    timeout=0, retry_interval=0):
         return self.container_migrate.migrate_disk_and_power_off(
             context, instance, dest, flavor,
-                                                                 network_info, block_device_info, timeout,
-                                                                 retry_interval)
+            network_info, block_device_info, timeout,
+            retry_interval)
 
     def snapshot(self, context, instance, image_id, update_task_state):
         return self.container_snapshot.snapshot(context, instance, image_id,
@@ -174,11 +173,13 @@ class LXDDriver(driver.ComputeDriver):
                          block_device_info=None, power_on=True):
         return self.container_migrate.finish_migration(
             context, migration, instance, disk_info,
-                                                       network_info, image_meta, resize_instance,
-                                                       block_device_info, power_on)
+            network_info, image_meta, resize_instance,
+            block_device_info, power_on)
 
     def confirm_migration(self, migration, instance, network_info):
-        return self.container_migrate.confirm_migration(migration, instance, network_info)
+        return self.container_migrate.confirm_migration(migration,
+                                                        instance,
+                                                        network_info)
 
     def pause(self, instance):
         return self.container_ops.pause(instance)
@@ -190,7 +191,8 @@ class LXDDriver(driver.ComputeDriver):
         return self.container_ops.suspend(context, instance)
 
     def resume(self, context, instance, network_info, block_device_info=None):
-        return self.container_ops.resume(context, instance, network_info, block_device_info)
+        return self.container_ops.resume(context, instance, network_info,
+                                         block_device_info)
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
@@ -219,25 +221,29 @@ class LXDDriver(driver.ComputeDriver):
                            network_info, disk_info, migrate_data=None):
         return self.container_migrate.pre_live_migration(
             context, instance, block_device_info,
-                                                         network_info)
+            network_info)
 
     def live_migration(self, context, instance, dest,
                        post_method, recover_method, block_migration=False,
                        migrate_data=None):
         return self.container_migrate.live_migration(context, instance, dest,
-                                                     post_method, recover_method, block_migration,
+                                                     post_method,
+                                                     recover_method,
+                                                     block_migration,
                                                      migrate_data)
 
     def post_live_migration(self, context, instance, block_device_info,
                             migrate_data=None):
-        return self.container_migrate.post_live_migration(context, instance, block_device_info)
+        return self.container_migrate.post_live_migration(context, instance,
+                                                          block_device_info)
 
     def post_live_migration_at_destination(self, context, instance,
                                            network_info,
                                            block_migration=False,
                                            block_device_info=None):
         return self.container_migrate.post_live_migration_at_destination(
-            context, instance, network_info, block_migration, block_device_info)
+            context, instance, network_info, block_migration,
+            block_device_info)
 
     def check_instance_shared_storage_local(self, context, instance):
         raise NotImplementedError()

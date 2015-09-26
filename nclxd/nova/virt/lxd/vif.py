@@ -125,24 +125,22 @@ class LXDGenericDriver(object):
         if (not network.get_meta('multi_host', False) and
                 network.get_meta('should_create_bridge', False)):
             if network.get_meta('should_create_vlan', False):
-                iface = CONF.vlan_interface or \
-                    network.get_meta('bridge_interface')
+                iface = (CONF.vlan_interface or
+                         network.get_meta('bridge_interface'))
                 LOG.debug('Ensuring vlan %(vlan)s and bridge %(bridge)s',
                           {'vlan': network.get_meta('vlan'),
                            'bridge': self.get_bridge_name(vif)},
                           instance=instance)
                 linux_net.LinuxBridgeInterfaceDriver.ensure_vlan_bridge(
                     network.get_meta('vlan'),
-                            self.get_bridge_name(vif),
-                            iface)
+                    self.get_bridge_name(vif), iface)
         else:
-            iface = CONF.flat_interface or \
-                network.get_meta('bridge_interface')
+            iface = (CONF.flat_interface or
+                     network.get_meta('bridge_interface'))
             LOG.debug("Ensuring bridge %s",
                       self.get_bridge_name(vif), instance=instance)
             linux_net.LinuxBridgeInterfaceDriver.ensure_bridge(
-                self.get_bridge_name(vif),
-                                iface)
+                self.get_bridge_name(vif), iface)
 
     def plug_ovs(self, instance, vif):
         if self.get_firewall_required(vif) or vif.is_hybrid_plug_enabled():

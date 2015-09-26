@@ -13,23 +13,21 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-
-import hashlib
-import os
-import uuid
-
 from nova import exception
 from nova import i18n
 from nova import image
+import os
+from pylxd import api
+from pylxd import exceptions as lxd_exceptions
+import uuid
+
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import fileutils
-from pylxd import api
-from pylxd import exceptions as lxd_exceptions
 
-from nclxd.nova.virt.lxd import container_utils
 from nclxd.nova.virt.lxd import container_client
+from nclxd.nova.virt.lxd import container_utils
 
 _ = i18n._
 
@@ -39,7 +37,6 @@ IMAGE_API = image.API()
 
 
 class LXDContainerImage(object):
-
     def __init__(self):
         self.container_client = container_client.LXDContainerClient()
         self.container_dir = container_utils.LXDContainerDirectories()
@@ -82,8 +79,8 @@ class LXDContainerImage(object):
                                    dest_path=container_manifest_img)
                 img_info = self._image_upload(
                     (container_manifest_img, container_rootfs_img),
-                               container_manifest_img.split('/')[-1], False,
-                               instance)
+                    container_manifest_img.split('/')[-1], False,
+                    instance)
             else:
                 img_info = self._image_upload(container_rootfs_img,
                                               container_rootfs_img.split(
@@ -109,7 +106,7 @@ class LXDContainerImage(object):
             except lxd_exceptions as ex:
                 raise exception.ImageUnacceptable(
                     image_id=instance.image_ref,
-                    reason=_('Failed to upload image: %s' % ex))
+                    reason=_('Failed to upload image: %s') % ex)
         else:
             meta_path, rootfs_path = path
             boundary = str(uuid.uuid1())
@@ -136,8 +133,8 @@ class LXDContainerImage(object):
                 else:
                     body += entry.encode() + b"\r\n"
 
-            headers['Content-Type'] = "multipart/form-data; boundary=%s" \
-                % boundary
+            headers['Content-Type'] = ("multipart/form-data; boundary=%s"
+                                       % boundary)
 
             try:
                 status, data = lxd.image_upload(data=body,
@@ -145,7 +142,7 @@ class LXDContainerImage(object):
             except lxd_exceptions as ex:
                 raise exception.ImageUnacceptable(
                     image_id=instance.image_ref,
-                    reason=_('Failed to upload image: %s' % ex))
+                    reason=_('Failed to upload image: %s') % ex)
 
         return data
 
@@ -163,4 +160,4 @@ class LXDContainerImage(object):
         except lxd_exceptions.APIError as ex:
             raise exception.ImageUnacceptable(
                 image_id=instance.image_ref,
-                reason=_('Image already exists: %s' % ex))
+                reason=_('Image already exists: %s') % ex)

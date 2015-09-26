@@ -14,14 +14,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from nova.compute import power_state
 from nova import exception
 from nova import i18n
-from nova.compute import power_state
-from oslo_config import cfg
-from oslo_log import log as logging
-
 from pylxd import api
 from pylxd import exceptions as lxd_exceptions
+
+from oslo_config import cfg
+from oslo_log import log as logging
 
 from nclxd.nova.virt.lxd import constants
 
@@ -44,8 +44,9 @@ class LXDContainerClient(object):
             else:
                 lxd_client = api.API(host=kwargs['host'])
         except lxd_exceptions.APIError as ex:
-            msg = _('Unable to connect to %s %s') % (kwargs['host'],
-                                                    ex)
+            msg = (_('Unable to connect to %(host)s %(reason)s')
+                   % {'host': kwargs['host'],
+                      'reason': ex})
             raise exception.NovaException(msg)
         func = getattr(self, "container_%s" % func)
         return func(lxd_client, **kwargs)
@@ -127,7 +128,7 @@ class LXDContainerClient(object):
         try:
             (state, data) = lxd.container_state(kwargs['instance'])
             state = constants.LXD_POWER_STATES[data['metadata']['status_code']]
-        except lxd_exceptions.APIError as ex:
+        except lxd_exceptions.APIError:
             state = power_state.NOSTATE
         return state
 
@@ -248,8 +249,8 @@ class LXDContainerClient(object):
         LOG.debug('REST API = container local move')
         try:
             return lxd.container_local_move(
-                    kwargs['instance'],
-                    kwargs['container_config'])
+                kwargs['instance'],
+                kwargs['container_config'])
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to migrate container: %s') % ex
             raise exception.NovaException(msg)

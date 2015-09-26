@@ -17,8 +17,6 @@ import mock
 
 from nova import context
 from nova.tests.unit import fake_instance
-from nova.tests.unit import fake_network
-from nova.network import model as network_model
 
 
 class MockConf(mock.Mock):
@@ -91,6 +89,7 @@ def annotated_data(*args):
         new_args.append(new_arg)
 
     return lambda func: ddt.data(*new_args)(ddt.unpack(func))
+
 
 def _fake_instance():
     ctxt = context.RequestContext('fake_user', 'fake_project')

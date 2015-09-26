@@ -18,9 +18,6 @@
 #    under the License.
 
 
-import os
-import platform
-
 from nova.compute import arch
 from nova.compute import hv_type
 from nova.compute import utils as compute_utils
@@ -28,13 +25,16 @@ from nova.compute import vm_mode
 from nova import exception
 from nova import i18n
 from nova import utils
+import os
+import platform
+from pylxd import api
+from pylxd import exceptions as lxd_exceptions
+
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import units
 import psutil
-from pylxd import api
-from pylxd import exceptions as lxd_exceptions
 
 _ = i18n._
 _LW = i18n._LW
