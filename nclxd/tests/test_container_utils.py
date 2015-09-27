@@ -14,13 +14,7 @@
 #    under the License.
 
 
-import mock
-
-from nova import exception
 from nova import test
-
-from nclxd.nova.virt.lxd import container_utils
-from nclxd.tests import stubs
 
 
 class LXDTestContainerUtils(test.NoDBTestCase):
