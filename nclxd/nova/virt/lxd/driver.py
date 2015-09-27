@@ -14,6 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from __future__ import absolute_import
+
 from nova import i18n
 from nova.virt import driver
 import socket
@@ -22,7 +24,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 
-from nclxd.nova.virt.lxd import container_firewall
+import container_firewall
 from nclxd.nova.virt.lxd import container_migrate
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_snapshot
