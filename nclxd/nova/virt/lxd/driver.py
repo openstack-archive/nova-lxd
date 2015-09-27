@@ -24,7 +24,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 
-import container_firewall
+from nclxd.nova.virt.lxd import container_firewall
 from nclxd.nova.virt.lxd import container_migrate
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_snapshot
