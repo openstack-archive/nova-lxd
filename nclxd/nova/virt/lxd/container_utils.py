@@ -14,24 +14,16 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from nova.compute import power_state
+from nova import i18n
 import os
 
-import time
-
-from eventlet import greenthread
-
+import container_client
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_service import loopingcall
 from oslo_utils import excutils
 
-from nova import exception
-from nova import i18n
-from nova.compute import power_state
-from nova.compute import task_states
-from nova.compute import vm_states
-
-import container_client
 
 _ = i18n._
 _LE = i18n._LE
@@ -43,199 +35,225 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDContainerUtils(object):
-
     def __init__(self):
-        self.container_client = container_client.LXDContainerClient()
+        self.client = container_client.LXDContainerClient()
 
     def container_start(self, instance_name, instance):
         LOG.debug('Container start')
         try:
-            (state, data) = self.container_client.client('start', instance=instance_name,
-                                                             host=instance.host)
-            timer = loopingcall.FixedIntervalLoopingCall(
-                     self._wait_for_state,
-                     data.get('operation').split('/')[3],
-                     instance, power_state.RUNNING)
-            timer.start(interval=CONF.lxd.retry_interval).wait()
+            (state, data) = self.client.client('start', instance=instance_name,
+                                               host=instance.host)
+            self.client.client('wait',
+                               oid=data.get('operation').split('/')[3],
+                               host=instance.host)
             LOG.info(_LI('Succesfully started instance %s'),
-                instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to start container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid, 'reason': ex}, instance=instance)
+                LOG.error(
+                    _LE('Failed to start container %(instance)s: %(reason)s'),
+                    {'instance': instance.uuid, 'reason': ex},
+                    instance=instance)
 
     def container_stop(self, instance_name, instance):
         LOG.debug('Container stop')
         try:
-            (state, data) = self.container_client.client('stop', instance=instance_name,
-                                                             host=instance.host)
+            (state, data) = (self.client.client('stop',
+                                                instance=instance_name,
+                                                host=instance.host))
             timer = loopingcall.FixedIntervalLoopingCall(
-                        self._wait_for_state,
-                        data.get('operation').split('/')[3],
-                        instance, power_state.SHUTDOWN)
+                self._wait_for_state,
+                data.get('operation').split('/')[3],
+                instance, power_state.SHUTDOWN)
             timer.start(interval=CONF.lxd.retry_interval).wait()
             LOG.info(_LI('Succesfully stopped container %s'),
                      instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to stop container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid, 'reason': ex})
+                LOG.error(
+                    _LE('Failed to stop container %(instance)s: '
+                        '%(reason)s'), {'instance': instance.uuid,
+                                        'reason': ex})
 
-    def container_reboot(self, instance_name,  instance):
+    def container_reboot(self, instance):
         LOG.debug('Container reboot')
         try:
-            (state, data) = self.container_client.client('reboot', instance=instance_name,
-                                                          host=instance.host)
-            self.container_client.client('wait',
-                        oid=data.get('operation').split('/')[3],
-                        host=instance.host)
+            (state, data) = self.client.client('reboot',
+                                               instance=instance.uuid,
+                                               host=instance.host)
+            self.client.client('wait',
+                               oid=data.get(
+                                   'operation').split('/')[3],
+                               host=instance.host)
             LOG.info(_LI('Succesfully rebooted container %s'),
                      instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to reboot container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid, 'reason': ex}, instance=instance)
+                LOG.error(
+                    _LE('Failed to reboot container %(instance)s: '
+                        '%(reason)s'), {'instance': instance.uuid,
+                                        'reason': ex}, instance=instance)
 
     def container_destroy(self, instance_name, host):
         LOG.debug('Container destroy')
         try:
-            if not self.container_client.client('defined', instance=instance_name,
-                                            host=host):
+            if not self.client.client(
+                    'defined', instance=instance_name,
+                    host=host):
                 return
 
-            (state, data) = self.container_client.client('destroy', instance=instance_name,
-                                                        host=host)
-            self.container_client.client('wait',
-                        oid=data.get('operation').split('/')[3],
-                        host=host)
+            (state, data) = self.client.client('destroy',
+                                               instance=instance_name,
+                                               host=host)
+            self.client.client('wait',
+                               oid=data.get(
+                                   'operation').split('/')[3],
+                               host=host)
             LOG.info(_LI('Succesfully destroyed container %s'),
                      instance_name)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to destroy container %(instance)s: %(reason)s'),
-                    {'instance': instance_name, 'reason': ex})
+                LOG.error(_LE('Failed to destroy container %(instance)s: '
+                              '%(reason)s'), {'instance': instance_name,
+                                              'reason': ex})
 
     def container_pause(self, instance_name, instance):
         LOG.debug('Container pause')
         try:
-            (state, data) = self.container_client.client('pause', instance=instance_name,
-                                                         host=instance.host)
+            (state, data) = self.client.client('pause', instance=instance_name,
+                                               host=instance.host)
             timer = loopingcall.FixedIntervalLoopingCall(
-                        self._wait_for_state,
-                        data.get('operation').split('/')[3],
-                        instance, power_state.SUSPENDED)
+                self._wait_for_state,
+                data.get('operation').split('/')[3],
+                instance, power_state.SUSPENDED)
             timer.start(interval=CONF.lxd.retry_interval).wait()
             LOG.info(_LI('Succesfully paused container %s'),
                      instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to pause container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid, 'reason': ex}, instance=instance)
+                LOG.error(
+                    _LE('Failed to pause container %(instance)s: '
+                        '%(reason)s'),
+                    {'instance': instance.uuid,
+                     'reason': ex}, instance=instance)
 
     def container_unpause(self, instance_name, instance):
         LOG.debug('Container unpause')
         try:
-            (state, data) = self.container_client.client('unpause', instance=instance_name,
-                                                         host=instance.host)
+            (state, data) = self.client.client('unpause',
+                                               instance=instance_name,
+                                               host=instance.host)
             timer = loopingcall.FixedIntervalLoopingCall(
-                        self._wait_for_state,
-                        data.get('operation').split('/')[3],
-                        instance, power_state.RUNNING)
+                self._wait_for_state,
+                data.get('operation').split('/')[3],
+                instance, power_state.RUNNING)
             timer.start(interval=CONF.lxd.retry_interval).wait()
             LOG.info(_LI('Succesfully resumed container %s'),
-                    instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to unpause container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid, 'reason': ex})
+                LOG.error(
+                    _LE('Failed to unpause container %(instance)s: '
+                        '%(reason)s'), {'instance': instance.uuid,
+                                        'reason': ex})
 
-    def container_snapshot(self, container_snapshot, instance):
+    def container_snapshot(self, snapshot, instance):
         try:
-            (state, data) = self.container_client.client('snapshot_create',
-                                                         instance=instance.uuid,
-                                                         container_snapshot=container_snapshot,
-                                                         host=instance.host)
+            (state, data) = self.client.client('snapshot_create',
+                                               instance=instance.uuid,
+                                               container_snapshot=snapshot,
+                                               host=instance.host)
             operation_id = data.get('operation').split('/')[3]
-            self.container_client.client('wait', oid=operation_id,
-                            host=instance.host)
+            self.client.client('wait', oid=operation_id,
+                               host=instance.host)
             LOG.info(_LI('Succesfully snapshotted container %s'),
-                 instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to rename container %(instance)s: %(reason)s'),
-                          {'instance': instance.uuid, 'reason': ex}, instance=instance)
+                LOG.error(
+                    _LE('Failed to rename container %(instance)s: %(reason)s'),
+                    {'instance': instance.uuid,
+                     'reason': ex}, instance=instance)
 
-    def container_copy(self, container_config, instance):
+    def container_copy(self, config, instance):
         LOG.debug('Copying container')
         try:
-            (state, data) = self.container_client.client('local_copy',
-                                                         container_config=container_config,
-                                                         host=instance.host)
+            (state, data) = self.client.client('local_copy',
+                                               container_config=config,
+                                               host=instance.host)
             operation_id = data.get('operation').split('/')[3]
-            self.container_client.client('wait', oid=operation_id,
-                            host=instance.host)
+            self.client.client('wait', oid=operation_id,
+                               host=instance.host)
             LOG.info(_LI('Succesfully copied container %s'),
-                instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to rename container %(instance): %(reason)s'),
-                          {'instance': instance.uuid, 'reason': ex})
+                LOG.error(
+                    _LE('Failed to rename container %(instance): %(reason)s'),
+                    {'instance': instance.uuid,
+                     'reason': ex})
 
-    def container_move(self, old_name, container_config, instance):
+    def container_move(self, old_name, config, instance):
         LOG.debug('Renaming container')
         try:
-            (state, data) = self.container_client.client('local_move',
-                                                         instance=old_name,
-                                                         container_config=container_config,
-                                                         host=instance.host)
+            (state, data) = (self.client.client('local_move',
+                                                instance=old_name,
+                                                container_config=config,
+                                                host=instance.host))
             operation_id = data.get('operation').split('/')[3]
-            self.container_client.client('wait', oid=operation_id,
-                            host=instance.host)
+            self.client.client('wait', oid=operation_id,
+                               host=instance.host)
             LOG.info(_LI('Succesfully renamed container %s'),
-                instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to rename container %(instance)s: %(reason)s'),
-                          {'instance': instance.uuid, 'reason': ex}, instance=instance)
+                LOG.error(
+                    _LE('Failed to rename container %(instance)s: %(reason)s'),
+                    {'instance': instance.uuid,
+                     'reason': ex}, instance=instance)
 
     def container_migrate(self, instance_name, instance):
         LOG.debug('Migrate contianer')
         try:
-            return self.container_client.client('migrate',
-                                instance=instance_name,
-                                host=instance.host)
+            return self.client.client('migrate',
+                                      instance=instance_name,
+                                      host=instance.host)
             LOG.info(_LI('Succesfully migrated container %s'),
-                instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to rename container %(instance): %(reason)s'),
-                          {'instance': instance_name, 'reason': ex}, instance=instance)
+                LOG.error(
+                    _LE('Failed to rename container %(instance): %(reason)s'),
+                    {'instance': instance_name,
+                     'reason': ex}, instance=instance)
 
-    def container_init(self, container_config, instance, host):
+    def container_init(self, config, instance, host):
         LOG.debug('Initializing container')
         try:
-            (state, data) = self.container_client.client('init',
-                                    container_config=container_config,
-                                    host=host)
+            (state, data) = self.client.client('init',
+                                               container_config=config,
+                                               host=host)
             operation_id = data.get('operation').split('/')[3]
-            self.container_client.client('wait',
-                    oid=operation_id,
-                    host=host)
+            self.client.client('wait',
+                               oid=operation_id,
+                               host=host)
             LOG.info(_LI('Succesfully created container %s'),
-                instance.uuid, instance=instance)
+                     instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to create container %(instance)s: %(reason)s'),
-                          {'instance': instance.uuid, 'reason': ex}, instance=instance)
+                LOG.error(
+                    _LE('Failed to create container %(instance)s: %(reason)s'),
+                    {'instance': instance.uuid,
+                     'reason': ex}, instance=instance)
 
     def _wait_for_state(self, operation_id, instance, power_state, host=None):
         if not host:
             host = instance.host
 
         instance.refresh()
-        (state, data) = self.container_client.client('operation_info',
-                                oid=operation_id,
-                                host=host)
+        (state, data) = self.client.client('operation_info',
+                                           oid=operation_id,
+                                           host=host)
         status_code = data['metadata']['status_code']
         if status_code in [200, 202]:
             LOG.debug('')
@@ -246,11 +264,11 @@ class LXDContainerUtils(object):
         if status_code == 400:
             LOG.debug('Initialize conainer')
             instance.power_state = power_state
-            instnace.save()
+            instance.save()
             raise loopingcall.LoopingCallDone()
 
-class LXDContainerDirectories(object):
 
+class LXDContainerDirectories(object):
     def __init__(self):
         self.base_dir = os.path.join(CONF.instances_path,
                                      CONF.image_cache_subdirectory_name)

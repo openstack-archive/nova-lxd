@@ -17,8 +17,6 @@ import mock
 
 from nova import context
 from nova.tests.unit import fake_instance
-from nova.tests.unit import fake_network
-from nova.network import model as network_model
 
 
 class MockConf(mock.Mock):
@@ -33,6 +31,7 @@ class MockConf(mock.Mock):
             'vlan_interface': 'vlanif',
             'flat_interface': 'flatif',
         }
+
         default.update(kwargs)
         super(MockConf, self).__init__(*args, **default)
 
@@ -40,6 +39,7 @@ class MockConf(mock.Mock):
             'default_profile': 'fake_profile',
             'root_dir': '/fake/lxd/root',
             'timeout': 20,
+            'retry_interval': 2
         }
         lxd_default.update(lxd_kwargs)
         self.lxd = mock.Mock(lxd_args, **lxd_default)
@@ -55,6 +55,7 @@ class MockInstance(mock.Mock):
             image_ref=image_ref,
             ephemeral_gb=ephemeral_gb,
             *args, **kwargs)
+        self.uuid = uuid
         self.name = name
         self.flavor = mock.Mock(memory_mb=memory_mb, vcpus=vcpus)
 
@@ -92,8 +93,9 @@ def annotated_data(*args):
 
     return lambda func: ddt.data(*new_args)(ddt.unpack(func))
 
+
 def _fake_instance():
-    ctxt = context.RequestContext('fake_user', 'fake_project')
+    ctxt = context.get_admin_context()
     _instance_values = {
         'display_name': 'fake_display_name',
         'name': 'fake_name',

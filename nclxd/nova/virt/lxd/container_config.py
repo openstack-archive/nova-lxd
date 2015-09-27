@@ -15,17 +15,13 @@
 #    under the License.
 
 import collections
-import pprint
-
-import eventlet
-import time
-
 from nova.api.metadata import base as instance_metadata
 from nova import exception
 from nova import i18n
 from nova.virt import configdrive
 from nova.virt import driver
-from nova import utils
+import pprint
+
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -87,7 +83,8 @@ class LXDContainerConfig(object):
                                            instance.uuid)
         container_config = self.add_config(container_config, 'profiles',
                                            [str(CONF.lxd.default_profile)])
-        container_config = self.configure_container_config(container_config, instance)
+        container_config = self.configure_container_config(container_config,
+                                                           instance)
 
         ''' Create an LXD image '''
         container_config = (
@@ -152,16 +149,16 @@ class LXDContainerConfig(object):
         cfg = self.vif_driver.get_config(instance,
                                          network_info)
 
-        container_network_devices = self.add_config(container_config,
-                                                    'devices', cfg['bridge'],
-                                                    data={'nictype': 'bridged',
-                                                          'hwaddr': cfg['mac_address'],
-                                                          'parent': cfg['bridge'],
-                                                          'type': 'nic'})
+        network_devices = self.add_config(container_config,
+                                          'devices', cfg['bridge'],
+                                          data={'nictype': 'bridged',
+                                                'hwaddr': cfg['mac_address'],
+                                                'parent': cfg['bridge'],
+                                                'type': 'nic'})
 
         LOG.debug(pprint.pprint(container_config))
         self.container_client.client('update', instance=instance.uuid,
-                                     container_config=container_network_devices,
+                                     container_config=network_devices,
                                      host=instance.host)
 
         return container_config
@@ -237,23 +234,26 @@ class LXDContainerConfig(object):
         container_config = self.get_container_config(instance)
 
         container_config = self.add_config(container_config, 'source',
-                    self.configure_lxd_ws(container_config, container_ws))
+                                           self.configure_lxd_ws(
+                                               container_config,
+                                               container_ws))
 
         return container_config
 
     def configure_lxd_ws(self, container_config, container_ws):
-        container_url = 'wss://%s:8443/1.0/operations/%s/websocket' \
-                % (CONF.my_ip, container_ws['operation'])
-        container_config = self.add_config(container_config, 'source',
-                         {'base-image': '',
-                          "mode": "pull",
-                          "operation": container_url,
-                          "secrets": {
-                            "control": container_ws['control'],
-                            "fs": container_ws['fs']
-                          },
-                          "type": "migration"
-                          })
+        container_url = ('wss://%s:8443/1.0/operations/%s/websocket'
+                         % (CONF.my_ip, container_ws['operation']))
+        container_migrate = {'base-image': '',
+                             "mode": "pull",
+                             "operation": container_url,
+                             "secrets": {
+                                 "control": container_ws['control'],
+                                 "fs": container_ws['fs']
+                             },
+                             "type": "migration"}
+
+        container_config = (self.add_config(container_config, 'source',
+                                            container_migrate))
         return container_config
 
     def get_container_config(self, instance):

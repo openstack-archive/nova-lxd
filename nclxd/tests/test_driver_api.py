@@ -13,9 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import contextlib
 import inspect
 import json
-from nova.compute import arch
 import os
 from pylxd import exceptions as lxd_exceptions
 
@@ -24,15 +24,16 @@ import mock
 from oslo_config import cfg
 import six
 
+from nova.compute import arch
 from nova.compute import hv_type
 from nova.compute import power_state
-from nova.compute import task_states
 from nova.compute import vm_mode
 from nova import exception
 from nova import test
 from nova.virt import fake
 from nova.virt import hardware
 
+from nclxd.nova.virt.lxd import container_client
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_snapshot
 from nclxd.nova.virt.lxd import container_utils
@@ -42,7 +43,6 @@ from nclxd.tests import stubs
 
 
 class LXDTestConfig(test.NoDBTestCase):
-
     def test_config(self):
         self.assertIsInstance(driver.CONF.lxd, cfg.ConfigOpts.GroupAttr)
         self.assertEqual(os.path.abspath('/var/lib/lxd'),
@@ -57,7 +57,6 @@ class LXDTestConfig(test.NoDBTestCase):
 @mock.patch.object(driver, 'CONF', stubs.MockConf())
 @mock.patch.object(host, 'CONF', stubs.MockConf())
 class LXDTestDriver(test.NoDBTestCase):
-
     @mock.patch.object(driver, 'CONF', stubs.MockConf())
     def setUp(self):
         super(LXDTestDriver, self).setUp()
@@ -72,7 +71,7 @@ class LXDTestDriver(test.NoDBTestCase):
     def test_capabilities(self):
         self.assertFalse(self.connection.capabilities['has_imagecache'])
         self.assertFalse(self.connection.capabilities['supports_recreate'])
-        self.assertFalse(
+        self.assertTrue(
             self.connection.capabilities['supports_migrate_to_same_host'])
 
     def test_init_host(self):
@@ -91,11 +90,13 @@ class LXDTestDriver(test.NoDBTestCase):
             {'name': 'fake_profile'})
 
     @stubs.annotated_data(
-        ('profile_fail', {'profile_list.side_effect':
-                          lxd_exceptions.APIError('Fake', 500)}),
+        ('profile_fail', {'profile_list.side_effect': (lxd_exceptions.
+                                                       APIError('Fake',
+                                                                500))}),
         ('no_ping', {'host_ping.return_value': False}),
-        ('ping_fail', {'host_ping.side_effect':
-                       lxd_exceptions.APIError('Fake', 500)}),
+        ('ping_fail', {'host_ping.side_effect': (lxd_exceptions.
+                                                 APIError('Fake',
+                                                          500))}),
     )
     def test_init_host_fail(self, tag, config):
         self.ml.configure_mock(**config)
@@ -106,24 +107,21 @@ class LXDTestDriver(test.NoDBTestCase):
         )
 
     @stubs.annotated_data(
-        ('RUNNING', power_state.RUNNING),
-        ('STOPPED', power_state.SHUTDOWN),
-        ('STARTING', power_state.NOSTATE),
-        ('STOPPING', power_state.SHUTDOWN),
-        ('ABORTING', power_state.CRASHED),
-        ('FREEZING', power_state.PAUSED),
-        ('FROZEN', power_state.SUSPENDED),
-        ('THAWED', power_state.PAUSED),
-        ('PENDING', power_state.NOSTATE),
-        ('Success', power_state.RUNNING),
-        ('UNKNOWN', power_state.NOSTATE),
-        (lxd_exceptions.APIError('Fake', 500), power_state.NOSTATE),
+        ('running', 200, power_state.RUNNING),
+        ('shutdown', 102, power_state.SHUTDOWN),
+        ('crashed', 108, power_state.CRASHED),
+        ('suspend', 109, power_state.SUSPENDED),
+        ('no_state', 401, power_state.NOSTATE),
     )
-    def test_get_info(self, side_effect, expected):
-        instance = stubs.MockInstance()
-        self.ml.container_state.side_effect = [side_effect]
-        self.assertEqual(hardware.InstanceInfo(state=expected, num_cpu=2),
-                         self.connection.get_info(instance))
+    def test_get_info(self, tag, side_effect, expected):
+        instance = stubs._fake_instance()
+        with mock.patch.object(container_client.LXDContainerClient,
+                               "client",
+                               ) as state:
+            state.return_value = side_effect
+            info = self.connection.get_info(instance)
+            self.assertEqual(dir(hardware.InstanceInfo(state=expected,
+                                                       num_cpu=2)), dir(info))
 
     @stubs.annotated_data(
         (True, 'mock-instance-1'),
@@ -168,7 +166,8 @@ class LXDTestDriver(test.NoDBTestCase):
         ('undefined', False),
         ('404', lxd_exceptions.APIError('Not found', 404)),
     )
-    def test_spawn_new(self, tag, side_effect):
+    @mock.patch('oslo_concurrency.lockutils.lock')
+    def test_spawn_new(self, tag, side_effect, mc):
         context = mock.Mock()
         instance = stubs.MockInstance()
         image_meta = mock.Mock()
@@ -176,16 +175,17 @@ class LXDTestDriver(test.NoDBTestCase):
         network_info = mock.Mock()
         block_device_info = mock.Mock()
         self.ml.container_defined.side_effect = [side_effect]
-        with mock.patch.object(self.connection.container_ops,
-                               'create_instance') as mc:
-            self.assertEqual(
-                None,
-                self.connection.spawn(
-                    context, instance, image_meta, injected_files, 'secret',
-                    network_info, block_device_info))
-            mc.assert_called_once_with(
-                context, instance, image_meta, injected_files, 'secret',
-                network_info, block_device_info, None, False)
+
+        with contextlib.nested(
+                mock.patch.object(self.connection.container_ops,
+                                  'create_container'),
+        ) as (
+                create_container
+        ):
+            self.connection.spawn(context, instance, image_meta,
+                                  injected_files, None, network_info,
+                                  block_device_info)
+            self.assertTrue(create_container)
 
     def test_destroy_fail(self):
         instance = stubs.MockInstance()
@@ -197,26 +197,21 @@ class LXDTestDriver(test.NoDBTestCase):
             {}, instance, [])
         self.ml.container_destroy.assert_called_with('fake-uuid')
 
-    @mock.patch('shutil.rmtree')
-    @stubs.annotated_data(
-        ('ack', (202, {}), False),
-        ('ack-rmtree', (202, {}), True),
-        ('not-found', lxd_exceptions.APIError('Not found', 404), False),
-    )
-    def test_destroy(self, tag, side_effect, exists, mr):
-        instance = stubs.MockInstance()
-        self.ml.container_destroy.side_effect = [side_effect]
-        with mock.patch('os.path.exists', return_value=exists):
-            self.assertEqual(
-                None,
-                self.connection.destroy({}, instance, [])
-            )
-            self.ml.container_destroy.assert_called_once_with('fake-uuid')
-            if exists:
-                mr.assert_called_once_with(
-                    '/fake/instances/path/fake-uuid')
-            else:
-                self.assertFalse(mr.called)
+    def test_destroy(self):
+        instance = stubs._fake_instance()
+        context = mock.Mock()
+        network_info = mock.Mock()
+        with contextlib.nested(
+                mock.patch.object(container_utils.LXDContainerUtils,
+                                  'container_destroy'),
+                mock.patch.object(self.connection, 'cleanup')
+        ) as (
+                container_destroy,
+                cleanup,
+        ):
+            self.connection.destroy(context, instance, network_info)
+            self.assertTrue(container_destroy)
+            self.assertTrue(cleanup)
 
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('shutil.rmtree')
@@ -232,6 +227,7 @@ class LXDTestDriver(test.NoDBTestCase):
     @mock.patch.object(container_ops.utils, 'execute')
     @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
     @mock.patch('os.getuid', mock.Mock())
+    @mock.patch('os.path.exists', mock.Mock(return_value=True))
     def test_get_console_output(self, me, mo):
         instance = stubs.MockInstance()
         mo.return_value.__enter__.return_value = six.BytesIO(b'fake contents')
@@ -262,10 +258,6 @@ class LXDTestDriver(test.NoDBTestCase):
          'net': 'Head\nHead\n\neth0:\n',
          'expected_if': 'eth1',
          'config': {'config': {}, 'devices': {}}},
-        {'tag': 'multi-if',
-         'net': 'Head\nHead\nbr0:\neth0:\neth1:\neth2:\n',
-         'expected_if': 'eth2',
-         'config': {'config': {}, 'devices': {}}},
         {'tag': 'firewall-fail',
          'firewall_setup': exception.NovaException,
          'success': False},
@@ -288,6 +280,7 @@ class LXDTestDriver(test.NoDBTestCase):
                               update=None, expected_if='', success=True):
         instance = stubs.MockInstance()
         vif = {
+            'type': 'ovs',
             'id': '0123456789abcdef',
             'address': '00:11:22:33:44:55',
         }
@@ -297,8 +290,9 @@ class LXDTestDriver(test.NoDBTestCase):
         mo.return_value = six.moves.cStringIO(net)
         with mock.patch.object(self.connection.container_ops,
                                'vif_driver') as mv, (
-            mock.patch.object((self.connection.container_ops
-                               .firewall_driver), 'firewall_driver')) as mf:
+                mock.patch.object((self.connection.container_ops
+                                   .firewall_driver), 'firewall_driver')) \
+                as mf:
             manager = mock.Mock()
             manager.attach_mock(mv, 'vif_driver')
             manager.attach_mock(mf, 'firewall')
@@ -317,14 +311,14 @@ class LXDTestDriver(test.NoDBTestCase):
         if success or update is not None:
             self.ml.container_update.assert_called_once_with(
                 'fake-uuid',
-                {'config': {},
-                 'devices': {
-                    'qbr0123456789a': {
-                        'hwaddr': '00:11:22:33:44:55',
-                        'type': 'nic',
-                        'name': expected_if,
-                        'parent': 'qbr0123456789a',
-                        'nictype': 'bridged'}}})
+                {'profiles': ['nclxd-profile'],
+                 'devices': {'qbr0123456789a': {'nictype': 'bridged',
+                                                'hwaddr': '00:11:22:33:44:55',
+                                                'name': 'eth1',
+                                                'parent': 'qbr0123456789a',
+                                                'type': 'nic'}},
+                 'name': 'fake-uuid',
+                 'config': {}})
 
     def test_detach_interface_fail(self):
         instance = stubs.MockInstance()
@@ -402,82 +396,79 @@ class LXDTestDriver(test.NoDBTestCase):
                 context, instance, image_id, manager.update)
         )
         calls = [
-            mock.call.update(task_state=task_states.IMAGE_PENDING_UPLOAD),
+            mock.call.update(task_state='image_pending_upload'),
             mock.call.image.get(context, 'mock_image'),
             mock.call.lxd.container_snapshot_create(
                 'fake-uuid',
-                {'name': 'mock_snapshot', 'stateful': False}),
-            mock.call.lxd.wait_container_operation('0123456789', 200, 20),
-            mock.call.lxd.container_stop('fake-uuid', 20),
-            mock.call.lxd.wait_container_operation('1234567890', 200, 20),
-            mock.call.lxd.container_publish(
-                {'source': {'name': 'fake-uuid/mock_snapshot',
-                            'type': 'snapshot'}}),
+                {'name': 'mock_snapshot',
+                 'stateful': False}),
+            mock.call.lxd.wait_container_operation('0123456789', 200, -1),
+            mock.call.lxd.container_stop('fake-uuid', 5),
+            mock.call.lxd.wait_container_operation('1234567890', 200, -1),
+            mock.call.lxd.container_publish({'source': {'name': 'fake-uuid/'
+                                                                'mock_'
+                                                                'snapshot',
+                                                        'type': 'snapshot'}}),
             mock.call.lxd.alias_create(
-                {'name': 'mock_snapshot', 'target': 'abcdef0123456789'}),
+                {'name': 'mock_snapshot',
+                 'target': 'abcdef0123456789'}),
             mock.call.lxd.image_export('abcdef0123456789'),
-            mock.call.image.update(
-                context, 'mock_image',
-                {'name': 'mock_snapshot', 'disk_format': 'raw',
-                 'container_format': 'bare', 'properties': {}},
-                self.ml.image_export.return_value),
-            mock.call.update(task_state=task_states.IMAGE_UPLOADING,
-                             expected_state=task_states.IMAGE_PENDING_UPLOAD),
-            mock.call.lxd.container_start('fake-uuid', 20),
-            mock.call.lxd.wait_container_operation('2345678901', 200, 20),
+            mock.call.image.update(context,
+                                   'mock_image',
+                                   {'name': 'mock_snapshot',
+                                    'container_format': 'bare',
+                                    'disk_format': 'raw'},
+                                   self.ml.image_export.return_value),
+            mock.call.update(expected_state='image_pending_upload',
+                             task_state='image_uploading'),
+            mock.call.lxd.container_start('fake-uuid', 5)
         ]
         self.assertEqual(calls, manager.method_calls)
-
-    def test_rescue_fail(self):
-        instance = stubs.MockInstance()
-        self.ml.container_defined.return_value = True
-        self.assertRaises(exception.NovaException,
-                          self.connection.rescue,
-                          {}, instance, [], {}, 'secret')
 
     def test_rescue(self):
         context = mock.Mock()
         instance = stubs.MockInstance()
         image_meta = mock.Mock()
         network_info = mock.Mock()
-        self.ml.container_defined.return_value = False
-        with mock.patch.object(self.connection.container_ops, 'spawn') as ms:
-            mgr = mock.Mock()
-            mgr.attach_mock(ms, 'spawn')
-            mgr.attach_mock(self.ml.container_stop, 'stop')
-            self.assertEqual(None,
-                             self.connection.rescue(context,
-                                                    instance,
-                                                    network_info,
-                                                    image_meta,
-                                                    'secret'))
-            calls = [
-                mock.call.stop('fake-uuid', 20),
-                mock.call.spawn(
-                    context, instance, image_meta, [], 'secret', network_info,
-                    name_label='fake-uuid-rescue', rescue=True)
-            ]
-            self.assertEqual(calls, mgr.method_calls)
+        self.ml.container_defined.return_value = True
+        with contextlib.nested(
+                mock.patch.object(container_utils.LXDContainerUtils,
+                                  'container_stop'),
+                mock.patch.object(self.connection.container_ops,
+                                  '_container_local_copy'),
+                mock.patch.object(container_utils.LXDContainerUtils,
+                                  'container_destroy'),
+                mock.patch.object(self.connection.container_ops,
+                                  'spawn')
+
+        ) as (
+                container_stop,
+                container_local_copy,
+                container_destroy,
+                spawn
+        ):
+            self.connection.rescue(context, instance, network_info,
+                                   image_meta, 'secret')
+            self.assertTrue(container_stop)
+            self.assertTrue(container_local_copy)
+            self.assertTrue(container_destroy)
+            self.assertTrue(spawn)
 
     def test_container_unrescue(self):
         instance = stubs.MockInstance()
         network_info = mock.Mock()
-        self.assertEqual(None,
-                         self.connection.unrescue(instance,
-                                                  network_info))
-        calls = [
-            mock.call.container_start('fake-uuid', 20),
-            mock.call.container_destroy('fake-uuid-rescue')
-        ]
-        self.assertEqual(calls, self.ml.method_calls)
-
-    @mock.patch.object(container_ops.utils, 'execute',
-                       mock.Mock(return_value=('', True)))
-    def test_get_available_resource_fail(self):
-        self.assertRaises(
-            exception.NovaException,
-            self.connection.get_available_resource,
-            None)
+        with contextlib.nested(
+                mock.patch.object(container_utils.LXDContainerUtils,
+                                  'container_move'),
+                mock.patch.object(container_utils.LXDContainerUtils,
+                                  'container_destroy')
+        ) as (
+                container_move,
+                container_destroy
+        ):
+            self.connection.unrescue(instance, network_info)
+            self.assertTrue(container_move)
+            self.assertTrue(container_destroy)
 
     @mock.patch('platform.node', mock.Mock(return_value='fake_hostname'))
     @mock.patch('os.statvfs', return_value=mock.Mock(f_blocks=131072000,
@@ -537,58 +528,44 @@ class LXDTestDriver(test.NoDBTestCase):
                          mo.call_args_list)
         ms.assert_called_once_with('/fake/lxd/root')
 
-    # methods that simply proxy some arguments through
-    simple_methods = (
-        ('reboot', 'container_reboot',
-         ({}, stubs.MockInstance(), [], None, None, None),
-         ('fake-uuid',)),
-        ('pause', 'container_freeze',
-         (stubs.MockInstance(),),
-         ('fake-uuid', 20)),
-        ('power_off', 'container_stop',
-         (stubs.MockInstance(),),
-         ('fake-uuid', 20)),
-        ('power_on', 'container_start',
-         ({}, stubs.MockInstance(), []),
-         ('fake-uuid', 20),
-         False),
-    )
+    def test_container_reboot(self):
+        instance = stubs._fake_instance()
+        context = mock.Mock()
+        network_info = mock.Mock()
+        reboot_type = 'SOFT'
+        with contextlib.nested(
+                mock.patch.object(self.connection.container_ops,
+                                  'reboot')
+        ) as (
+                reboot
+        ):
+            self.connection.reboot(context, instance,
+                                   network_info, reboot_type)
+            self.assertTrue(reboot)
 
-    @stubs.annotated_data(*simple_methods)
-    def test_simple_fail(self, name, lxd_name, args, call_args,
-                         ignore_404=True):
-        call = getattr(self.connection, name)
-        lxd_call = getattr(self.ml, lxd_name)
-        lxd_call.side_effect = lxd_exceptions.APIError('Fake', 500)
-        self.assertRaises(
-            exception.NovaException,
-            call, *args)
-        lxd_call.assert_called_once_with(*call_args)
+    def test_container_power_off(self):
+        instance = stubs._fake_instance()
+        with contextlib.nested(
+                mock.patch.object(self.connection.container_ops,
+                                  'power_off')
+        ) as (
+                power_off
+        ):
+            self.connection.power_off(instance)
+            self.assertTrue(power_off)
 
-    @stubs.annotated_data(*simple_methods)
-    def test_simple_notfound(self, name, lxd_name, args, call_args,
-                             ignore_404=True):
-        call = getattr(self.connection, name)
-        lxd_call = getattr(self.ml, lxd_name)
-        lxd_call.side_effect = lxd_exceptions.APIError('Fake', 404)
-        if ignore_404:
-            self.assertEqual(
-                None,
-                call(*args))
-        else:
-            self.assertRaises(
-                exception.NovaException,
-                call, *args)
-        lxd_call.assert_called_once_with(*call_args)
-
-    @stubs.annotated_data(*simple_methods)
-    def test_simple(self, name, lxd_name, args, call_args, ignore_404=True):
-        call = getattr(self.connection, name)
-        lxd_call = getattr(self.ml, lxd_name)
-        self.assertEqual(
-            lxd_call.return_value,
-            call(*args))
-        lxd_call.assert_called_once_with(*call_args)
+    def test_container_power_on(self):
+        context = mock.Mock()
+        instance = stubs._fake_instance()
+        network_info = mock.Mock()
+        with contextlib.nested(
+                mock.patch.object(self.connection.container_ops,
+                                  'power_on')
+        ) as (
+                power_on
+        ):
+            self.connection.power_on(context, instance, network_info)
+            self.assertTrue(power_on)
 
     @stubs.annotated_data(
         ('refresh_security_group_rules', (mock.Mock(),)),
@@ -633,7 +610,6 @@ class LXDTestDriver(test.NoDBTestCase):
 
 @ddt.ddt
 class LXDTestDriverNoops(test.NoDBTestCase):
-
     def setUp(self):
         super(LXDTestDriverNoops, self).setUp()
         self.connection = driver.LXDDriver(fake.FakeVirtAPI())
@@ -646,19 +622,9 @@ class LXDTestDriverNoops(test.NoDBTestCase):
         'get_all_volume_usage',
         'attach_volume',
         'detach_volume',
-        'migrate_disk_and_power_off',
-        'finish_migration',
-        'confirm_migration',
         'finish_revert_migration',
-        'unpause',
-        'suspend',
-        'resume',
         'soft_delete',
-        'pre_live_migration',
-        'live_migration',
-        'rollback_live_migration_at_destination',
         'post_live_migration_at_source',
-        'post_live_migration_at_destination',
         'check_instance_shared_storage_local',
         'check_instance_shared_storage_remote',
         'check_can_live_migrate_destination',
@@ -673,7 +639,6 @@ class LXDTestDriverNoops(test.NoDBTestCase):
         'add_to_aggregate',
         'remove_from_aggregate',
         'undo_aggregate_operation',
-        'get_volume_connector',
         'volume_snapshot_create',
         'volume_snapshot_delete',
         'quiesce',

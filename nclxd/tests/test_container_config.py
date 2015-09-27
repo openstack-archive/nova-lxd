@@ -18,7 +18,6 @@ import mock
 
 from nova import exception
 from nova import test
-from nova.tests.unit.objects import test_virtual_interface
 
 from nclxd.nova.virt.lxd import container_config
 from nclxd.nova.virt.lxd import container_utils
@@ -41,33 +40,37 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     @mock.patch('oslo_utils.fileutils.ensure_tree')
     def test_container_config_no_rescue(self, mock_ensure_tree):
         instance = stubs._fake_instance()
-        self.assertEquals({'config': {'limits.cpus': '1',
-                'limits.memory': '268435456',
-                'raw.lxc': 'lxc.console.logfile=/fake/lxd/root/containers/'
-                           'fake_uuid/console.log\n'},
-                'devices': {},
-                'name': 'fake_uuid',
-                'profiles': ['fake_profile'],
-                'source': {'alias': None, 'type': 'image'}},
-                          self.container_config.
-                          create_container(instance, [], {}, False))
+        self.assertEqual(
+            {'config': {'limits.cpus': '1',
+                        'limits.memory': '268435456',
+                        'raw.lxc': 'lxc.console.logfile='
+                                   '/fake/lxd/root/containers/'
+                                   'fake_uuid/console.log\n'},
+             'devices': {},
+             'name': 'fake_uuid',
+             'profiles': ['fake_profile'],
+             'source': {'alias': None, 'type': 'image'}},
+            self.container_config.create_container(instance, [], {},
+                                                   False))
 
     @mock.patch('oslo_utils.fileutils.ensure_tree')
     def test_container_config_rescue(self, mock_ensure_tree):
         instance = stubs._fake_instance()
-        self.assertEquals({'config': {'limits.cpus': '1',
-                'limits.memory': '268435456',
-                'raw.lxc': 'lxc.console.logfile=/fake/lxd/root/containers/'
-                           'fake_uuid/console.log\n'},
-                'devices': {'rescue': {'path': 'mnt',
-                            'source': '/fake/lxd/root/containers/'
-                                      'fake_uuid-backup/rootfs',
-                            'type': 'disk'}},
-                'name': 'fake_uuid',
-                'profiles': ['fake_profile'],
-                'source': {'alias': None, 'type': 'image'}},
-                          self.container_config.
-                          create_container(instance, [], {}, True))
+        self.assertEqual(
+            {'config': {'limits.cpus': '1',
+                        'limits.memory': '268435456',
+                        'raw.lxc': 'lxc.console.logfile='
+                                   '/fake/lxd/root/containers/fake_uuid/'
+                                   'console.log\n'},
+             'devices': {'rescue': {'path': 'mnt',
+                                    'source': '/fake/lxd/root/containers/'
+                                    'fake_uuid-backup/rootfs',
+                                    'type': 'disk'}},
+             'name': 'fake_uuid',
+             'profiles': ['fake_profile'],
+             'source': {'alias': None, 'type': 'image'}},
+            self.container_config.create_container(instance, [], {},
+                                                   True))
 
     @stubs.annotated_data(
         ('no_limits', {'memory_mb': -1, 'vcpus': 0},
@@ -80,9 +83,9 @@ class LXDTestContainerConfig(test.NoDBTestCase):
          {'limits.memory': '4294967296', 'limits.cpus': '20'}),
     )
     @mock.patch('oslo_utils.fileutils.ensure_tree',
-                        mock.Mock(return_value=None))
+                mock.Mock(return_value=None))
     @mock.patch('os.mkdir',
-                        mock.Mock(return_value=None))
+                mock.Mock(return_value=None))
     def test_configure_container_config(self, tag, flavor, expected):
         instance = stubs.MockInstance(**flavor)
         config = {'raw.lxc': 'lxc.console.logfile=/fake/lxd/root/containers/'
@@ -96,8 +99,8 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     def test_configure_network_devices(self):
         instance = stubs._fake_instance()
         self.assertEqual(None,
-            self.container_config.configure_network_devices(
-            {}, instance, network_info=[]))
+                         self.container_config.configure_network_devices(
+                             {}, instance, network_info=[]))
 
     def test_configure_container_rescuedisk(self):
         instance = stubs.MockInstance()

@@ -14,29 +14,24 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from nova.virt import hardware
 import os
 import pwd
 import shutil
 import time
 
 import eventlet
-
-from nova import context
-from nova import exception
-from nova import i18n
-from nova import utils
-from nova.compute import vm_states
-from nova.virt import configdrive
-from nova.virt import driver
-from nova.virt import hardware
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_service import loopingcall
 from oslo_utils import excutils
 from oslo_utils import units
 
-from nclxd.nova.virt.lxd import container_config
+from nova import exception
+from nova import i18n
+from nova import utils
+
 from nclxd.nova.virt.lxd import container_client
+from nclxd.nova.virt.lxd import container_config
 from nclxd.nova.virt.lxd import container_firewall
 from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils
@@ -53,6 +48,7 @@ CONF.import_opt('vif_plugging_is_fatal', 'nova.virt.driver')
 LOG = logging.getLogger(__name__)
 
 MAX_CONSOLE_BYTES = 100 * units.Ki
+
 
 class LXDContainerOperations(object):
 
@@ -72,7 +68,7 @@ class LXDContainerOperations(object):
         return self.container_client.client('list', host=None)
 
     def spawn(self, context, instance, image_meta, injected_files,
-              admin_password, network_info=None, block_device_info=None,
+              admin_password=None, network_info=None, block_device_info=None,
               need_vif_plugged=True, rescue=False):
         msg = ('Spawning container '
                'network_info=%(network_info)s '
@@ -85,8 +81,9 @@ class LXDContainerOperations(object):
                 'block_device_info': block_device_info})
         LOG.debug(msg, instance=instance)
 
-        if self.container_client.client('defined', 
-            instance=instance.uuid, host=instance.host):
+        if self.container_client.client('defined',
+                                        instance=instance.uuid,
+                                        host=instance.host):
                 raise exception.InstanceExists(name=instance.uuid)
 
         start = time.time()
@@ -95,7 +92,7 @@ class LXDContainerOperations(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Upload image failed: %(e)s'),
-                                  {'e': ex})
+                              {'e': ex})
 
         try:
             self.create_container(instance, injected_files, network_info,
@@ -103,29 +100,33 @@ class LXDContainerOperations(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Upload image failed: %(e)s'),
-                                  {'e': ex})
+                              {'e': ex})
         end = time.time()
         total = end - start
         LOG.debug('Creation took %s seconds to boot.' % total)
 
     def create_container(self, instance, injected_files, network_info,
                          block_device_info, rescue, need_vif_plugged):
-        if not self.container_client.client('defined', instance=instance.uuid, host=instance.host):
-            container_config = self.container_config.create_container(instance, injected_files,
-                                        block_device_info, rescue)
+        if not self.container_client.client('defined',
+                                            instance=instance.uuid,
+                                            host=instance.host):
+            container_config = (self.container_config.create_container(
+                                instance, injected_files, block_device_info,
+                                rescue))
 
             eventlet.spawn(self.container_utils.container_init,
-                                        container_config,
-                                        instance,
-                                        instance.host).wait()
+                           container_config, instance,
+                           instance.host).wait()
 
-            self.start_container(container_config, instance, network_info, need_vif_plugged)
+            self.start_container(container_config, instance, network_info,
+                                 need_vif_plugged)
 
-    def start_container(self, container_config, instance, network_info, need_vif_plugged):
+    def start_container(self, container_config, instance, network_info,
+                        need_vif_plugged):
         LOG.debug('Starting instance')
 
         if self.container_client.client('running', instance=instance.uuid,
-                    host=instance.host):
+                                        host=instance.host):
             return
 
         timeout = CONF.vif_plugging_timeout
@@ -133,7 +134,7 @@ class LXDContainerOperations(object):
         # doing anything else
         if (self.container_client.client('defined', instance=instance.uuid,
             host=instance.host) and need_vif_plugged and
-            utils.is_neutron() and timeout):
+                utils.is_neutron() and timeout):
                 events = self._get_neutron_events(network_info)
         else:
                 events = []
@@ -142,9 +143,9 @@ class LXDContainerOperations(object):
             with self.virtapi.wait_for_instance_event(
                 instance, events, deadline=timeout,
                 error_callback=self._neutron_failed_callback):
-                container_config = self.plug_vifs(
-                    container_config, instance, network_info,
-                    need_vif_plugged)
+                    self.plug_vifs(
+                        container_config, instance, network_info,
+                        need_vif_plugged)
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed to connect networking to instance'))
 
@@ -153,16 +154,16 @@ class LXDContainerOperations(object):
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
         LOG.debug('container reboot')
-        return self.container_utils.container_reboot(instance.uuid, instance)
+        return self.container_utils.container_reboot(instance)
 
-    def plug_vifs(self, container_config, instance, network_info, need_vif_plugged):
+    def plug_vifs(self, container_config, instance, network_info,
+                  need_vif_plugged):
         for viface in network_info:
             container_config = self.container_config.configure_network_devices(
                 container_config, instance, viface)
             if need_vif_plugged:
                 self.vif_driver.plug(instance, viface)
         self._start_firewall(instance, network_info)
-        return container_config
 
     def unplug_vifs(self, instance, network_info):
         for viface in network_info:
@@ -197,20 +198,20 @@ class LXDContainerOperations(object):
                rescue_password):
         LOG.debug('Container rescue')
         if not self.container_client.client('defined', instance=instance.uuid,
-                                           host=instance.host):
-            return
+                                            host=instance.host):
+            msg = _('Unable to find instance')
+            raise exception.NovaException(msg)
 
         self.container_utils.container_stop(instance.uuid, instance)
         self._container_local_copy(instance)
         self.container_utils.container_destroy(instance.uuid, instance.host)
 
         self.spawn(context, instance, image_meta, injected_files=None,
-              admin_password=None, network_info=network_info, block_device_info=None,
-              need_vif_plugged=False, rescue=True)
-
+                   admin_password=None, network_info=network_info,
+                   block_device_info=None, need_vif_plugged=False,
+                   rescue=True)
 
     def _container_local_copy(self, instance):
-        ''' Creating snasphot  '''
         container_snapshot = {
             'name': 'snap',
             'stateful': False
@@ -223,13 +224,9 @@ class LXDContainerOperations(object):
             "name": "%s-backup" % instance.uuid,
             "profiles": None,
             "source": {
-                 "source": "%s/snap" % instance.uuid,
-                "type": "copy"
-                }
-
-        }
+                "source": "%s/snap" % instance.uuid,
+                "type": "copy"}}
         self.container_utils.container_copy(container_copy, instance)
-
 
     def unrescue(self, instance, network_info):
         LOG.debug('Conainer unrescue')
@@ -238,8 +235,10 @@ class LXDContainerOperations(object):
             'name': '%s' % instance.uuid
         }
 
-        self.container_utils.container_move(old_name, container_config, instance)
-        self.container_utils.container_destroy(instance.uuid, instance.host)
+        self.container_utils.container_move(old_name, container_config,
+                                            instance)
+        self.container_utils.container_destroy(instance.uuid,
+                                               instance.host)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
@@ -251,7 +250,7 @@ class LXDContainerOperations(object):
     def get_info(self, instance):
         container_state = self.container_client.client(
             'state', instance=instance.uuid,
-                                                       host=instance.host)
+            host=instance.host)
         return hardware.InstanceInfo(state=container_state,
                                      max_mem_kb=0,
                                      mem_kb=0,

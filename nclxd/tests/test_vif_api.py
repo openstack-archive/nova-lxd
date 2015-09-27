@@ -28,7 +28,7 @@ from nclxd.tests import stubs
 
 
 @ddt.ddt
-class LXDTestOVSDriver(test.NoDBTestCase):
+class LXDTestNetworkDriver(test.NoDBTestCase):
 
     vif_data = {
         'id': '0123456789abcdef',
@@ -38,7 +38,7 @@ class LXDTestOVSDriver(test.NoDBTestCase):
             'bridge': 'fakebr'}}
 
     def setUp(self):
-        super(LXDTestOVSDriver, self).setUp()
+        super(LXDTestNetworkDriver, self).setUp()
 
         self.vif_driver = vif.LXDGenericDriver()
 
@@ -134,89 +134,15 @@ class LXDTestOVSDriver(test.NoDBTestCase):
             None,
             self.vif_driver.unplug(instance, vif))
 
-        calls = [
-            mock.call.net.device_exists('qbr0123456789a'),
-            mock.call.net.delete_ovs_vif_port('fakebr', 'qvo0123456789a'),
-            mock.call.net.device_exists('qvo0123456789a')
-        ]
+        calls = [mock.call.net.device_exists('qbr0123456789a')]
         if exists[0]:
             calls[1:1] = [
                 mock.call.ex('brctl', 'delif', 'qbr0123456789a',
                              'qvb0123456789a', run_as_root=True),
-                mock.call.ex('ip', 'link', 'set', 'qbr0123456789a', 'down',
-                             run_as_root=True),
+                mock.call.ex('ip', 'link', 'set', 'qbr0123456789a',
+                             'down', run_as_root=True),
                 mock.call.ex('brctl', 'delbr', 'qbr0123456789a',
-                             run_as_root=True)]
-        if exists[1]:
-            calls.append(
-                mock.call.ex('ip', 'link', 'set', 'qvo0123456789a', 'down',
-                             run_as_root=True))
+                             run_as_root=True),
+                mock.call.net.delete_ovs_vif_port('fakebr', 'qvo0123456789a')
+            ]
         self.assertEqual(calls, self.mgr.method_calls)
-
-
-@ddt.ddt
-@mock.patch.object(vif, 'CONF', stubs.MockConf())
-class LXDTestBridgeDriver(test.NoDBTestCase):
-
-    vif_data = {
-        'type': network_model.VIF_TYPE_BRIDGE,
-        'network': {
-            'bridge': 'fakebr',
-            'meta': {
-                'bridge_interface': 'fakebr',
-                'vlan': 'fakevlan'}}}
-
-    def setUp(self):
-        super(LXDTestBridgeDriver, self).setUp()
-
-        self.vif_driver = vif.LXDGenericDriver()
-
-        self.mn = mock.Mock()
-        net_patcher = mock.patch.object(vif, 'linux_net', self.mn)
-        net_patcher.start()
-        self.addCleanup(net_patcher.stop)
-
-    @stubs.annotated_data(
-        ('multi', {'multi_host': True}, False, None),
-        ('bridge', {'should_create_bridge': True}, False, 'flatif'),
-        ('vlan', {'should_create_vlan': True}, False, None),
-        ('multi-bridge', {'multi_host': True,
-                          'should_create_bridge': True}, False, None),
-        ('multi-bridge-vlan', {'multi_host': True,
-                               'should_create_bridge': True,
-                               'should_create_vlan': True}, False, None),
-        ('multi-vlan', {'multi_host': True,
-                        'should_create_vlan': True}, False, None),
-        ('bridge-vlan', {'should_create_bridge': True,
-                         'should_create_vlan': True}, True, 'vlanif'),
-        ('bridge-noconf', {'should_create_bridge': True}, False,
-         'fakebr', None),
-        ('bridge-vlan-noconf', {'should_create_bridge': True,
-                                'should_create_vlan': True}, True,
-         'fakebr', 'flatif', None),
-    )
-    def test_plug(self, tag, meta, vlan, iface,
-                  flatif='flatif', vlanif='vlanif'):
-        instance = stubs.MockInstance()
-        vif_data = copy.deepcopy(self.vif_data)
-        vif_data['network']['meta'].update(meta)
-        vif_data['network'] = network_model.Model(vif_data['network'])
-        with mock.patch.multiple(vif.CONF, flat_interface=flatif,
-                                 vlan_interface=vlanif):
-            self.assertEqual(
-                None,
-                self.vif_driver.plug(instance, vif_data))
-            if iface is not None:
-                if vlan:
-                    (self.mn.LinuxBridgeInterfaceDriver.ensure_vlan_bridge
-                     .assert_called_once_with('fakevlan', 'fakebr', iface))
-                else:
-                    (self.mn.LinuxBridgeInterfaceDriver.ensure_bridge
-                     .assert_called_once_with('fakebr', iface))
-            else:
-                self.assertFalse(self.mn.called)
-
-    def test_unplug(self):
-        instance = stubs.MockInstance()
-        self.assertEqual(None,
-                         self.vif_driver.unplug(instance, self.vif_data))

@@ -13,11 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import pprint
-
-from nova import exception
 from nova import i18n
 from nova import utils
+import pprint
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -25,23 +23,24 @@ from oslo_utils import excutils
 
 from nclxd.nova.virt.lxd import container_client
 from nclxd.nova.virt.lxd import container_config
-from nclxd.nova.virt.lxd import container_utils
 from nclxd.nova.virt.lxd import container_ops
+from nclxd.nova.virt.lxd import container_utils
+
 
 _ = i18n._
 _LE = i18n._LE
+_LI = i18n._LI
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
 
 
 class LXDContainerMigrate(object):
-
     def __init__(self, virtapi):
         self.virtapi = virtapi
-        self.container_config = container_config.LXDContainerConfig()
-        self.container_client = container_client.LXDContainerClient()
-        self.container_utils = container_utils.LXDContainerUtils()
+        self.config = container_config.LXDContainerConfig()
+        self.client = container_client.LXDContainerClient()
+        self.utils = container_utils.LXDContainerUtils()
         self.container_ops = container_ops.LXDContainerOperations(self.virtapi)
 
     def migrate_disk_and_power_off(self, context, instance, dest,
@@ -51,20 +50,20 @@ class LXDContainerMigrate(object):
         LOG.debug("migrate_disk_and_power_off called", instance=instance)
 
         try:
-            self.container_utils.container_stop(instance.uuid, instance)
+            self.utils.container_stop(instance.uuid, instance)
 
-            container_ws = self.container_utils.container_migrate(instance.uuid,
-                        instance)
+            container_ws = self.utils.container_migrate(instance.uuid,
+                                                        instance)
             container_config = (
-                self.container_config.configure_container_migrate(
-                        instance, container_ws))
+                self.config.configure_container_migrate(
+                    instance, container_ws))
             utils.spawn(
-                self.container_utils.container_init,
+                self.utils.container_init,
                 container_config, instance, dest)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Failed to migration container: %(e)s'),
-                            {'e': ex}, instance=instance)
+                              {'e': ex}, instance=instance)
 
         # disk_info is not used
         disk_info = {}
@@ -72,22 +71,20 @@ class LXDContainerMigrate(object):
 
     def confirm_migration(self, migration, instance, network_info):
         LOG.debug("confirm_migration called", instance=instance)
-
+        src_host = migration['source_compute']
+        dst_host = migration['dest_compute']
         try:
-            src_host = migration['source_compute']
-            dst_host = migration['dest_compute']
-
-            if not self.container_client.client('defined', instance=instance.uuid,
-                        host=dst_host):
+            if not self.client.client('defined', instance=instance.uuid,
+                                      host=dst_host):
                 LOG.exception(_LE('Failed to migrate host'))
-            LOG.info(_LI('Succesfuly migrated instnace %(instance)s'),
-                {'instance': instance.uuid}, instance=instance)
+            LOG.info(_LI('Successfuly migrated instnace %(instance)s'),
+                     {'instance': instance.uuid}, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Failed to confirm migration: %(e)s'),
-                        {'e': ex}, instance=instance)
+                              {'e': ex}, instance=instance)
         finally:
-            self.container_utils.container_destroy(instance.uuid, src_host)
+            self.utils.container_destroy(instance.uuid, src_host)
 
     def finish_revert_migration(self, context, instance, network_info,
                                 block_device_info=None, power_on=True):
@@ -99,17 +96,19 @@ class LXDContainerMigrate(object):
         LOG.debug("finish_migration called", instance=instance)
 
         try:
-            container_config = self.container_config.get_container_config(instance)
+            container_config = self.config.get_container_config(instance)
             LOG.debug(pprint.pprint(container_config))
-            self.container_ops.start_container(container_config, instance, network_info,
-                        need_vif_plugged=True)
-            LOG.info(_LI('Succesfuly migrated instnace %(instance)s on %(host)s'),
-                {'instance': instance.uuid, 'host': migration['dest_compute']}, 
-                instance=instance)
+            self.container_ops.start_container(container_config, instance,
+                                               network_info,
+                                               need_vif_plugged=True)
+            LOG.info(_LI('Succesfuly migrated instnace %(instance)s '
+                         'on %(host)s'), {'instance': instance.uuid,
+                                          'host': migration['dest_compute']},
+                     instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Failed to confirm migration: %(e)s'),
-                        {'e': ex}, instance=instance)
+                              {'e': ex}, instance=instance)
 
     def live_migration(self, context, instance_ref, dest, post_method,
                        recover_method, block_migration=False,
