@@ -100,15 +100,16 @@ class LXDContainerImage(object):
 
             target_tarball = tarfile.open(container_manifest, "w:")
 
+            image_prop = image_meta.get('properties')
             metadata = {
-                'architecture': image_meta.properties.get('architecture',
+                'architecture': image_prop.get('architecture',
                                                           os.uname()[4]),
                 'creation_date': int(os.stat(container_manifest).st_ctime),
                 'properties': {
-                    'os': image_meta.properties.get('os_distro', 'None'),
-                    'architecture': image_meta.get.properties('architecture',
+                    'os': image_prop.get('os_distro', 'None'),
+                    'architecture': image_prop.get('architecture',
                                                               os.uname()[4]),
-                    'description': image_meta.properties.get('description',
+                    'description': image_prop.get('description',
                                                              None),
                     'name': instance.image_ref
                 }
