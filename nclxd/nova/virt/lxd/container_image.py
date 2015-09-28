@@ -103,14 +103,14 @@ class LXDContainerImage(object):
             image_prop = image_meta.get('properties')
             metadata = {
                 'architecture': image_prop.get('architecture',
-                                                          os.uname()[4]),
+                                               os.uname()[4]),
                 'creation_date': int(os.stat(container_manifest).st_ctime),
                 'properties': {
                     'os': image_prop.get('os_distro', 'None'),
                     'architecture': image_prop.get('architecture',
-                                                              os.uname()[4]),
+                                                   os.uname()[4]),
                     'description': image_prop.get('description',
-                                                             None),
+                                                  None),
                     'name': instance.image_ref
                 }
             }
