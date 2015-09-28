@@ -13,22 +13,28 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import io
+import json
 from nova import exception
 from nova import i18n
 from nova import image
+from nova import utils
 import os
 from pylxd import api
 from pylxd import exceptions as lxd_exceptions
+import tarfile
 import uuid
 
 from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import excutils
 from oslo_utils import fileutils
 
 from nclxd.nova.virt.lxd import container_utils
 
 _ = i18n._
+_LE = i18n._LE
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -42,52 +48,89 @@ class LXDContainerImage(object):
         self.lock_path = str(os.path.join(CONF.instances_path, 'locks'))
 
     def setup_image(self, context, instance, image_meta):
-        LOG.debug('Fetching image info from glance')
+        try:
+            LOG.debug('Fetching image info from glance')
+            with lockutils.lock(self.lock_path,
+                                lock_file_prefix=('lxd-image-%s' %
+                                                  instance.image_ref),
+                                external=True):
 
-        with lockutils.lock(self.lock_path,
-                            lock_file_prefix=('lxd-image-%s' %
-                                              instance.image_ref),
-                            external=True):
+                if self._image_defined(instance):
+                    return
 
-            if self._image_defined(instance):
-                return
+                base_dir = self.container_dir.get_base_dir()
+                if not os.path.exists(base_dir):
+                    fileutils.ensure_tree(base_dir)
 
-            base_dir = self.container_dir.get_base_dir()
-            if not os.path.exists(base_dir):
-                fileutils.ensure_tree(base_dir)
-
-            container_rootfs_img = (
-                self.container_dir.get_container_rootfs_image(
-                    image_meta))
-            if os.path.exists(container_rootfs_img):
-                os.remove(container_rootfs_img)
-
-            IMAGE_API.download(
-                context, instance.image_ref, dest_path=container_rootfs_img)
-            lxd_image_manifest = self._get_lxd_manifest(image_meta)
-            if lxd_image_manifest is not None:
-                container_manifest_img = (
-                    self.container_dir.get_container_manifest_image(
+                container_rootfs_img = (
+                    self.container_dir.get_container_rootfs_image(
                         image_meta))
-                if os.path.exists(container_manifest_img):
-                    os.remove(container_manifest_img)
+                IMAGE_API.download(
+                    context, instance.image_ref,
+                    dest_path=container_rootfs_img)
 
-                IMAGE_API.download(context, lxd_image_manifest,
-                                   dest_path=container_manifest_img)
+                container_manifest_img = self._get_lxd_manifest(instance,
+                                                                image_meta)
+                utils.execute('xz', '-9', container_manifest_img)
+
                 img_info = self._image_upload(
-                    (container_manifest_img, container_rootfs_img),
+                    (container_manifest_img + '.xz', container_rootfs_img),
                     container_manifest_img.split('/')[-1], False,
                     instance)
-            else:
-                img_info = self._image_upload(container_rootfs_img,
-                                              container_rootfs_img.split(
-                                                  "/")[-1], True,
-                                              instance)
 
-            self._setup_alias(instance, img_info, image_meta, context)
+                self._setup_alias(instance, img_info)
 
-    def _get_lxd_manifest(self, image_meta):
-        return image_meta['properties'].get('lxd_manifest', None)
+                os.unlink(container_manifest_img + '.xz')
+
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to upload %(image)s to LXD: %(reason)s'),
+                          {'image': instance.image_ref, 'reason': ex},
+                          instance=instance)
+                self._cleanup_image(image_meta)
+
+    def _get_lxd_manifest(self, instance, image_meta):
+        LOG.debug('Creating LXD manifest')
+
+        try:
+            container_manifest = (
+                self.container_dir.get_container_manifest_image(
+                    image_meta))
+
+            target_tarball = tarfile.open(container_manifest, "w:")
+
+            metadata = {
+                'architecture': image_meta.get('hw_architecture',
+                                               os.uname()[4]),
+                'creation_date': int(os.stat(container_manifest).st_ctime),
+                'properties': {
+                    'os': 'Unknown',
+                    'architecture': image_meta.get('hw_architecture',
+                                                   os.uname()[4]),
+                    'description': ' nclxd image %s' % instance.image_ref,
+                    'name': instance.image_ref
+                }
+            }
+
+            metadata_yaml = (json.dumps(metadata, sort_keys=True,
+                                        indent=4, separators=(',', ': '),
+                                        ensure_ascii=False).encode('utf-8')
+                             + b"\n")
+
+            metadata_file = tarfile.TarInfo()
+            metadata_file.size = len(metadata_yaml)
+            metadata_file.name = "metadata.yaml"
+            target_tarball.addfile(metadata_file,
+                                   io.BytesIO(metadata_yaml))
+            target_tarball.close()
+
+            return container_manifest
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to upload %(image)s to LXD: %(reason)s'),
+                          {'image': instance.image_ref, 'reason': ex},
+                          instance=instance)
+                self._cleanup_image(image_meta)
 
     def _image_upload(self, path, filename, split, instance):
         LOG.debug('Uploading Image to LXD.')
@@ -97,8 +140,9 @@ class LXDContainerImage(object):
             headers['Content-Type'] = "application/octet-stream"
 
             try:
-                status, data = self.connection.image_upload(data=open(path, 'rb'),
-                                                headers=headers)
+                status, data = (self.connection.image_upload(
+                    data=open(path, 'rb'),
+                    headers=headers))
             except lxd_exceptions as ex:
                 raise exception.ImageUnacceptable(
                     image_id=instance.image_ref,
@@ -134,7 +178,7 @@ class LXDContainerImage(object):
 
             try:
                 status, data = self.connection.image_upload(data=body,
-                                                headers=headers)
+                                                            headers=headers)
             except lxd_exceptions as ex:
                 raise exception.ImageUnacceptable(
                     image_id=instance.image_ref,
@@ -142,7 +186,7 @@ class LXDContainerImage(object):
 
         return data
 
-    def _setup_alias(self, instance, img_info, image_meta, context):
+    def _setup_alias(self, instance, img_info):
         LOG.debug('Updating image and metadata')
 
         try:
@@ -161,10 +205,24 @@ class LXDContainerImage(object):
         LOG.debug('Checking alias existance')
 
         try:
-            return self.connection.alias_defined(instance.uuid)
+            return self.connection.alias_defined(instance.image_ref)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return False
             else:
                 msg = _('Failed to determine image alias: %s') % ex
                 raise exception.NovaException(msg)
+
+    def _cleanup_image(self, image_meta):
+        container_rootfs_img = (
+            self.container_dir.get_container_rootfs_image(
+                image_meta))
+        container_manifest = (
+            self.container_dir.get_container_manifest_image(
+                image_meta))
+
+        if os.path.exists(container_rootfs_img):
+            os.unlink(container_rootfs_img)
+
+        if os.path.exists(container_manifest):
+            os.unlink(container_manifest)

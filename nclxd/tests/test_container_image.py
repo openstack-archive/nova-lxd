@@ -13,7 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import contextlib
 from nova import test
+import os
 
 import ddt
 import fixtures
@@ -21,7 +23,6 @@ import mock
 from oslo_concurrency import lockutils
 from oslo_config import fixture as config_fixture
 
-from nclxd.nova.virt.lxd import container_client
 from nclxd.nova.virt.lxd import container_image
 from nclxd.nova.virt.lxd import container_utils
 from nclxd.tests import stubs
@@ -31,7 +32,6 @@ from nclxd.tests import stubs
 @mock.patch.object(container_image, 'CONF', stubs.MockConf())
 @mock.patch.object(container_utils, 'CONF', stubs.MockConf())
 class LXDTestContainerImage(test.NoDBTestCase):
-
     @mock.patch.object(container_utils, 'CONF', stubs.MockConf())
     def setUp(self):
         super(LXDTestContainerImage, self).setUp()
@@ -44,27 +44,37 @@ class LXDTestContainerImage(test.NoDBTestCase):
                             group='oslo_concurrency')
 
         self.container_image = container_image.LXDContainerImage()
-        alias_patcher = mock.patch.object(container_client.LXDContainerClient,
-                                          'container_alias_defined',
-                                          return_value=True)
-        alias_patcher.start()
-        self.addCleanup(alias_patcher.stop)
-
-    def test_fetch_image_existing_alias(self):
-        instance = stubs.MockInstance()
-        context = {}
-        image_meta = {'name': 'alias'}
-        self.assertEqual(None,
-                         self.container_image.setup_image(context,
-                                                          instance,
-                                                          image_meta))
 
     @mock.patch('os.path.exists', mock.Mock(return_value=False))
     @mock.patch('oslo_utils.fileutils.ensure_tree', mock.Mock())
-    def test_fetch_image_new_defined(self):
-        instance = stubs.MockInstance()
-        context = {}
-        image_meta = {'name': 'new_image'}
-        self.assertEqual(None,
-                         self.container_image.setup_image(
-                             context, instance, image_meta))
+    @mock.patch('nova.utils.execute')
+    def test_fetch_image(self, mock_execute):
+        context = mock.Mock()
+        instance = stubs._fake_instance()
+        image_meta = {'name': 'new_image', 'id': 'fake_image'}
+        with contextlib.nested(
+                mock.patch.object(container_image.IMAGE_API,
+                                  'download'),
+                mock.patch.object(container_image.LXDContainerImage,
+                                  '_get_lxd_manifest'),
+                mock.patch.object(container_image.LXDContainerImage,
+                                  '_image_upload'),
+                mock.patch.object(container_image.LXDContainerImage,
+                                  '_setup_alias'),
+                mock.patch.object(os, 'unlink')
+        ) as (
+                mock_image_download,
+                mock_image_manifest,
+                image_upload,
+                setup_alias,
+                os_unlink
+        ):
+            mock_image_manifest.return_value = \
+                '/fake/image/cache/fake_image-manifest.tar'
+            self.assertEqual(None,
+                             self.container_image.setup_image(context,
+                                                              instance,
+                                                              image_meta))
+            mock_execute.assert_called_once_with('xz', '-9',
+                                                 '/fake/image/cache/'
+                                                 'fake_image-manifest.tar')
