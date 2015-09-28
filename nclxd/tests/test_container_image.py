@@ -53,6 +53,8 @@ class LXDTestContainerImage(test.NoDBTestCase):
         instance = stubs._fake_instance()
         image_meta = {'name': 'new_image', 'id': 'fake_image'}
         with contextlib.nested(
+                mock.patch.object(container_image.LXDContainerImage,
+                                 '_image_defined'),
                 mock.patch.object(container_image.IMAGE_API,
                                   'download'),
                 mock.patch.object(container_image.LXDContainerImage,
@@ -63,18 +65,20 @@ class LXDTestContainerImage(test.NoDBTestCase):
                                   '_setup_alias'),
                 mock.patch.object(os, 'unlink')
         ) as (
+                mock_image_defined,
                 mock_image_download,
                 mock_image_manifest,
                 image_upload,
                 setup_alias,
                 os_unlink
         ):
+            mock_image_defined.return_value = expected_data
             mock_image_manifest.return_value = \
                 '/fake/image/cache/fake_image-manifest.tar'
             self.assertEqual(None,
-                             self.container_image.setup_image(context,
-                                                              instance,
-                                                              image_meta))
+                            self.container_image.setup_image(context,
+                                                             instance,
+                                                             image_meta))
             mock_execute.assert_called_once_with('xz', '-9',
                                                  '/fake/image/cache/'
                                                  'fake_image-manifest.tar')
