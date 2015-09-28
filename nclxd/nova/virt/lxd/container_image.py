@@ -42,6 +42,7 @@ IMAGE_API = image.API()
 
 
 class LXDContainerImage(object):
+
     def __init__(self):
         self.connection = api.API()
         self.container_dir = container_utils.LXDContainerDirectories()
@@ -101,13 +102,14 @@ class LXDContainerImage(object):
 
             metadata = {
                 'architecture': image_meta.properties.get('architecture',
-                                               os.uname()[4]),
+                                                          os.uname()[4]),
                 'creation_date': int(os.stat(container_manifest).st_ctime),
                 'properties': {
                     'os': image_meta.properties.get('os_distro', 'None'),
                     'architecture': image_meta.get.properties('architecture',
-                                                   os.uname()[4]),
-                    'description': ' nclxd image %s' % instance.image_ref,
+                                                              os.uname()[4]),
+                    'description': image_meta.properties.get('description',
+                                                             None),
                     'name': instance.image_ref
                 }
             }
