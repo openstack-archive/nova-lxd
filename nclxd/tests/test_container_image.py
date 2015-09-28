@@ -32,6 +32,7 @@ from nclxd.tests import stubs
 @mock.patch.object(container_image, 'CONF', stubs.MockConf())
 @mock.patch.object(container_utils, 'CONF', stubs.MockConf())
 class LXDTestContainerImage(test.NoDBTestCase):
+
     @mock.patch.object(container_utils, 'CONF', stubs.MockConf())
     def setUp(self):
         super(LXDTestContainerImage, self).setUp()
@@ -54,7 +55,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
         image_meta = {'name': 'new_image', 'id': 'fake_image'}
         with contextlib.nested(
                 mock.patch.object(container_image.LXDContainerImage,
-                                 '_image_defined'),
+                                  '_image_defined'),
                 mock.patch.object(container_image.IMAGE_API,
                                   'download'),
                 mock.patch.object(container_image.LXDContainerImage,
@@ -76,9 +77,9 @@ class LXDTestContainerImage(test.NoDBTestCase):
             mock_image_manifest.return_value = \
                 '/fake/image/cache/fake_image-manifest.tar'
             self.assertEqual(None,
-                            self.container_image.setup_image(context,
-                                                             instance,
-                                                             image_meta))
+                             self.container_image.setup_image(context,
+                                                              instance,
+                                                              image_meta))
             mock_execute.assert_called_once_with('xz', '-9',
                                                  '/fake/image/cache/'
                                                  'fake_image-manifest.tar')
@@ -112,7 +113,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
         ):
             mock_image_defined.return_value = True
             self.assertEqual(None,
-                self.container_image.setup_image(context,
-                                                instance,
-                                                image_meta))
+                             self.container_image.setup_image(context,
+                                                              instance,
+                                                              image_meta))
             self.assertFalse(mock_image_manifest.called)
