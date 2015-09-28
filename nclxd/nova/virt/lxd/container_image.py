@@ -26,7 +26,6 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import fileutils
 
-from nclxd.nova.virt.lxd import container_client
 from nclxd.nova.virt.lxd import container_utils
 
 _ = i18n._
@@ -38,7 +37,7 @@ IMAGE_API = image.API()
 
 class LXDContainerImage(object):
     def __init__(self):
-        self.container_client = container_client.LXDContainerClient()
+        self.connection = api.API()
         self.container_dir = container_utils.LXDContainerDirectories()
         self.lock_path = str(os.path.join(CONF.instances_path, 'locks'))
 
@@ -50,9 +49,7 @@ class LXDContainerImage(object):
                                               instance.image_ref),
                             external=True):
 
-            if self.container_client.client('alias_defined',
-                                            instance=instance.image_ref,
-                                            host=instance.node):
+            if self._image_defined(instance):
                 return
 
             base_dir = self.container_dir.get_base_dir()
@@ -94,14 +91,13 @@ class LXDContainerImage(object):
 
     def _image_upload(self, path, filename, split, instance):
         LOG.debug('Uploading Image to LXD.')
-        lxd = api.API()
         headers = {}
 
         if split:
             headers['Content-Type'] = "application/octet-stream"
 
             try:
-                status, data = lxd.image_upload(data=open(path, 'rb'),
+                status, data = self.connection.image_upload(data=open(path, 'rb'),
                                                 headers=headers)
             except lxd_exceptions as ex:
                 raise exception.ImageUnacceptable(
@@ -137,7 +133,7 @@ class LXDContainerImage(object):
                                        % boundary)
 
             try:
-                status, data = lxd.image_upload(data=body,
+                status, data = self.connection.image_upload(data=body,
                                                 headers=headers)
             except lxd_exceptions as ex:
                 raise exception.ImageUnacceptable(
@@ -149,15 +145,26 @@ class LXDContainerImage(object):
     def _setup_alias(self, instance, img_info, image_meta, context):
         LOG.debug('Updating image and metadata')
 
-        lxd = api.API()
         try:
             alias_config = {
                 'name': instance.image_ref,
                 'target': img_info['metadata']['fingerprint']
             }
             LOG.debug('Creating alias: %s' % alias_config)
-            lxd.alias_create(alias_config)
+            self.connection.alias_create(alias_config)
         except lxd_exceptions.APIError as ex:
             raise exception.ImageUnacceptable(
                 image_id=instance.image_ref,
                 reason=_('Image already exists: %s') % ex)
+
+    def _image_defined(self, instance):
+        LOG.debug('Checking alias existance')
+
+        try:
+            return self.connection.alias_defined(instance.uuid)
+        except lxd_exceptions.APIError as ex:
+            if ex.status_code == 404:
+                return False
+            else:
+                msg = _('Failed to determine image alias: %s') % ex
+                raise exception.NovaException(msg)
