@@ -99,6 +99,8 @@ class LXDContainerUtils(object):
                     host=host):
                 return
 
+            self.container_stop(instance_name, host)
+
             (state, data) = self.client.client('destroy',
                                                instance=instance_name,
                                                host=host)
