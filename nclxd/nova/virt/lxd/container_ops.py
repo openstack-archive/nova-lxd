@@ -84,7 +84,7 @@ class LXDContainerOperations(object):
         if self.container_client.client('defined',
                                         instance=instance.uuid,
                                         host=instance.host):
-                raise exception.InstanceExists(name=instance.uuid)
+            raise exception.InstanceExists(name=instance.uuid)
 
         start = time.time()
         try:
@@ -133,19 +133,19 @@ class LXDContainerOperations(object):
         # check to see if neutron is ready before
         # doing anything else
         if (self.container_client.client('defined', instance=instance.uuid,
-            host=instance.host) and need_vif_plugged and
-                utils.is_neutron() and timeout):
-                events = self._get_neutron_events(network_info)
+                                         host=instance.host) and
+                need_vif_plugged and utils.is_neutron() and timeout):
+            events = self._get_neutron_events(network_info)
         else:
-                events = []
+            events = []
 
         try:
             with self.virtapi.wait_for_instance_event(
-                instance, events, deadline=timeout,
-                error_callback=self._neutron_failed_callback):
-                    self.plug_vifs(
-                        container_config, instance, network_info,
-                        need_vif_plugged)
+                    instance, events, deadline=timeout,
+                    error_callback=self._neutron_failed_callback):
+                self.plug_vifs(
+                    container_config, instance, network_info,
+                    need_vif_plugged)
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed to connect networking to instance'))
 
@@ -175,7 +175,8 @@ class LXDContainerOperations(object):
         self.cleanup(context, instance, network_info, block_device_info)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        return self.container_utils.container_stop(instance.uuid, instance)
+        return self.container_utils.container_stop(instance.uuid,
+                                                   instance.host)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
@@ -201,7 +202,7 @@ class LXDContainerOperations(object):
             msg = _('Unable to find instance')
             raise exception.NovaException(msg)
 
-        self.container_utils.container_stop(instance.uuid, instance)
+        self.container_utils.container_stop(instance.uuid, instance.host)
         self._container_local_copy(instance)
         self.container_utils.container_destroy(instance.uuid, instance.host)
 
