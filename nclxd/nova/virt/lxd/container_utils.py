@@ -61,11 +61,9 @@ class LXDContainerUtils(object):
             (state, data) = (self.client.client('stop',
                                                 instance=instance_name,
                                                 host=instance.host))
-            timer = loopingcall.FixedIntervalLoopingCall(
-                self._wait_for_state,
-                data.get('operation').split('/')[3],
-                instance, power_state.SHUTDOWN)
-            timer.start(interval=CONF.lxd.retry_interval).wait()
+            self.client.client('wait',
+                               oid=data.get('operation').split('/')[3],
+                               host=instance.host)
             LOG.info(_LI('Succesfully stopped container %s'),
                      instance_name, instance=instance)
         except Exception as ex:
@@ -82,8 +80,7 @@ class LXDContainerUtils(object):
                                                instance=instance.uuid,
                                                host=instance.host)
             self.client.client('wait',
-                               oid=data.get(
-                                   'operation').split('/')[3],
+                               oid=data.get('operation').split('/')[3],
                                host=instance.host)
             LOG.info(_LI('Succesfully rebooted container %s'),
                      instance.uuid, instance=instance)
@@ -106,8 +103,7 @@ class LXDContainerUtils(object):
                                                instance=instance_name,
                                                host=host)
             self.client.client('wait',
-                               oid=data.get(
-                                   'operation').split('/')[3],
+                               oid=data.get('operation').split('/')[3],
                                host=host)
             LOG.info(_LI('Succesfully destroyed container %s'),
                      instance_name)
@@ -122,11 +118,9 @@ class LXDContainerUtils(object):
         try:
             (state, data) = self.client.client('pause', instance=instance_name,
                                                host=instance.host)
-            timer = loopingcall.FixedIntervalLoopingCall(
-                self._wait_for_state,
-                data.get('operation').split('/')[3],
-                instance, power_state.SUSPENDED)
-            timer.start(interval=CONF.lxd.retry_interval).wait()
+            self.client.client('wait',
+                               oid=data.get('operation').split('/')[3],
+                               host=instance.host)
             LOG.info(_LI('Succesfully paused container %s'),
                      instance.uuid, instance=instance)
         except Exception as ex:
@@ -143,11 +137,9 @@ class LXDContainerUtils(object):
             (state, data) = self.client.client('unpause',
                                                instance=instance_name,
                                                host=instance.host)
-            timer = loopingcall.FixedIntervalLoopingCall(
-                self._wait_for_state,
-                data.get('operation').split('/')[3],
-                instance, power_state.RUNNING)
-            timer.start(interval=CONF.lxd.retry_interval).wait()
+            self.client.client('wait',
+                               oid=data.get('operation').split('/')[3],
+                               host=instance.host)
             LOG.info(_LI('Succesfully resumed container %s'),
                      instance.uuid, instance=instance)
         except Exception as ex:
@@ -163,8 +155,8 @@ class LXDContainerUtils(object):
                                                instance=instance.uuid,
                                                container_snapshot=snapshot,
                                                host=instance.host)
-            operation_id = data.get('operation').split('/')[3]
-            self.client.client('wait', oid=operation_id,
+            self.client.client('wait',
+                               oid=data.get('operation').split('/')[3],
                                host=instance.host)
             LOG.info(_LI('Succesfully snapshotted container %s'),
                      instance.uuid, instance=instance)
@@ -181,8 +173,8 @@ class LXDContainerUtils(object):
             (state, data) = self.client.client('local_copy',
                                                container_config=config,
                                                host=instance.host)
-            operation_id = data.get('operation').split('/')[3]
-            self.client.client('wait', oid=operation_id,
+            self.client.client('wait',
+                               oid=data.get('operation').split('/')[3],
                                host=instance.host)
             LOG.info(_LI('Succesfully copied container %s'),
                      instance.uuid, instance=instance)
@@ -200,8 +192,8 @@ class LXDContainerUtils(object):
                                                 instance=old_name,
                                                 container_config=config,
                                                 host=instance.host))
-            operation_id = data.get('operation').split('/')[3]
-            self.client.client('wait', oid=operation_id,
+            self.client.client('wait',
+                               oid=data.get('operation').split('/')[3],
                                host=instance.host)
             LOG.info(_LI('Succesfully renamed container %s'),
                      instance.uuid, instance=instance)
@@ -218,8 +210,6 @@ class LXDContainerUtils(object):
             return self.client.client('migrate',
                                       instance=instance_name,
                                       host=instance.host)
-            LOG.info(_LI('Succesfully migrated container %s'),
-                     instance.uuid, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
@@ -233,10 +223,9 @@ class LXDContainerUtils(object):
             (state, data) = self.client.client('init',
                                                container_config=config,
                                                host=host)
-            operation_id = data.get('operation').split('/')[3]
             self.client.client('wait',
-                               oid=operation_id,
-                               host=host)
+                               oid=data.get('operation').split('/')[3],
+                               host=instance.host)
             LOG.info(_LI('Succesfully created container %s'),
                      instance.uuid, instance=instance)
         except Exception as ex:
@@ -245,28 +234,6 @@ class LXDContainerUtils(object):
                     _LE('Failed to create container %(instance)s: %(reason)s'),
                     {'instance': instance.uuid,
                      'reason': ex}, instance=instance)
-
-    def _wait_for_state(self, operation_id, instance, power_state, host=None):
-        if not host:
-            host = instance.host
-
-        instance.refresh()
-        (state, data) = self.client.client('operation_info',
-                                           oid=operation_id,
-                                           host=host)
-        status_code = data['metadata']['status_code']
-        if status_code in [200, 202]:
-            LOG.debug('')
-            instance.power_state = power_state
-            instance.save()
-            raise loopingcall.LoopingCallDone()
-
-        if status_code == 400:
-            LOG.debug('Initialize conainer')
-            instance.power_state = power_state
-            instance.save()
-            raise loopingcall.LoopingCallDone()
-
 
 class LXDContainerDirectories(object):
     def __init__(self):
