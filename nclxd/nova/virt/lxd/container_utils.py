@@ -14,14 +14,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from nova.compute import power_state
 from nova import i18n
 import os
 
 import container_client
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_service import loopingcall
 from oslo_utils import excutils
 
 

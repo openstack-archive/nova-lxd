@@ -188,14 +188,23 @@ class LXDTestDriver(test.NoDBTestCase):
             self.assertTrue(create_container)
 
     def test_destroy_fail(self):
-        instance = stubs.MockInstance()
-        self.ml.container_destroy.side_effect = (
+       instance = stubs._fake_instance()
+       context = mock.Mock()
+       network_info = mock.Mock()
+       self.ml.container_destroy.side_effect = (
             lxd_exceptions.APIError('Fake', 500))
-        self.assertRaises(
-            exception.NovaException,
-            self.connection.destroy,
-            {}, instance, [])
-        self.ml.container_destroy.assert_called_with('fake-uuid')
+       with contextlib.nested(
+            mock.patch.object(container_utils.LXDContainerUtils,
+                              'container_destroy'),
+            mock.patch.object(container_utils.LXDContainerUtils,
+                              'container_stop'),
+            mock.patch.object(self.connection, 'cleanup')
+        ) as (
+                container_destroy,
+                container_stop,
+                cleanup,
+        ):
+            self.connection.destroy(context, instance, network_info)
 
     def test_destroy(self):
         instance = stubs._fake_instance()
@@ -204,12 +213,16 @@ class LXDTestDriver(test.NoDBTestCase):
         with contextlib.nested(
                 mock.patch.object(container_utils.LXDContainerUtils,
                                   'container_destroy'),
+                mock.patch.object(container_utils.LXDContainerUtils,
+                                  'container_stop'),
                 mock.patch.object(self.connection, 'cleanup')
         ) as (
                 container_destroy,
+                container_stop,
                 cleanup,
         ):
             self.connection.destroy(context, instance, network_info)
+            self.assertTrue(container_stop)
             self.assertTrue(container_destroy)
             self.assertTrue(cleanup)
 
