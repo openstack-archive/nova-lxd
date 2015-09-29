@@ -47,12 +47,12 @@ class LXDContainerUtils(object):
                                oid=data.get('operation').split('/')[3],
                                host=instance.host)
             LOG.info(_LI('Succesfully started instance %s'),
-                     instance.uuid, instance=instance)
+                     instance_name, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to start container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid, 'reason': ex},
+                    {'instance': instance_name, 'reason': ex},
                     instance=instance)
 
     def container_stop(self, instance_name, instance):
@@ -67,12 +67,12 @@ class LXDContainerUtils(object):
                 instance, power_state.SHUTDOWN)
             timer.start(interval=CONF.lxd.retry_interval).wait()
             LOG.info(_LI('Succesfully stopped container %s'),
-                     instance.uuid, instance=instance)
+                     instance_name, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to stop container %(instance)s: '
-                        '%(reason)s'), {'instance': instance.uuid,
+                        '%(reason)s'), {'instance': instance_name,
                                         'reason': ex})
 
     def container_reboot(self, instance):
@@ -154,7 +154,7 @@ class LXDContainerUtils(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to unpause container %(instance)s: '
-                        '%(reason)s'), {'instance': instance.uuid,
+                        '%(reason)s'), {'instance': instance_name,
                                         'reason': ex})
 
     def container_snapshot(self, snapshot, instance):
