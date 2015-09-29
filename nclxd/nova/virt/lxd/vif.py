@@ -95,7 +95,7 @@ class LXDGenericDriver(object):
         return conf
 
     def get_config_ovs(self, instance, vif):
-        if self.get_firewall_required(vif):
+        if self.get_firewall_required(vif) or vif.is_hybrid_plug_enabled():
             return self.get_config_ovs_hybrid(instance, vif)
         else:
             return self.get_config_ovs_bridge(instance, vif)
