@@ -217,16 +217,20 @@ class LXDTestDriver(test.NoDBTestCase):
                                   'container_destroy'),
                 mock.patch.object(container_utils.LXDContainerUtils,
                                   'container_stop'),
-                mock.patch.object(self.connection, 'cleanup')
+                mock.patch.object(container_ops.LXDContainerOperations,
+                                  '_unplug_vifs'),
         ) as (
                 container_destroy,
                 container_stop,
                 cleanup,
+                unplug_vifs
         ):
             self.connection.destroy(context, instance, network_info)
             self.assertTrue(container_stop)
             self.assertTrue(container_destroy)
             self.assertTrue(cleanup)
+            unplug_vifs.assert_called_with(instance, network_info,
+                                           True)
 
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('shutil.rmtree')

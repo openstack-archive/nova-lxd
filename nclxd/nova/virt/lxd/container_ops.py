@@ -166,8 +166,7 @@ class LXDContainerOperations(object):
         self._start_firewall(instance, network_info)
 
     def unplug_vifs(self, instance, network_info):
-        for viface in network_info:
-            self.vif_driver.plug(instance, viface)
+        self._unplug_vifs(instance, network_info, False)
         self._start_firewall(instance, network_info)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
@@ -241,8 +240,20 @@ class LXDContainerOperations(object):
         self.container_utils.container_destroy(instance.uuid,
                                                instance.host)
 
+    def _unplug_vifs(self, instance, network_info, ignore_errors):
+        """Unplug VIFs from networks."""
+        for viface in network_info:
+            try:
+                self.vif_driver.unplug(instance, viface)
+            except exception.NovaException:
+                if not ignore_errors:
+                    raise
+
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
+        if destroy_vifs:
+            self._unplug_vifs(instance, network_info, True)
+
         LOG.debug('container cleanup')
         container_dir = self.container_dir.get_instance_dir(instance.uuid)
         if os.path.exists(container_dir):
