@@ -33,6 +33,7 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDContainerUtils(object):
+
     def __init__(self):
         self.client = container_client.LXDContainerClient()
 
@@ -235,7 +236,9 @@ class LXDContainerUtils(object):
                     {'instance': instance.uuid,
                      'reason': ex}, instance=instance)
 
+
 class LXDContainerDirectories(object):
+
     def __init__(self):
         self.base_dir = os.path.join(CONF.instances_path,
                                      CONF.image_cache_subdirectory_name)

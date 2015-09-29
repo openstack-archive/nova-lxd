@@ -48,7 +48,8 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         ):
             container_start.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
-                             self.container_utils.container_start(instance_name, instance))
+                             (self.container_utils.container_start(
+                                 instance_name, instance)))
             self.assertTrue(container_start)
             self.assertTrue(container_wait)
 
@@ -66,7 +67,8 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         ):
             container_stop.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
-                             self.container_utils.container_stop(instance_name, instance))
+                             (self.container_utils.container_stop(
+                                 instance_name, instance)))
             self.assertTrue(container_stop)
             self.assertTrue(container_wait)
 
@@ -108,7 +110,8 @@ class LXDTestContainerUtils(test.NoDBTestCase):
             container_defined.retrun_value = True
             container_destroy.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
-                             self.container_utils.container_destroy(instance_name, host))
+                             (self.container_utils.container_destroy(
+                                 instance_name, host)))
             self.assertTrue(container_defined)
             self.assertTrue(container_stop)
             self.assertTrue(container_destroy)
@@ -128,7 +131,8 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         ):
             container_pause.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
-                             self.container_utils.container_pause(instance_name, instance))
+                             (self.container_utils.container_pause(
+                                 instance_name, instance)))
             self.assertTrue(container_pause)
             self.assertTrue(container_wait)
 
@@ -146,7 +150,8 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         ):
             container_pause.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
-                             self.container_utils.container_pause(instance_name, instance))
+                             self.container_utils.container_pause(
+                                 instance_name, instance))
             self.assertTrue(container_pause)
             self.assertTrue(container_wait)
 
@@ -164,7 +169,8 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         ):
             snapshot_create.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
-                             self.container_utils.container_snapshot(snapshot, instance))
+                             (self.container_utils.container_snapshot(
+                                 snapshot, instance)))
             self.assertTrue(snapshot_create)
             self.assertTrue(container_wait)
 
@@ -183,7 +189,8 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         ):
             container_copy.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
-                             self.container_utils.container_copy(config, instance))
+                             (self.container_utils.container_copy(config,
+                                                                  instance)))
             self.assertTrue(container_copy)
             self.assertTrue(container_wait)
 
@@ -203,7 +210,9 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         ):
             container_move.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
-                             self.container_utils.container_move(old_name, config, instance))
+                             (self.container_utils.container_move(old_name,
+                                                                  config,
+                                                                  instance)))
             self.assertTrue(container_move)
             self.assertTrue(container_wait)
 
@@ -222,6 +231,8 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         ):
             container_init.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
-                             self.container_utils.container_init(config, instance, host))
+                             (self.container_utils.container_init(config,
+                                                                  instance,
+                                                                  host)))
             self.assertTrue(container_init)
             self.assertTrue(container_wait)

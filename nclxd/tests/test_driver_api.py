@@ -43,6 +43,7 @@ from nclxd.tests import stubs
 
 
 class LXDTestConfig(test.NoDBTestCase):
+
     def test_config(self):
         self.assertIsInstance(driver.CONF.lxd, cfg.ConfigOpts.GroupAttr)
         self.assertEqual(os.path.abspath('/var/lib/lxd'),
@@ -57,6 +58,7 @@ class LXDTestConfig(test.NoDBTestCase):
 @mock.patch.object(driver, 'CONF', stubs.MockConf())
 @mock.patch.object(host, 'CONF', stubs.MockConf())
 class LXDTestDriver(test.NoDBTestCase):
+
     @mock.patch.object(driver, 'CONF', stubs.MockConf())
     def setUp(self):
         super(LXDTestDriver, self).setUp()
@@ -188,21 +190,21 @@ class LXDTestDriver(test.NoDBTestCase):
             self.assertTrue(create_container)
 
     def test_destroy_fail(self):
-       instance = stubs._fake_instance()
-       context = mock.Mock()
-       network_info = mock.Mock()
-       self.ml.container_destroy.side_effect = (
+        instance = stubs._fake_instance()
+        context = mock.Mock()
+        network_info = mock.Mock()
+        self.ml.container_destroy.side_effect = (
             lxd_exceptions.APIError('Fake', 500))
-       with contextlib.nested(
+        with contextlib.nested(
             mock.patch.object(container_utils.LXDContainerUtils,
                               'container_destroy'),
             mock.patch.object(container_utils.LXDContainerUtils,
                               'container_stop'),
             mock.patch.object(self.connection, 'cleanup')
         ) as (
-                container_destroy,
-                container_stop,
-                cleanup,
+            container_destroy,
+            container_stop,
+            cleanup,
         ):
             self.connection.destroy(context, instance, network_info)
 
@@ -623,6 +625,7 @@ class LXDTestDriver(test.NoDBTestCase):
 
 @ddt.ddt
 class LXDTestDriverNoops(test.NoDBTestCase):
+
     def setUp(self):
         super(LXDTestDriverNoops, self).setUp()
         self.connection = driver.LXDDriver(fake.FakeVirtAPI())
