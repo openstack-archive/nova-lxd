@@ -50,7 +50,7 @@ class LXDContainerMigrate(object):
         LOG.debug("migrate_disk_and_power_off called", instance=instance)
 
         try:
-            self.utils.container_stop(instance.uuid, instance)
+            self.utils.container_stop(instance.uuid, instance.host)
 
             container_ws = self.utils.container_migrate(instance.uuid,
                                                         instance)

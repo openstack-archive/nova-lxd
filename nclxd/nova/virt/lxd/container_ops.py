@@ -176,7 +176,7 @@ class LXDContainerOperations(object):
         self.cleanup(context, instance, network_info, block_device_info)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        return self.container_utils.container_stop(instance.uuid, instance)
+        return self.container_utils.container_stop(instance.uuid, instance.host)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
@@ -202,7 +202,7 @@ class LXDContainerOperations(object):
             msg = _('Unable to find instance')
             raise exception.NovaException(msg)
 
-        self.container_utils.container_stop(instance.uuid, instance)
+        self.container_utils.container_stop(instance.uuid, instance.host)
         self._container_local_copy(instance)
         self.container_utils.container_destroy(instance.uuid, instance.host)
 

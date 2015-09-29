@@ -55,17 +55,17 @@ class LXDContainerUtils(object):
                     {'instance': instance_name, 'reason': ex},
                     instance=instance)
 
-    def container_stop(self, instance_name, instance):
+    def container_stop(self, instance_name, host):
         LOG.debug('Container stop')
         try:
             (state, data) = (self.client.client('stop',
                                                 instance=instance_name,
-                                                host=instance.host))
+                                                host=host))
             self.client.client('wait',
                                oid=data.get('operation').split('/')[3],
-                               host=instance.host)
+                               host=host)
             LOG.info(_LI('Succesfully stopped container %s'),
-                     instance_name, instance=instance)
+                     instance_name)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
