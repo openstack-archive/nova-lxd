@@ -109,15 +109,12 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
         with contextlib.nested(
             mock.patch.object(container_config.LXDContainerConfig,
                               'get_container_config'),
-            mock.patch.object(container_config.LXDContainerConfig,
-                              'container_config'),
             mock.patch.object(container_client.LXDContainerClient,
                               'client'),
             mock.patch.object(container_ops.LXDContainerOperations,
                               'start_container')
         ) as (
             get_container_config,
-            container_mock_config,
             container_mock_client,
             container_start
         ):
