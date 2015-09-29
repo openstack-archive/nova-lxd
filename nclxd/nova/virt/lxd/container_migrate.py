@@ -36,12 +36,15 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDContainerMigrate(object):
+
     def __init__(self, virtapi):
         self.virtapi = virtapi
         self.config = container_config.LXDContainerConfig()
         self.client = container_client.LXDContainerClient()
         self.utils = container_utils.LXDContainerUtils()
-        self.container_ops = container_ops.LXDContainerOperations(self.virtapi)
+        self.container_ops = \
+            container_ops.LXDContainerOperations(
+                self.virtapi)
 
     def migrate_disk_and_power_off(self, context, instance, dest,
                                    flavor, network_info,
