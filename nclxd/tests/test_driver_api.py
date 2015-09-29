@@ -200,11 +200,15 @@ class LXDTestDriver(test.NoDBTestCase):
                               'container_destroy'),
             mock.patch.object(container_utils.LXDContainerUtils,
                               'container_stop'),
-            mock.patch.object(self.connection, 'cleanup')
+            mock.patch.object(self.connection, 'cleanup'),
+            mock.patch.object(container_ops.LXDContainerOperations,
+                              '_unplug_vifs'),
+
         ) as (
             container_destroy,
             container_stop,
             cleanup,
+            unplug_vifs
         ):
             self.connection.destroy(context, instance, network_info)
 
@@ -214,14 +218,16 @@ class LXDTestDriver(test.NoDBTestCase):
         network_info = mock.Mock()
         with contextlib.nested(
                 mock.patch.object(container_utils.LXDContainerUtils,
-                                  'container_destroy'),
-                mock.patch.object(container_utils.LXDContainerUtils,
                                   'container_stop'),
+                mock.patch.object(container_utils.LXDContainerUtils,
+                                  'container_destroy'),
+                mock.patch.object(self.connection,
+                                  'cleanup'),
                 mock.patch.object(container_ops.LXDContainerOperations,
                                   '_unplug_vifs'),
         ) as (
-                container_destroy,
                 container_stop,
+                container_destroy,
                 cleanup,
                 unplug_vifs
         ):
