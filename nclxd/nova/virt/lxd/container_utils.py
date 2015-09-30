@@ -14,6 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from nova import exception
 from nova import i18n
 import os
 
@@ -224,11 +225,21 @@ class LXDContainerUtils(object):
             (state, data) = self.client.client('init',
                                                container_config=config,
                                                host=host)
+
+            operation = data.get('operation').split('/')[3]
             self.client.client('wait',
-                               oid=data.get('operation').split('/')[3],
+                               oid=operation,
                                host=instance.host)
-            LOG.info(_LI('Successfully created container %s'),
-                     instance.uuid, instance=instance)
+            _, data = self.client.client('operation_info',
+                                         oid=operation,
+                                         host=instance.host)
+            data = data.get('metadata')
+            if data['status_code'] == 200:
+                LOG.info(_LI('Successfully created container %(instance)'),
+                         instance=instance)
+            else:
+                raise exception.NovaException(data['metadata'])
+
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(

@@ -17,6 +17,7 @@ import contextlib
 
 import mock
 
+from nova import exception
 from nova import test
 
 from nclxd.nova.virt.lxd import container_client
@@ -225,14 +226,48 @@ class LXDTestContainerUtils(test.NoDBTestCase):
                               'container_init'),
             mock.patch.object(container_client.LXDContainerClient,
                               'container_wait'),
+            mock.patch.object(container_client.LXDContainerClient,
+                              'container_operation_info'),
         ) as (
             container_init,
-            container_wait
+            container_wait,
+            container_operation_info,
         ):
             container_init.return_value = (200, fake_api.fake_operation())
+            container_operation_info.return_value = (
+                200,
+                fake_api.fake_operation_info_ok())
             self.assertEqual(None,
                              (self.container_utils.container_init(config,
                                                                   instance,
                                                                   host)))
             self.assertTrue(container_init)
             self.assertTrue(container_wait)
+            self.assertTrue(container_operation_info)
+
+    def test_container_init_failure(self):
+        config = mock.Mock()
+        instance = stubs._fake_instance()
+        host = mock.Mock()
+        with contextlib.nested(
+            mock.patch.object(container_client.LXDContainerClient,
+                              'container_init'),
+            mock.patch.object(container_client.LXDContainerClient,
+                              'container_wait'),
+            mock.patch.object(container_client.LXDContainerClient,
+                              'container_operation_info'),
+        ) as (
+            container_init,
+            container_wait,
+            container_operation_info,
+        ):
+            container_init.return_value = (200, fake_api.fake_operation())
+            container_operation_info.return_value = (
+                200,
+                fake_api.fake_operation_info_failed())
+            self.assertRaises(exception.NovaException,
+                              self.container_utils.container_init,
+                              config, instance, host)
+            self.assertTrue(container_init)
+            self.assertTrue(container_wait)
+            self.assertTrue(container_operation_info)
