@@ -171,7 +171,8 @@ class LXDContainerClient(object):
     def container_reboot(self, lxd, **kwargs):
         LOG.debug('REST API - container defined')
         try:
-            return lxd.container_reboot(kwargs['instance'])
+            return lxd.container_reboot(kwargs['instance'],
+                                        CONF.lxd.timeout)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 pass
