@@ -47,7 +47,7 @@ class LXDSnapshot(object):
 
         ''' Publish the image to LXD '''
         (state, data) = self.client.client('stop',
-                                           instance=instance.uuid,
+                                           instance=instance.name,
                                            host=instance.host)
         self.client.client('wait',
                            oid=data.get('operation').split('/')[3],
@@ -59,7 +59,7 @@ class LXDSnapshot(object):
         update_task_state(task_state=task_states.IMAGE_UPLOADING,
                           expected_state=task_states.IMAGE_PENDING_UPLOAD)
 
-        (state, data) = self.client.client('start', instance=instance.uuid,
+        (state, data) = self.client.client('start', instance=instance.name,
                                            host=instance.host)
 
     def create_container_snapshot(self, snapshot, instance):
@@ -67,7 +67,7 @@ class LXDSnapshot(object):
         csnapshot = {'name': snapshot['name'],
                      'stateful': False}
         (state, data) = self.client.client('snapshot_create',
-                                           instance=instance.uuid,
+                                           instance=instance.name,
                                            container_snapshot=csnapshot,
                                            host=instance.host)
         self.client.client('wait',
@@ -78,7 +78,7 @@ class LXDSnapshot(object):
         LOG.debug('Uploading image to LXD image store.')
         image = {
             'source': {
-                'name': '%s/%s' % (instance.uuid,
+                'name': '%s/%s' % (instance.name,
                                    snapshot['name']),
                 'type': 'snapshot'
             }

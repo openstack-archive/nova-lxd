@@ -53,9 +53,9 @@ class LXDContainerMigrate(object):
         LOG.debug("migrate_disk_and_power_off called", instance=instance)
 
         try:
-            self.utils.container_stop(instance.uuid, instance.host)
+            self.utils.container_stop(instance.name, instance.host)
 
-            container_ws = self.utils.container_migrate(instance.uuid,
+            container_ws = self.utils.container_migrate(instance.name,
                                                         instance)
             container_config = (
                 self.config.configure_container_migrate(
@@ -77,17 +77,17 @@ class LXDContainerMigrate(object):
         src_host = migration['source_compute']
         dst_host = migration['dest_compute']
         try:
-            if not self.client.client('defined', instance=instance.uuid,
+            if not self.client.client('defined', instance=instance.name,
                                       host=dst_host):
                 LOG.exception(_LE('Failed to migrate host'))
             LOG.info(_LI('Successfuly migrated instnace %(instance)s'),
-                     {'instance': instance.uuid}, instance=instance)
+                     {'instance': instance.name}, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Failed to confirm migration: %(e)s'),
                               {'e': ex}, instance=instance)
         finally:
-            self.utils.container_destroy(instance.uuid, src_host)
+            self.utils.container_destroy(instance.name, src_host)
 
     def finish_revert_migration(self, context, instance, network_info,
                                 block_device_info=None, power_on=True):
@@ -105,7 +105,7 @@ class LXDContainerMigrate(object):
                                                network_info,
                                                need_vif_plugged=True)
             LOG.info(_LI('Succesfuly migrated instnace %(instance)s '
-                         'on %(host)s'), {'instance': instance.uuid,
+                         'on %(host)s'), {'instance': instance.name,
                                           'host': migration['dest_compute']},
                      instance=instance)
         except Exception as ex:

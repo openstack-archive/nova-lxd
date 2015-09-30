@@ -171,7 +171,7 @@ class LXDGenericDriver(object):
             utils.execute('brctl', 'addif', br_name, v1_name, run_as_root=True)
             linux_net.create_ovs_vif_port(self.get_bridge_name(vif),
                                           v2_name, iface_id,
-                                          vif['address'], instance.uuid)
+                                          vif['address'], instance.name)
 
     def unplug(self, instance, vif):
         vif_type = vif['type']
