@@ -99,7 +99,7 @@ class LXDContainerOperations(object):
                                   block_device_info, rescue, need_vif_plugged)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Upload image failed: %(e)s'),
+                LOG.exception(_LE('Container creation failed: %(e)s'),
                               {'e': ex})
         end = time.time()
         total = end - start

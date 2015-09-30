@@ -247,6 +247,46 @@ def fake_operation():
     }
 
 
+def fake_operation_info_ok():
+    return {
+        "type": "async",
+        "status": "OK",
+        "status_code": 200,
+        "operation": "/1.0/operation/1234",
+        "metadata": {
+            "created_at": "2015-06-09T19:07:24.379615253-06:00",
+            "updated_at": "2015-06-09T19:07:23.379615253-06:00",
+            "status": "Completed",
+            "status_code": 200,
+            "resources": {
+                "containers": ["/1.0/containers/1"]
+            },
+            "metadata": {},
+            "may_cancel": True
+        }
+    }
+
+
+def fake_operation_info_failed():
+    return {
+        "type": "async",
+        "status": "OK",
+        "status_code": 200,
+        "operation": "/1.0/operation/1234",
+        "metadata": {
+            "created_at": "2015-06-09T19:07:24.379615253-06:00",
+            "updated_at": "2015-06-09T19:07:23.379615253-06:00",
+            "status": "Failure",
+            "status_code": 400,
+            "resources": {
+                "containers": ["/1.0/containers/1"]
+            },
+            "metadata": "Invalid container name",
+            "may_cancel": True
+        }
+    }
+
+
 def fake_network_list():
     return {
         "type": "sync",
