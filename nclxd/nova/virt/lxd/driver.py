@@ -83,7 +83,7 @@ class LXDDriver(driver.ComputeDriver):
 
     def instance_exists(self, instance):
         try:
-            return instance.uuid in self.list_instance_uuids()
+            return instance.name in self.list_instance_uuids()
         except NotImplementedError:
             return instance.name in self.list_instances()
 

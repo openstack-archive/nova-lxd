@@ -77,18 +77,18 @@ class LXDContainerUtils(object):
         LOG.debug('Container reboot')
         try:
             (state, data) = self.client.client('reboot',
-                                               instance=instance.uuid,
+                                               instance=instance.name,
                                                host=instance.host)
             self.client.client('wait',
                                oid=data.get('operation').split('/')[3],
                                host=instance.host)
             LOG.info(_LI('Successfully rebooted container %s'),
-                     instance.uuid, instance=instance)
+                     instance.name, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to reboot container %(instance)s: '
-                        '%(reason)s'), {'instance': instance.uuid,
+                        '%(reason)s'), {'instance': instance.name,
                                         'reason': ex}, instance=instance)
 
     def container_destroy(self, instance_name, host):
@@ -124,13 +124,13 @@ class LXDContainerUtils(object):
                                oid=data.get('operation').split('/')[3],
                                host=instance.host)
             LOG.info(_LI('Successfully paused container %s'),
-                     instance.uuid, instance=instance)
+                     instance.name, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to pause container %(instance)s: '
                         '%(reason)s'),
-                    {'instance': instance.uuid,
+                    {'instance': instance.name,
                      'reason': ex}, instance=instance)
 
     def container_unpause(self, instance_name, instance):
@@ -143,7 +143,7 @@ class LXDContainerUtils(object):
                                oid=data.get('operation').split('/')[3],
                                host=instance.host)
             LOG.info(_LI('Successfully resumed container %s'),
-                     instance.uuid, instance=instance)
+                     instance_name, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
@@ -154,19 +154,19 @@ class LXDContainerUtils(object):
     def container_snapshot(self, snapshot, instance):
         try:
             (state, data) = self.client.client('snapshot_create',
-                                               instance=instance.uuid,
+                                               instance=instance.name,
                                                container_snapshot=snapshot,
                                                host=instance.host)
             self.client.client('wait',
                                oid=data.get('operation').split('/')[3],
                                host=instance.host)
             LOG.info(_LI('Successfully snapshotted container %s'),
-                     instance.uuid, instance=instance)
+                     instance.name, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to rename container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid,
+                    {'instance': instance.name,
                      'reason': ex}, instance=instance)
 
     def container_copy(self, config, instance):
@@ -179,12 +179,12 @@ class LXDContainerUtils(object):
                                oid=data.get('operation').split('/')[3],
                                host=instance.host)
             LOG.info(_LI('Successfully copied container %s'),
-                     instance.uuid, instance=instance)
+                     instance.name, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to rename container %(instance): %(reason)s'),
-                    {'instance': instance.uuid,
+                    {'instance': instance.name,
                      'reason': ex})
 
     def container_move(self, old_name, config, instance):
@@ -198,12 +198,12 @@ class LXDContainerUtils(object):
                                oid=data.get('operation').split('/')[3],
                                host=instance.host)
             LOG.info(_LI('Successfully renamed container %s'),
-                     instance.uuid, instance=instance)
+                     instance.name, instance=instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to rename container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid,
+                    {'instance': instance.name,
                      'reason': ex}, instance=instance)
 
     def container_migrate(self, instance_name, instance):
@@ -244,7 +244,7 @@ class LXDContainerUtils(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to create container %(instance)s: %(reason)s'),
-                    {'instance': instance.uuid,
+                    {'instance': instance.name,
                      'reason': ex}, instance=instance)
 
 

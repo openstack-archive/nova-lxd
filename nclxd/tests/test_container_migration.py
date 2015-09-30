@@ -73,7 +73,7 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
                              self.migrate.migrate_disk_and_power_off(
                 context, instance, dest, flavor, network_info))
             container_stop.assert_called_once_with(
-                instance.uuid, instance.host)
+                instance.name, instance.host)
 
     def test_confirm_migration(self):
         instance = stubs._fake_instance()
@@ -95,7 +95,7 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
                              (self.migrate.confirm_migration(migration,
                                                              instance,
                                                              network_info)))
-            container_destroy.assert_called_once_with(instance.uuid,
+            container_destroy.assert_called_once_with(instance.name,
                                                       src)
 
     def test_finish_migration(self):

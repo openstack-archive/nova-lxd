@@ -45,9 +45,9 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                         'limits.memory': '268435456',
                         'raw.lxc': 'lxc.console.logfile='
                                    '/fake/lxd/root/containers/'
-                                   'fake_uuid/console.log\n'},
+                                   'instance-00000001/console.log\n'},
              'devices': {},
-             'name': 'fake_uuid',
+             'name': 'instance-00000001',
              'profiles': ['fake_profile'],
              'source': {'alias': None, 'type': 'image'}},
             self.container_config.create_container(instance, [], {},
@@ -60,13 +60,14 @@ class LXDTestContainerConfig(test.NoDBTestCase):
             {'config': {'limits.cpus': '1',
                         'limits.memory': '268435456',
                         'raw.lxc': 'lxc.console.logfile='
-                                   '/fake/lxd/root/containers/fake_uuid/'
+                                   '/fake/lxd/root/containers'
+                                   '/instance-00000001/'
                                    'console.log\n'},
              'devices': {'rescue': {'path': 'mnt',
                                     'source': '/fake/lxd/root/containers/'
-                                    'fake_uuid-backup/rootfs',
+                                    'instance-00000001-backup/rootfs',
                                     'type': 'disk'}},
-             'name': 'fake_uuid',
+             'name': 'instance-00000001',
              'profiles': ['fake_profile'],
              'source': {'alias': None, 'type': 'image'}},
             self.container_config.create_container(instance, [], {},

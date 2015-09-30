@@ -64,7 +64,7 @@ class LXDContainerConfig(object):
 
         # Ensure the directory exists and is writable
         fileutils.ensure_tree(
-            self.container_dir.get_instance_dir(instance.uuid))
+            self.container_dir.get_instance_dir(instance.name))
 
         # Check to see if we are using swap.
         swap = driver.block_device_info_get_swap(block_device_info)
@@ -80,7 +80,7 @@ class LXDContainerConfig(object):
 
         container_config = self._init_container_config()
         container_config = self.add_config(container_config, 'name',
-                                           instance.uuid)
+                                           instance.name)
         container_config = self.add_config(container_config, 'profiles',
                                            [str(CONF.lxd.default_profile)])
         container_config = self.configure_container_config(container_config,
@@ -127,7 +127,7 @@ class LXDContainerConfig(object):
         ''' Basic container configuration. '''
         self.add_config(container_config, 'config', 'raw.lxc',
                         data='lxc.console.logfile=%s\n'
-                        % self.container_dir.get_console_path(instance.uuid))
+                        % self.container_dir.get_console_path(instance.name))
         return container_config
 
     def configure_lxd_image(self, container_config, instance):
@@ -157,7 +157,7 @@ class LXDContainerConfig(object):
                                                 'type': 'nic'})
 
         LOG.debug(pprint.pprint(container_config))
-        self.container_client.client('update', instance=instance.uuid,
+        self.container_client.client('update', instance=instance.name,
                                      container_config=network_devices,
                                      host=instance.host)
 
@@ -166,7 +166,7 @@ class LXDContainerConfig(object):
     def configure_disk_path(self, container_config, vfs_type, instance):
         LOG.debug('Creating LXD disk path')
         config_drive = self.container_dir.get_container_configdrive(
-            instance.uuid)
+            instance.name)
         self.add_config(container_config, 'devices', str(vfs_type),
                         data={'path': 'mnt',
                               'source': config_drive,
@@ -175,7 +175,7 @@ class LXDContainerConfig(object):
 
     def configure_container_rescuedisk(self, container_config, instance):
         LOG.debug('Creating LXD rescue disk')
-        rescue_path = self.container_dir.get_container_rescue(instance.uuid)
+        rescue_path = self.container_dir.get_container_rescue(instance.name)
         self.add_config(container_config, 'devices', 'rescue',
                         data={'path': 'mnt',
                               'source': rescue_path,
@@ -196,7 +196,7 @@ class LXDContainerConfig(object):
         inst_md = instance_metadata.InstanceMetadata(instance,
                                                      content=injected_files,
                                                      extra_md=extra_md)
-        name = instance.uuid
+        name = instance.name
         try:
             with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
                 container_configdrive = (
@@ -222,7 +222,7 @@ class LXDContainerConfig(object):
         container_config = self.add_config(
             container_config, 'devices',
             container_network_config['bridge'],
-            data={'name': self._get_network_device(instance.uuid),
+            data={'name': self._get_network_device(instance.name),
                   'nictype': 'bridged',
                   'hwaddr': vif['address'],
                   'parent': container_network_config['bridge'],
@@ -261,13 +261,13 @@ class LXDContainerConfig(object):
         container_update = self._init_container_config()
 
         container_old = self.container_client.client(
-            'config', instance=instance.uuid,
+            'config', instance=instance.name,
             host=instance.host)
 
         container_config = self._convert(container_old['config'])
         container_devices = self._convert(container_old['devices'])
 
-        container_update['name'] = instance.uuid
+        container_update['name'] = instance.name
         container_update['profiles'] = [str(CONF.lxd.default_profile)]
         container_update['config'] = container_config
         container_update['devices'] = container_devices
