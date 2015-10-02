@@ -290,8 +290,7 @@ class LXDContainerDirectories(object):
 
     def get_container_dir(self, instance):
         return os.path.join(CONF.lxd.root_dir,
-                            'containers',
-                            instance)
+                            'containers')
 
     def get_container_rootfs(self, instance):
         return os.path.join(CONF.lxd.root_dir,
