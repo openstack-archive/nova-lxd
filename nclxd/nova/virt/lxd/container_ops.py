@@ -281,8 +281,8 @@ class LXDContainerOperations(object):
         utils.execute('chmod', '755',
                       os.path.join(
                           self.container_dir.get_container_dir(
-                          instance.name), instance.name),
-                          run_as_root=True)
+                              instance.name), instance.name),
+                      run_as_root=True)
         with open(console_log, 'rb') as fp:
             log_data, remaning = utils.last_bytes(fp,
                                                   MAX_CONSOLE_BYTES)

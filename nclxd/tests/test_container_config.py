@@ -37,42 +37,6 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         self.assertEqual({'config': {}, 'devices': {}},
                          self.container_config._init_container_config())
 
-    @mock.patch('oslo_utils.fileutils.ensure_tree')
-    def test_container_config_no_rescue(self, mock_ensure_tree):
-        instance = stubs._fake_instance()
-        self.assertEqual(
-            {'config': {'limits.cpus': '1',
-                        'limits.memory': '268435456',
-                        'raw.lxc': 'lxc.console.logfile='
-                                   '/fake/lxd/root/containers/'
-                                   'instance-00000001/console.log\n'},
-             'devices': {},
-             'name': 'instance-00000001',
-             'profiles': ['fake_profile'],
-             'source': {'alias': None, 'type': 'image'}},
-            self.container_config.create_container(instance, [], {},
-                                                   False))
-
-    @mock.patch('oslo_utils.fileutils.ensure_tree')
-    def test_container_config_rescue(self, mock_ensure_tree):
-        instance = stubs._fake_instance()
-        self.assertEqual(
-            {'config': {'limits.cpus': '1',
-                        'limits.memory': '268435456',
-                        'raw.lxc': 'lxc.console.logfile='
-                                   '/fake/lxd/root/containers'
-                                   '/instance-00000001/'
-                                   'console.log\n'},
-             'devices': {'rescue': {'path': 'mnt',
-                                    'source': '/fake/lxd/root/containers/'
-                                    'instance-00000001-backup/rootfs',
-                                    'type': 'disk'}},
-             'name': 'instance-00000001',
-             'profiles': ['fake_profile'],
-             'source': {'alias': None, 'type': 'image'}},
-            self.container_config.create_container(instance, [], {},
-                                                   True))
-
     @stubs.annotated_data(
         ('no_limits', {'memory_mb': -1, 'vcpus': 0},
          {}),

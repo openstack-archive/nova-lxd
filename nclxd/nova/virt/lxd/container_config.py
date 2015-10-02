@@ -20,6 +20,7 @@ from nova import exception
 from nova import i18n
 from nova.virt import configdrive
 from nova.virt import driver
+import os
 import pprint
 
 from oslo_config import cfg
@@ -175,7 +176,15 @@ class LXDContainerConfig(object):
 
     def configure_container_rescuedisk(self, container_config, instance):
         LOG.debug('Creating LXD rescue disk')
-        rescue_path = self.container_dir.get_container_rescue(instance.name)
+        instance_name = '%s-backup' % instance.name
+
+        if self.container_dir.is_lvm(instance_name):
+            self.container_utils.mount_filesystem(
+                self.container_dir.get_container_lvm(instance_name),
+                (os.path.join(self.container_dir.get_container_dir(
+                    instance), instance_name)))
+
+        rescue_path = self.container_dir.get_container_rescue(instance_name)
         self.add_config(container_config, 'devices', 'rescue',
                         data={'path': 'mnt',
                               'source': rescue_path,
