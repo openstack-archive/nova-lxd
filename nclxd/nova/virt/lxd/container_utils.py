@@ -16,12 +16,15 @@
 
 from nova import exception
 from nova import i18n
+from nova import utils
 import os
 
 import container_client
+from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
+import six
 
 
 _ = i18n._
@@ -247,6 +250,23 @@ class LXDContainerUtils(object):
                     {'instance': instance.name,
                      'reason': ex}, instance=instance)
 
+    def mount_filesystem(self, dev_path, dir_path):
+        try:
+            _out, err = utils.execute('mount',
+                                      '-t', 'ext4',
+                                      dev_path, dir_path, run_as_root=True)
+        except processutils.ProcessExecutionError as e:
+            err = six.text_type(e)
+        return err
+
+    def umount_filesystem(self, dir_path):
+        try:
+            _out, err = utils.execute('umount',
+                                      dir_path, run_as_root=True)
+        except processutils.ProcessExecutionError as e:
+            err = six.text_type(e)
+        return err
+
 
 class LXDContainerDirectories(object):
 
@@ -290,8 +310,7 @@ class LXDContainerDirectories(object):
 
     def get_container_dir(self, instance):
         return os.path.join(CONF.lxd.root_dir,
-                            'containers',
-                            instance)
+                            'containers')
 
     def get_container_rootfs(self, instance):
         return os.path.join(CONF.lxd.root_dir,
@@ -300,7 +319,24 @@ class LXDContainerDirectories(object):
                             'rootfs')
 
     def get_container_rescue(self, instance):
-        return os.path.join(CONF.lxd.root_dir,
-                            'containers',
-                            '%s-backup' % instance,
-                            'rootfs')
+        if self.is_lvm(instance):
+            return os.path.join(CONF.lxd.root_dir,
+                                'containers',
+                                instance)
+        else:
+            return os.path.join(CONF.lxd.root_dir,
+                                'containers',
+                                instance,
+                                'rootfs')
+
+    def get_container_lvm(self, instance):
+        return '%s/%s.lv' % (self.get_container_dir(instance),
+                             instance)
+
+    def is_lvm(self, instance):
+        try:
+            if os.path.exists(os.readlink(
+                self.get_container_lvm(instance))):
+                return True
+        except Exception:
+            return False
