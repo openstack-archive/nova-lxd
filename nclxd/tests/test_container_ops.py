@@ -151,7 +151,6 @@ class LXDTestContainerOps(test.NoDBTestCase):
                             is_neutron=True, timeout=10, network_info=[],
                             vifs=(), plug_side_effect=None):
         instance = stubs.MockInstance()
-        container_config = mock.Mock()
         need_vif_plugged = True
         self.ml.container_running.return_value = running
         self.ml.container_start.return_value = (
