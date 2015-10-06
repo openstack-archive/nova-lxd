@@ -60,7 +60,8 @@ class LXDContainerConfig(object):
         return config
 
     def create_container(self, instance, injected_files,
-                         block_device_info, rescue):
+                         block_device_info, network_info,
+                         rescue):
         LOG.debug('Creating container config')
 
         # Ensure the directory exists and is writable
@@ -107,6 +108,13 @@ class LXDContainerConfig(object):
                     container_config,
                     instance))
             LOG.debug(pprint.pprint(container_rescue_devices))
+
+        if network_info:
+            for viface in network_info:
+                container_network_devices = (
+                    self.configure_network_devices(
+                        container_config, instance, viface))
+            LOG.debug(container_network_devices)
 
         return container_config
 
