@@ -163,7 +163,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
                                'wait_for_instance_event') as mw:
             self.assertEqual(
                 None,
-                self.container_ops.start_container(instance,
+                self.container_ops.start_container(container_config,
+                                                   instance,
                                                    network_info,
                                                    need_vif_plugged))
             mw.assert_called_once_with(

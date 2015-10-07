@@ -112,15 +112,17 @@ class LXDContainerOperations(object):
                                             host=instance.host):
             container_config = (self.container_config.create_container(
                                 instance, injected_files, block_device_info,
-                                network_info, rescue))
+                                rescue))
 
             eventlet.spawn(self.container_utils.container_init,
                            container_config, instance,
                            instance.host).wait()
 
-            self.start_container(instance, network_info, need_vif_plugged)
+            self.start_container(container_config, instance, network_info,
+                                 need_vif_plugged)
 
-    def start_container(self, instance, network_info, need_vif_plugged):
+    def start_container(self, container_config, instance, network_info,
+                        need_vif_plugged):
         LOG.debug('Starting instance')
 
         if self.container_client.client('running', instance=instance.name,
@@ -141,7 +143,9 @@ class LXDContainerOperations(object):
             with self.virtapi.wait_for_instance_event(
                     instance, events, deadline=timeout,
                     error_callback=self._neutron_failed_callback):
-                self.plug_vifs(instance, network_info, need_vif_plugged)
+                self.plug_vifs(
+                    container_config, instance, network_info,
+                    need_vif_plugged)
         except exception.VirtualInterfaceCreateException:
             LOG.info(_LW('Failed to connect networking to instance'))
 
@@ -152,8 +156,11 @@ class LXDContainerOperations(object):
         LOG.debug('container reboot')
         return self.container_utils.container_reboot(instance)
 
-    def plug_vifs(self, instance, network_info, need_vif_plugged):
+    def plug_vifs(self, container_config, instance, network_info,
+                  need_vif_plugged):
         for viface in network_info:
+            container_config = self.container_config.configure_network_devices(
+                container_config, instance, viface)
             if need_vif_plugged:
                 self.vif_driver.plug(instance, viface)
         self._start_firewall(instance, network_info)
