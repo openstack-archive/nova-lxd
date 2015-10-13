@@ -380,7 +380,7 @@ class LXDTestDriver(test.NoDBTestCase):
     )
     def test_snapshot_fail(self, tag, export_effect, update_effect, mi):
         instance = stubs.MockInstance()
-        mi.get.return_value = {'name': 'mock_snapshot'}
+        mi.get.return_value = {'id': 'abcdefgh', 'name': 'mock_snapshot'}
         self.ml.container_snapshot_create.return_value = (
             200, {'operation': '/1.0/operations/0123456789'})
         self.ml.container_stop.return_value = (
@@ -401,7 +401,7 @@ class LXDTestDriver(test.NoDBTestCase):
         instance = stubs.MockInstance()
         image_id = 'mock_image'
 
-        mi.get.return_value = {'name': 'mock_snapshot'}
+        mi.get.return_value = {'name': 'mock_snapshot', 'id': '123456789'}
         self.ml.container_snapshot_create.return_value = (
             200, {'operation': '/1.0/operations/0123456789'})
         self.ml.container_stop.return_value = (
@@ -435,7 +435,7 @@ class LXDTestDriver(test.NoDBTestCase):
                                                                 'snapshot',
                                                         'type': 'snapshot'}}),
             mock.call.lxd.alias_create(
-                {'name': 'mock_snapshot',
+                {'name': '123456789',
                  'target': 'abcdef0123456789'}),
             mock.call.lxd.image_export('abcdef0123456789'),
             mock.call.image.update(context,

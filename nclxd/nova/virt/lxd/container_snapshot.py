@@ -90,7 +90,7 @@ class LXDSnapshot(object):
 
         LOG.debug('Creating LXD alias')
         fingerprint = str(data['metadata']['fingerprint'])
-        snapshot_alias = {'name': snapshot['name'],
+        snapshot_alias = {'name': snapshot['id'],
                           'target': fingerprint}
         LOG.debug(snapshot_alias)
         self.client.client('alias_create',
