@@ -11,7 +11,7 @@ Detach block    optional     X              not started
 volume from
 instance
 ------------------------------------------------------
-Evacuate        optional     X              not started
+Evacuate        optional     X              complete
 instances
 from host
 --------------------------------------------------------
@@ -34,13 +34,13 @@ CPUs
 Reboot          optional    complete        complete
 instance
 --------------------------------------------------------
-Rescue          optional    X               not started
+Rescue          optional    X               complete
 instance
 --------------------------------------------------------
 Resize          optional    X               not started
 instance
 --------------------------------------------------------
-Restore         optional    X               not started
+Restore         optional    X               complete
 instance
 --------------------------------------------------------
 Service         optional    X               not started
@@ -50,7 +50,7 @@ Set instance    optional    X               not started
 admin
 password
 --------------------------------------------------------
-Save snapshot   optional    X               not started
+Save snapshot   optional    X               complete
 of instance disk
 --------------------------------------------------------
 Swap block      optional    X               not applicable
