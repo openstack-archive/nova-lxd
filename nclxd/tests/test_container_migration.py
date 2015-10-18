@@ -21,9 +21,7 @@ from nova import test
 from nova.virt import fake
 
 from nclxd.nova.virt.lxd import container_client
-from nclxd.nova.virt.lxd import container_config
 from nclxd.nova.virt.lxd import container_migrate
-from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_utils
 from nclxd.tests import stubs
 
@@ -46,15 +44,15 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
         bdevice_info = mock.Mock()
         disk_info = mock.Mock()
         network_info = mock.Mock()
-        with contextlib.nested( 
+        with contextlib.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'client'),
             mock.patch.object(container_utils.LXDContainerUtils,
-                             'container_stop'),
+                              'container_stop'),
             mock.patch.object(container_utils.LXDContainerUtils,
-                             'container_init'),
+                              'container_init'),
             mock.patch.object(container_utils.LXDContainerUtils,
-                             'container_destroy'),
+                              'container_destroy'),
         ) as (
             container_defined,
             container_stop,
@@ -62,9 +60,9 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
             container_destroy
         ):
             self.assertEqual(None,
-                            (self.migrate.finish_migration(context,
-                            migration,
-                            instance,
-                            disk_info,
-                            network_info,
-                            bdevice_info)))
+                             (self.migrate.finish_migration(context,
+                                                            migration,
+                                                            instance,
+                                                            disk_info,
+                                                            network_info,
+                                                            bdevice_info)))
