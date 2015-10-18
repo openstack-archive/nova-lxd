@@ -209,18 +209,18 @@ class LXDContainerUtils(object):
                     {'instance': instance.name,
                      'reason': ex}, instance=instance)
 
-    def container_migrate(self, instance_name, instance):
+    def container_migrate(self, instance_name, host):
         LOG.debug('Migrate contianer')
         try:
             return self.client.client('migrate',
                                       instance=instance_name,
-                                      host=instance.host)
+                                      host=host)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to rename container %(instance): %(reason)s'),
                     {'instance': instance_name,
-                     'reason': ex}, instance=instance)
+                     'reason': ex})
 
     def container_init(self, config, instance, host):
         LOG.debug('Initializing container')

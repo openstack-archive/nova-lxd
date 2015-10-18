@@ -238,20 +238,21 @@ class LXDContainerConfig(object):
                   'type': 'nic'})
         return container_config
 
-    def configure_container_migrate(self, instance, container_ws):
+    def configure_container_migrate(self, instance, container_ws, host):
         LOG.debug('Creating container config for migration.')
-        container_config = self.get_container_config(instance)
+        container_config = self.get_container_config(instance, host=host)
 
         container_config = self.add_config(container_config, 'source',
                                            self.configure_lxd_ws(
                                                container_config,
-                                               container_ws))
+                                               container_ws,
+                                               host))
 
         return container_config
 
-    def configure_lxd_ws(self, container_config, container_ws):
+    def configure_lxd_ws(self, container_config, container_ws, host):
         container_url = ('wss://%s:8443/1.0/operations/%s/websocket'
-                         % (CONF.my_ip, container_ws['operation']))
+                         % (host, container_ws['operation']))
         container_migrate = {'base-image': '',
                              "mode": "pull",
                              "operation": container_url,
@@ -265,13 +266,16 @@ class LXDContainerConfig(object):
                                             container_migrate))
         return container_config
 
-    def get_container_config(self, instance):
+    def get_container_config(self, instance, host=None):
         LOG.debug('Fetching LXD configuration')
         container_update = self._init_container_config()
 
+        if host is None:
+            host = instance.host
+
         container_old = self.container_client.client(
             'config', instance=instance.name,
-            host=instance.host)
+            host=host)
 
         container_config = self._convert(container_old['config'])
         container_devices = self._convert(container_old['devices'])
