@@ -42,9 +42,6 @@ lxd_opts = [
     cfg.StrOpt('default_profile',
                default='nclxd-profile',
                help='Default LXD profile'),
-    cfg.StrOpt('lxd_port',
-               default=8443,
-               help='Default LXD Port'),
     cfg.IntOpt('retry_interval',
                default=2,
                help='How often to retry in seconds when a'
@@ -63,7 +60,7 @@ class LXDDriver(driver.ComputeDriver):
     capabilities = {
         "has_imagecache": False,
         "supports_recreate": False,
-        "supports_migrate_to_same_host": True,
+        "supports_migrate_to_same_host": False,
     }
 
     def __init__(self, virtapi):

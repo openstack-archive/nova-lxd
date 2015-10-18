@@ -14,8 +14,6 @@
 #    under the License.
 
 from nova import i18n
-from nova import utils
-import pprint
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -52,21 +50,7 @@ class LXDContainerMigrate(object):
                                    retry_interval=0):
         LOG.debug("migrate_disk_and_power_off called", instance=instance)
 
-        try:
-            self.utils.container_stop(instance.name, instance.host)
-
-            container_ws = self.utils.container_migrate(instance.name,
-                                                        instance)
-            container_config = (
-                self.config.configure_container_migrate(
-                    instance, container_ws))
-            utils.spawn(
-                self.utils.container_init,
-                container_config, instance, dest)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Failed to migration container: %(e)s'),
-                              {'e': ex}, instance=instance)
+        LOG.info(_('No disk to migrate'))
 
         # disk_info is not used
         disk_info = {}
@@ -74,44 +58,48 @@ class LXDContainerMigrate(object):
 
     def confirm_migration(self, migration, instance, network_info):
         LOG.debug("confirm_migration called", instance=instance)
-        src_host = migration['source_compute']
-        dst_host = migration['dest_compute']
-        try:
-            if not self.client.client('defined', instance=instance.name,
-                                      host=dst_host):
-                LOG.exception(_LE('Failed to migrate host'))
-            LOG.info(_LI('Successfuly migrated instnace %(instance)s'),
-                     {'instance': instance.name}, instance=instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Failed to confirm migration: %(e)s'),
-                              {'e': ex}, instance=instance)
-        finally:
-            self.utils.container_destroy(instance.name, src_host)
 
     def finish_revert_migration(self, context, instance, network_info,
                                 block_device_info=None, power_on=True):
         LOG.debug("finish_revert_migration called", instance=instance)
+        container_config = self.get_container_config(instance)
+        self.container_ops.start_container(container_config, instance,
+                                           network_info,
+                                           need_vif_plugged=True)
 
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance=False,
                          block_device_info=None, power_on=True):
         LOG.debug("finish_migration called", instance=instance)
 
+        self._migration(migration, instance, network_info)
+
+    def _migration(self, migration, instance, network_info):
+        src_host = migration['source_compute']
+        dst_host = migration['dest_compute']
         try:
-            container_config = self.config.get_container_config(instance)
-            LOG.debug(pprint.pprint(container_config))
+            if self.client.client('defined', instance=instance.name,
+                                  host=dst_host):
+                LOG.exception(_LE('Container already migrated'))
+            self.utils.container_stop(instance.name, src_host)
+            container_ws = self.utils.container_migrate(
+                instance.name, src_host)
+            container_config = (
+                self.config.configure_container_migrate(
+                    instance, container_ws, src_host))
+
+            self.utils.container_init(container_config,
+                                      instance, dst_host)
             self.container_ops.start_container(container_config, instance,
                                                network_info,
                                                need_vif_plugged=True)
-            LOG.info(_LI('Succesfuly migrated instnace %(instance)s '
-                         'on %(host)s'), {'instance': instance.name,
-                                          'host': migration['dest_compute']},
-                     instance=instance)
+            self.utils.container_destroy(instance.name, src_host)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Failed to confirm migration: %(e)s'),
-                              {'e': ex}, instance=instance)
+                LOG.error(_LE('Failed to migrate container %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instnace=instance)
 
     def live_migration(self, context, instance_ref, dest, post_method,
                        recover_method, block_migration=False,

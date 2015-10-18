@@ -73,7 +73,7 @@ class LXDTestDriver(test.NoDBTestCase):
     def test_capabilities(self):
         self.assertFalse(self.connection.capabilities['has_imagecache'])
         self.assertFalse(self.connection.capabilities['supports_recreate'])
-        self.assertTrue(
+        self.assertFalse(
             self.connection.capabilities['supports_migrate_to_same_host'])
 
     def test_init_host(self):
