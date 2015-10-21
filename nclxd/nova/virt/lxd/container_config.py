@@ -121,9 +121,6 @@ class LXDContainerConfig(object):
         if mem >= 0:
             self.add_config(container_config, 'config', 'limits.memory',
                             data='%s' % mem)
-        if vcpus >= 1:
-            self.add_config(container_config, 'config', 'limits.cpus',
-                            data='%s' % vcpus)
 
         ''' Basic container configuration. '''
         self.add_config(container_config, 'config', 'raw.lxc',

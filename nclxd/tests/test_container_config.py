@@ -38,14 +38,10 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                          self.container_config._init_container_config())
 
     @stubs.annotated_data(
-        ('no_limits', {'memory_mb': -1, 'vcpus': 0},
-         {}),
-        ('mem_limit', {'memory_mb': 2048, 'vcpus': 0},
+        ('mem_limit', {'memory_mb': 2048},
          {'limits.memory': '2147483648'}),
-        ('cpu_limit', {'memory_mb': -1, 'vcpus': 10},
-         {'limits.cpus': '10'}),
-        ('both_limits', {'memory_mb': 4096, 'vcpus': 20},
-         {'limits.memory': '4294967296', 'limits.cpus': '20'}),
+        ('both_limits', {'memory_mb': 4096},
+         {'limits.memory': '4294967296'}),
     )
     @mock.patch('oslo_utils.fileutils.ensure_tree',
                 mock.Mock(return_value=None))
