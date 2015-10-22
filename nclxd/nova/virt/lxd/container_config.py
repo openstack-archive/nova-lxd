@@ -116,7 +116,6 @@ class LXDContainerConfig(object):
         ''' Set the limits. '''
         flavor = instance.flavor
         mem = flavor.memory_mb * units.Mi
-        vcpus = flavor.vcpus
 
         if mem >= 0:
             self.add_config(container_config, 'config', 'limits.memory',
