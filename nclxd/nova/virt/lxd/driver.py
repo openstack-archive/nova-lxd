@@ -17,6 +17,7 @@
 from __future__ import absolute_import
 
 from nova import i18n
+from nova import exception
 from nova.virt import driver
 import socket
 
@@ -29,6 +30,8 @@ from nclxd.nova.virt.lxd import container_migrate
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_snapshot
 from nclxd.nova.virt.lxd import host
+
+from nclxd.nova.virt.lxd import vif as lxd_vif
 
 _ = i18n._
 
@@ -66,6 +69,8 @@ class LXDDriver(driver.ComputeDriver):
     def __init__(self, virtapi):
         self.virtapi = virtapi
 
+        self.vif_driver = lxd_vif.LXDGenericDriver()
+
         self.container_ops = container_ops.LXDContainerOperations(virtapi)
         self.container_snapshot = container_snapshot.LXDSnapshot()
         self.container_firewall = container_firewall.LXDContainerFirewall()
@@ -83,6 +88,23 @@ class LXDDriver(driver.ComputeDriver):
             return instance.name in self.list_instance_uuids()
         except NotImplementedError:
             return instance.name in self.list_instances()
+
+    def plug_vifs(self, instance, network_info):
+        """Plug VIFs into networks."""
+        for vif in network_info:
+            self.vif_driver.plug(instance, vif)
+
+    def _unplug_vifs(self, instance, network_info, ignore_errors):
+        """Unplug VIFs from networks."""
+        for vif in network_info:
+            try:
+                self.vif_driver.unplug(instance, vif)
+            except exception.NovaException:
+                if not ignore_errors:
+                    raise
+
+    def unplug_vifs(self, instance, network_info):
+        self._unplug_vifs(instance, network_info, False)
 
     def estimate_instance_overhead(self, instance_info):
         return {'memory_mb': 0}
