@@ -16,8 +16,8 @@
 
 from __future__ import absolute_import
 
-from nova import i18n
 from nova import exception
+from nova import i18n
 from nova.virt import driver
 import socket
 
@@ -30,7 +30,6 @@ from nclxd.nova.virt.lxd import container_migrate
 from nclxd.nova.virt.lxd import container_ops
 from nclxd.nova.virt.lxd import container_snapshot
 from nclxd.nova.virt.lxd import host
-
 from nclxd.nova.virt.lxd import vif as lxd_vif
 
 _ = i18n._
