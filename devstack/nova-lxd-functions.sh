@@ -25,7 +25,7 @@ function install_lxd {
     echo_summary "Checing LXD installation"
     if is_ubuntu; then
         if ! ( is_package_installed lxd ); then
-            install_packge lxd
+            install_package lxd
         fi
 
         add_user_to_group $STACK_USER $LXD_GROUP 
