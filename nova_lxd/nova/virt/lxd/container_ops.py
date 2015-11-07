@@ -30,12 +30,12 @@ from nova import exception
 from nova import i18n
 from nova import utils
 
-from nclxd.nova.virt.lxd import container_client
-from nclxd.nova.virt.lxd import container_config
-from nclxd.nova.virt.lxd import container_firewall
-from nclxd.nova.virt.lxd import container_image
-from nclxd.nova.virt.lxd import container_utils
-from nclxd.nova.virt.lxd import vif
+from nova_lxd.nova.virt.lxd import container_client
+from nova_lxd.nova.virt.lxd import container_config
+from nova_lxd.nova.virt.lxd import container_firewall
+from nova_lxd.nova.virt.lxd import container_image
+from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd import vif
 
 _ = i18n._
 _LE = i18n._LE
