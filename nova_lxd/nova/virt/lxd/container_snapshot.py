@@ -22,7 +22,7 @@ from nova import image
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from nclxd.nova.virt.lxd import container_client
+from nova_lxd.nova.virt.lxd import container_client
 
 _ = i18n._
 
