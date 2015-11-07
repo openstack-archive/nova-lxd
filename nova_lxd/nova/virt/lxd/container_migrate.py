@@ -19,10 +19,10 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from nclxd.nova.virt.lxd import container_client
-from nclxd.nova.virt.lxd import container_config
-from nclxd.nova.virt.lxd import container_ops
-from nclxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd import container_client
+from nova_lxd.nova.virt.lxd import container_config
+from nova_lxd.nova.virt.lxd import container_ops
+from nova_lxd.nova.virt.lxd import container_utils
 
 
 _ = i18n._
