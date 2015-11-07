@@ -30,10 +30,10 @@ from oslo_utils import fileutils
 from oslo_utils import units
 import six
 
-from nclxd.nova.virt.lxd import container_client
-from nclxd.nova.virt.lxd import container_image
-from nclxd.nova.virt.lxd import container_utils
-from nclxd.nova.virt.lxd import vif
+from nova_lxd.nova.virt.lxd import container_client
+from nova_lxd.nova.virt.lxd import container_image
+from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd import vif
 
 _ = i18n._
 _LE = i18n._LE
