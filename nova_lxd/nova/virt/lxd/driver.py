@@ -42,7 +42,7 @@ lxd_opts = [
                default=5,
                help='Default LXD timeout'),
     cfg.StrOpt('default_profile',
-               default='nova_lxd-profile',
+               default='nova-lxd-profile',
                help='Default LXD profile'),
     cfg.IntOpt('retry_interval',
                default=2,
