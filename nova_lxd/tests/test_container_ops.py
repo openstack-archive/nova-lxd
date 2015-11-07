@@ -22,10 +22,10 @@ from nova import test
 from nova.virt import fake
 from pylxd import exceptions as lxd_exception
 
-from nclxd.nova.virt.lxd import container_config
-from nclxd.nova.virt.lxd import container_ops
-from nclxd.nova.virt.lxd import container_utils
-from nclxd.tests import stubs
+from nova_lxd.nova.virt.lxd import container_config
+from nova_lxd.nova.virt.lxd import container_ops
+from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.tests import stubs
 
 
 @ddt.ddt
