@@ -115,7 +115,7 @@ function run_tests {
     if [ "$testropts" = "" ] && [ "$testrargs" = "" ]; then
       # Default to running all tests if specific test is not
       # provided.
-      testrargs="discover ./nclxd/tests"
+      testrargs="discover ./nova_lxd/tests"
     fi
     ${wrapper} python -m testtools.run $testropts $testrargs
 
