@@ -20,10 +20,10 @@ import mock
 from nova import test
 from nova.virt import fake
 
-from nclxd.nova.virt.lxd import container_client
-from nclxd.nova.virt.lxd import container_migrate
-from nclxd.nova.virt.lxd import container_utils
-from nclxd.tests import stubs
+from nova_lxd.nova.virt.lxd import container_client
+from nova_lxd.nova.virt.lxd import container_migrate
+from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.tests import stubs
 
 
 @mock.patch.object(container_migrate, 'CONF', stubs.MockConf())
