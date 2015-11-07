@@ -1,3 +1,3 @@
-from nclxd.nova.virt.lxd import driver
+from nova_lxd.nova.virt.lxd import driver
 
 LXDDriver = driver.LXDDriver
