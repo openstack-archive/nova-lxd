@@ -47,7 +47,7 @@ class LXDContainerUtils(object):
             (state, data) = self.client.client('start', instance=instance_name,
                                                host=instance.host)
             self.client.client('wait',
-                               oid=data.get('operation').split('/')[3],
+                               oid=data.get('operation'),
                                host=instance.host)
             LOG.info(_LI('Successfully started instance %s'),
                      instance_name, instance=instance)
@@ -65,7 +65,7 @@ class LXDContainerUtils(object):
                                                 instance=instance_name,
                                                 host=host))
             self.client.client('wait',
-                               oid=data.get('operation').split('/')[3],
+                               oid=data.get('operation'),
                                host=host)
             LOG.info(_LI('Successfully stopped container %s'),
                      instance_name)
@@ -83,7 +83,7 @@ class LXDContainerUtils(object):
                                                instance=instance.name,
                                                host=instance.host)
             self.client.client('wait',
-                               oid=data.get('operation').split('/')[3],
+                               oid=data.get('operation'),
                                host=instance.host)
             LOG.info(_LI('Successfully rebooted container %s'),
                      instance.name, instance=instance)
@@ -108,7 +108,7 @@ class LXDContainerUtils(object):
                                                instance=instance_name,
                                                host=host)
             self.client.client('wait',
-                               oid=data.get('operation').split('/')[3],
+                               oid=data.get('operation'),
                                host=host)
             LOG.info(_LI('Successfully destroyed container %s'),
                      instance_name)
@@ -124,7 +124,7 @@ class LXDContainerUtils(object):
             (state, data) = self.client.client('pause', instance=instance_name,
                                                host=instance.host)
             self.client.client('wait',
-                               oid=data.get('operation').split('/')[3],
+                               oid=data.get('operation'),
                                host=instance.host)
             LOG.info(_LI('Successfully paused container %s'),
                      instance.name, instance=instance)
@@ -143,7 +143,7 @@ class LXDContainerUtils(object):
                                                instance=instance_name,
                                                host=instance.host)
             self.client.client('wait',
-                               oid=data.get('operation').split('/')[3],
+                               oid=data.get('operation'),
                                host=instance.host)
             LOG.info(_LI('Successfully resumed container %s'),
                      instance_name, instance=instance)
@@ -161,7 +161,7 @@ class LXDContainerUtils(object):
                                                container_snapshot=snapshot,
                                                host=instance.host)
             self.client.client('wait',
-                               oid=data.get('operation').split('/')[3],
+                               oid=data.get('operation'),
                                host=instance.host)
             LOG.info(_LI('Successfully snapshotted container %s'),
                      instance.name, instance=instance)
@@ -179,7 +179,7 @@ class LXDContainerUtils(object):
                                                container_config=config,
                                                host=instance.host)
             self.client.client('wait',
-                               oid=data.get('operation').split('/')[3],
+                               oid=data.get('operation'),
                                host=instance.host)
             LOG.info(_LI('Successfully copied container %s'),
                      instance.name, instance=instance)
@@ -198,7 +198,7 @@ class LXDContainerUtils(object):
                                                 container_config=config,
                                                 host=instance.host))
             self.client.client('wait',
-                               oid=data.get('operation').split('/')[3],
+                               oid=data.get('operation'),
                                host=instance.host)
             LOG.info(_LI('Successfully renamed container %s'),
                      instance.name, instance=instance)
@@ -229,7 +229,7 @@ class LXDContainerUtils(object):
                                                container_config=config,
                                                host=host)
 
-            operation = data.get('operation').split('/')[3]
+            operation = data.get('operation')
             self.client.client('wait',
                                oid=operation,
                                host=instance.host)

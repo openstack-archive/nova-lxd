@@ -427,9 +427,11 @@ class LXDTestDriver(test.NoDBTestCase):
                 'fake-uuid',
                 {'name': 'mock_snapshot',
                  'stateful': False}),
-            mock.call.lxd.wait_container_operation('0123456789', 200, -1),
+            mock.call.lxd.wait_container_operation(
+                '/1.0/operations/0123456789', 200, -1),
             mock.call.lxd.container_stop('fake-uuid', 5),
-            mock.call.lxd.wait_container_operation('1234567890', 200, -1),
+            mock.call.lxd.wait_container_operation(
+                '/1.0/operations/1234567890', 200, -1),
             mock.call.lxd.container_publish({'source': {'name': 'fake-uuid/'
                                                                 'mock_'
                                                                 'snapshot',

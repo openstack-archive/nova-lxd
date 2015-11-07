@@ -50,7 +50,7 @@ class LXDSnapshot(object):
                                            instance=instance.name,
                                            host=instance.host)
         self.client.client('wait',
-                           oid=data.get('operation').split('/')[3],
+                           oid=data.get('operation'),
                            host=instance.host)
         fingerprint = self.create_lxd_image(snapshot, instance)
         self.create_glance_image(
@@ -71,7 +71,7 @@ class LXDSnapshot(object):
                                            container_snapshot=csnapshot,
                                            host=instance.host)
         self.client.client('wait',
-                           oid=data.get('operation').split('/')[3],
+                           oid=data.get('operation'),
                            host=instance.host)
 
     def create_lxd_image(self, snapshot, instance):
