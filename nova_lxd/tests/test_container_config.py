@@ -19,9 +19,9 @@ import mock
 from nova import exception
 from nova import test
 
-from nclxd.nova.virt.lxd import container_config
-from nclxd.nova.virt.lxd import container_utils
-from nclxd.tests import stubs
+from nova_lxd.nova.virt.lxd import container_config
+from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.tests import stubs
 
 
 @ddt.ddt
