@@ -32,4 +32,3 @@ function install_lxd {
     fi
     echo_summary "Installing LXD"
 }
-
