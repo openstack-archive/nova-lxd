@@ -33,13 +33,13 @@ from nova import test
 from nova.virt import fake
 from nova.virt import hardware
 
-from nclxd.nova.virt.lxd import container_client
-from nclxd.nova.virt.lxd import container_ops
-from nclxd.nova.virt.lxd import container_snapshot
-from nclxd.nova.virt.lxd import container_utils
-from nclxd.nova.virt.lxd import driver
-from nclxd.nova.virt.lxd import host
-from nclxd.tests import stubs
+from nova_lxd.nova.virt.lxd import container_client
+from nova_lxd.nova.virt.lxd import container_ops
+from nova_lxd.nova.virt.lxd import container_snapshot
+from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd import driver
+from nova_lxd.nova.virt.lxd import host
+from nova_lxd.tests import stubs
 
 
 class LXDTestConfig(test.NoDBTestCase):
@@ -49,7 +49,7 @@ class LXDTestConfig(test.NoDBTestCase):
         self.assertEqual(os.path.abspath('/var/lib/lxd'),
                          os.path.abspath(driver.CONF.lxd.root_dir))
         self.assertEqual(5, driver.CONF.lxd.timeout)
-        self.assertEqual('nclxd-profile', driver.CONF.lxd.default_profile)
+        self.assertEqual('nova-lxd-profile', driver.CONF.lxd.default_profile)
 
 
 @ddt.ddt
@@ -336,7 +336,7 @@ class LXDTestDriver(test.NoDBTestCase):
         if success or update is not None:
             self.ml.container_update.assert_called_once_with(
                 'fake-uuid',
-                {'profiles': ['nclxd-profile'],
+                {'profiles': ['nova-lxd-profile'],
                  'devices': {'qbr0123456789a': {'nictype': 'bridged',
                                                 'hwaddr': '00:11:22:33:44:55',
                                                 'name': 'eth1',

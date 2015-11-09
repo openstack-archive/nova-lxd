@@ -23,8 +23,8 @@ from nova import exception
 from nova.network import model as network_model
 from nova import test
 
-from nclxd.nova.virt.lxd import vif
-from nclxd.tests import stubs
+from nova_lxd.nova.virt.lxd import vif
+from nova_lxd.tests import stubs
 
 
 @ddt.ddt

@@ -1,7 +1,7 @@
 [run]
 branch = True
-source = nclxd
+source = nova_lxd
 
 [report]
 ignore-errors = True
-omit = nclxd/tests/*
+omit = nova_lxd/tests/*

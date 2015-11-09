@@ -31,7 +31,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import fileutils
 
-from nclxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd import container_utils
 
 _ = i18n._
 _LE = i18n._LE

@@ -23,7 +23,7 @@ from pylxd import exceptions as lxd_exceptions
 from oslo_config import cfg
 from oslo_log import log as logging
 
-from nclxd.nova.virt.lxd import constants
+from nova_lxd.nova.virt.lxd import constants
 
 _ = i18n._
 

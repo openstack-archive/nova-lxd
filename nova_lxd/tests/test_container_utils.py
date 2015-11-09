@@ -20,10 +20,10 @@ import mock
 from nova import exception
 from nova import test
 
-from nclxd.nova.virt.lxd import container_client
-from nclxd.nova.virt.lxd import container_utils
-from nclxd.tests import fake_api
-from nclxd.tests import stubs
+from nova_lxd.nova.virt.lxd import container_client
+from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.tests import fake_api
+from nova_lxd.tests import stubs
 
 
 @mock.patch.object(container_utils, 'CONF', stubs.MockConf())

@@ -1,4 +1,4 @@
-nclxd todo list
+nova-lxd todo list
 
 Taken from http://docs.openstack.org/developer/nova/support-matrix.html
 

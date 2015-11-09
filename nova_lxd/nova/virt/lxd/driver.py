@@ -25,12 +25,12 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 
-from nclxd.nova.virt.lxd import container_firewall
-from nclxd.nova.virt.lxd import container_migrate
-from nclxd.nova.virt.lxd import container_ops
-from nclxd.nova.virt.lxd import container_snapshot
-from nclxd.nova.virt.lxd import host
-from nclxd.nova.virt.lxd import vif as lxd_vif
+from nova_lxd.nova.virt.lxd import container_firewall
+from nova_lxd.nova.virt.lxd import container_migrate
+from nova_lxd.nova.virt.lxd import container_ops
+from nova_lxd.nova.virt.lxd import container_snapshot
+from nova_lxd.nova.virt.lxd import host
+from nova_lxd.nova.virt.lxd import vif as lxd_vif
 
 _ = i18n._
 
@@ -42,7 +42,7 @@ lxd_opts = [
                default=5,
                help='Default LXD timeout'),
     cfg.StrOpt('default_profile',
-               default='nclxd-profile',
+               default='nova-lxd-profile',
                help='Default LXD profile'),
     cfg.IntOpt('retry_interval',
                default=2,

@@ -23,9 +23,9 @@ import mock
 from oslo_concurrency import lockutils
 from oslo_config import fixture as config_fixture
 
-from nclxd.nova.virt.lxd import container_image
-from nclxd.nova.virt.lxd import container_utils
-from nclxd.tests import stubs
+from nova_lxd.nova.virt.lxd import container_image
+from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.tests import stubs
 
 
 @ddt.ddt
