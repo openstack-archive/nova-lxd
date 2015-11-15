@@ -35,6 +35,7 @@ from nova_lxd.nova.virt.lxd import container_config
 from nova_lxd.nova.virt.lxd import container_firewall
 from nova_lxd.nova.virt.lxd import container_image
 from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.nova.virt.lxd import vif
 
 _ = i18n._
@@ -57,7 +58,7 @@ class LXDContainerOperations(object):
 
         self.container_config = container_config.LXDContainerConfig()
         self.container_client = container_client.LXDContainerClient()
-        self.container_dir = container_utils.LXDContainerDirectories()
+        self.container_dir = container_dir.LXDContainerDirectories()
         self.container_utils = container_utils.LXDContainerUtils()
         self.container_image = container_image.LXDContainerImage()
         self.firewall_driver = container_firewall.LXDContainerFirewall()

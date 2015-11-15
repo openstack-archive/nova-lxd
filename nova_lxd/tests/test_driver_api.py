@@ -39,6 +39,7 @@ from nova_lxd.nova.virt.lxd import container_snapshot
 from nova_lxd.nova.virt.lxd import container_utils
 from nova_lxd.nova.virt.lxd import driver
 from nova_lxd.nova.virt.lxd import host
+from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.tests import stubs
 
 
@@ -54,7 +55,7 @@ class LXDTestConfig(test.NoDBTestCase):
 
 @ddt.ddt
 @mock.patch.object(container_ops, 'CONF', stubs.MockConf())
-@mock.patch.object(container_utils, 'CONF', stubs.MockConf())
+@mock.patch.object(container_dir, 'CONF', stubs.MockConf())
 @mock.patch.object(driver, 'CONF', stubs.MockConf())
 @mock.patch.object(host, 'CONF', stubs.MockConf())
 class LXDTestDriver(test.NoDBTestCase):
