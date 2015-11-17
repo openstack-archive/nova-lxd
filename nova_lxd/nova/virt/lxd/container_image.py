@@ -31,7 +31,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import fileutils
 
-from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd import utils as container_dir
 
 _ = i18n._
 _LE = i18n._LE
@@ -45,7 +45,7 @@ class LXDContainerImage(object):
 
     def __init__(self):
         self.connection = api.API()
-        self.container_dir = container_utils.LXDContainerDirectories()
+        self.container_dir = container_dir.LXDContainerDirectories()
         self.lock_path = str(os.path.join(CONF.instances_path, 'locks'))
 
     def setup_image(self, context, instance, image_meta):
