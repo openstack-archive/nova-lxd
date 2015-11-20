@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import hashlib
 import io
 import json
 from nova import exception
@@ -74,12 +75,13 @@ class LXDContainerImage(object):
                                                                 image_meta)
                 utils.execute('xz', '-9', container_manifest_img)
 
-                img_info = self._image_upload(
+                self._image_upload(
                     (container_manifest_img + '.xz', container_rootfs_img),
                     container_manifest_img.split('/')[-1], False,
                     instance)
 
-                self._setup_alias(instance, img_info)
+                self._setup_alias((container_manifest_img + '.xz',
+                                  container_rootfs_img), instance)
 
                 os.unlink(container_manifest_img + '.xz')
 
@@ -182,6 +184,7 @@ class LXDContainerImage(object):
             try:
                 status, data = self.connection.image_upload(data=body,
                                                             headers=headers)
+
             except lxd_exceptions as ex:
                 raise exception.ImageUnacceptable(
                     image_id=instance.image_ref,
@@ -189,13 +192,18 @@ class LXDContainerImage(object):
 
         return data
 
-    def _setup_alias(self, instance, img_info):
+    def _setup_alias(self, path, instance):
         LOG.debug('Updating image and metadata')
 
         try:
+            meta_path, rootfs_path = path
+            with open(meta_path, 'rb') as meta_fd:
+                with open(rootfs_path, "rb") as rootfs_fd:
+                    fingerprint = hashlib.sha256(meta_fd.read() +
+                                                 rootfs_fd.read()).hexdigest()
             alias_config = {
                 'name': instance.image_ref,
-                'target': img_info['metadata']['fingerprint']
+                'target': fingerprint
             }
             LOG.debug('Creating alias: %s' % alias_config)
             self.connection.alias_create(alias_config)
