@@ -1,10 +1,10 @@
-# nova-compute-lxd [![Build Status](https://travis-ci.org/lxc/nova-compute-lxd.svg?branch=master)](https://travis-ci.org/lxc/nova-compute-lxd)
+# nova-lxd [![Build Status](https://travis-ci.org/lxc/nova-lxd.svg?branch=master)](https://travis-ci.org/lxc/nova-compute-lxd)
 
 An OpenStack Compute driver for managing containers using LXD.
 
 ## Bug reports
 
-Bug reports can be filed at https://github.com/lxc/nova-compute-lxd/issues/new
+Bug reports can be filed at https://github.com/lxc/nova-lxd/issues/new
 
 ## Support and discussions
 
