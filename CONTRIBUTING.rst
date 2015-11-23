@@ -11,6 +11,6 @@ the workflow documented at:
 
 Pull requests submitted through GitHub will be ignored.
 
-Bugs should be filed on Launchpad, not GitHub:
+Bugs should be filed on GitHub:
 
-   https://bugs.launchpad.net/nova-compute-lxd
+   https://github.com/lxc/nova-lxd

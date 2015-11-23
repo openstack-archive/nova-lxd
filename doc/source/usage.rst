@@ -2,6 +2,6 @@
 Usage
 ========
 
-To use nova-compute-lxd in a project::
+To use nova-lxd in a project::
 
-    import nova-compute-lxd
+    import nova_lxd.nova.virt.lxd

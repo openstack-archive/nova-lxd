@@ -1,4 +1,4 @@
-# nova-lxd [![Build Status](https://travis-ci.org/lxc/nova-lxd.svg?branch=master)](https://travis-ci.org/lxc/nova-compute-lxd)
+# nova-lxd [![Build Status](https://travis-ci.org/lxc/nova-lxd.svg?branch=master)](https://travis-ci.org/lxc/nova-lxd)
 
 An OpenStack Compute driver for managing containers using LXD.
 
