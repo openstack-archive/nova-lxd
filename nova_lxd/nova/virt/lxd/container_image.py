@@ -184,7 +184,8 @@ class LXDContainerImage(object):
             try:
                 status, data = self.connection.image_upload(data=body,
                                                             headers=headers)
-                self.connection.wait_container_operation(data.get('operation'), 200, -1)
+                self.connection.wait_container_operation(
+                    data.get('operation'), 200, -1)
 
             except lxd_exceptions as ex:
                 raise exception.ImageUnacceptable(
