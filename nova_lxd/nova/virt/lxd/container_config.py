@@ -31,7 +31,6 @@ from oslo_utils import units
 import six
 
 from nova_lxd.nova.virt.lxd import container_client
-from nova_lxd.nova.virt.lxd import container_image
 from nova_lxd.nova.virt.lxd import container_utils
 from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.nova.virt.lxd import vif
@@ -50,7 +49,6 @@ class LXDContainerConfig(object):
     def __init__(self):
         self.container_dir = container_dir.LXDContainerDirectories()
         self.container_client = container_client.LXDContainerClient()
-        self.container_image = container_image.LXDContainerImage()
         self.container_utils = container_utils.LXDContainerUtils()
         self.vif_driver = vif.LXDGenericDriver()
 
