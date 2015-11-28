@@ -33,8 +33,8 @@ from nova import utils
 from nova_lxd.nova.virt.lxd import container_client
 from nova_lxd.nova.virt.lxd import container_config
 from nova_lxd.nova.virt.lxd import container_firewall
-from nova_lxd.nova.virt.lxd import container_image
 from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd import image
 from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.nova.virt.lxd import vif
 
@@ -60,7 +60,7 @@ class LXDContainerOperations(object):
         self.container_client = container_client.LXDContainerClient()
         self.container_dir = container_dir.LXDContainerDirectories()
         self.container_utils = container_utils.LXDContainerUtils()
-        self.container_image = container_image.LXDContainerImage()
+        self.image = image.LXDContainerImage()
         self.firewall_driver = container_firewall.LXDContainerFirewall()
 
         self.vif_driver = vif.LXDGenericDriver()
@@ -89,7 +89,7 @@ class LXDContainerOperations(object):
 
         start = time.time()
         try:
-            self.container_image.setup_image(context, instance, image_meta)
+            self.image.setup_image(context, instance, image_meta)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Upload image failed: %(e)s'),
