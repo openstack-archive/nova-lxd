@@ -38,6 +38,7 @@ class SessionImageTest(test.NoDBTestCase):
         self.session = session.LXDAPISession()
 
     def test_image_defined(self):
+        """Test that the image is defined in the LXD hypervisor."""
         instance = stubs._fake_instance()
         self.ml.image_define.return_value = True
         self.assertTrue(self.session.image_defined(instance))
