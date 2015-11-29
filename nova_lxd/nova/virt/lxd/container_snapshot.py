@@ -23,6 +23,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from nova_lxd.nova.virt.lxd import container_client
+from nova_lxd.nova.virt.lxd.session import session
 
 _ = i18n._
 
@@ -34,6 +35,7 @@ IMAGE_API = image.API()
 
 class LXDSnapshot(object):
     def __init__(self):
+        self.session = session.LXDAPISession()
         self.client = container_client.LXDContainerClient()
 
     def snapshot(self, context, instance, image_id, update_task_state):
@@ -93,9 +95,7 @@ class LXDSnapshot(object):
         snapshot_alias = {'name': snapshot['id'],
                           'target': fingerprint}
         LOG.debug(snapshot_alias)
-        self.client.client('alias_create',
-                           alias=snapshot_alias,
-                           host=instance.host)
+        self.session.create_alias(snapshot_alias, instance)
         return fingerprint
 
     def create_glance_image(self, context, image_id, snapshot, fingerprint,

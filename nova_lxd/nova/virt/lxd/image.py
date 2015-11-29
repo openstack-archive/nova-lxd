@@ -209,8 +209,7 @@ class LXDContainerImage(object):
                 'name': instance.image_ref,
                 'target': fingerprint
             }
-            LOG.debug('Creating alias: %s' % alias_config)
-            self.connection.alias_create(alias_config)
+            self.client.create_alias(alias_config, instance)
         except lxd_exceptions.APIError as ex:
             raise exception.ImageUnacceptable(
                 image_id=instance.image_ref,

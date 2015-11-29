@@ -58,3 +58,28 @@ class ImageMixin(object):
                               '%(instance)s: %(reason)s'),
                           {'instance': instance.image_ref, 'reason': e},
                           instance=instance)
+
+    def create_alias(self, alias, instance):
+        """Creates an alias for a given image
+
+        :param alias: The alias to be crerated
+        :param instance: The nove instnace
+        :return: true if alias is created, false otherwise
+
+        """
+        LOG.debug('create_alias called for instance', instance=instance)
+        try:
+            client = self.get_session(instance.host)
+            return client.alias_create(alias)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to communicate with LXD API %(isntance)s:'
+                    ' %(reason)s') % {'instance': instance.image_ref,
+                                      'reason': ex}
+            LOG.error(msg)
+            raise exception.NovaException(msg)
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Error from LXD during image_defined '
+                              '%(instance)s: %(reason)s'),
+                          {'instance': instance.image_ref, 'reason': e},
+                          instance=instance)

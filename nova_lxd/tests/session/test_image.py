@@ -38,9 +38,18 @@ class SessionImageTest(test.NoDBTestCase):
         self.session = session.LXDAPISession()
 
     def test_image_defined(self):
-        """Test that the image is defined in the LXD hypervisor."""
+        """Test the image is defined in the LXD hypervisor."""
         instance = stubs._fake_instance()
-        self.ml.image_define.return_value = True
+        self.ml.alias_defined.return_value = True
         self.assertTrue(self.session.image_defined(instance))
         calls = [mock.call.alias_defined(instance.image_ref)]
+        self.assertEqual(calls, self.ml.method_calls)
+
+    def test_alias_create(self):
+        """Test the alias is created."""
+        instance = stubs._fake_instance()
+        alias = mock.Mock()
+        self.ml.alias_create.return_value = True
+        self.assertTrue(self.session.create_alias(alias, instance))
+        calls = [mock.call.alias_create(alias)]
         self.assertEqual(calls, self.ml.method_calls)

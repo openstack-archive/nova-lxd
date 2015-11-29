@@ -262,14 +262,6 @@ class LXDContainerClient(object):
             msg = _('Failed to publish snapshot: %s') % ex
             raise exception.NovaException(msg)
 
-    def container_alias_create(self, lxd, **kwargs):
-        LOG.debug('REST API - container alias create')
-        try:
-            return lxd.alias_create(kwargs['alias'])
-        except lxd_exceptions.APIError as ex:
-            msg = _('Failed to create alias: %s') % ex
-            raise exception.NovaException(msg)
-
     def container_image_export(self, lxd, **kwargs):
         LOG.debug('REST API - container image export')
         try:
