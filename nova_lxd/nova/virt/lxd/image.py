@@ -32,6 +32,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import fileutils
 
+from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.nova.virt.lxd import utils as container_dir
 
 _ = i18n._
@@ -46,6 +47,7 @@ class LXDContainerImage(object):
 
     def __init__(self):
         self.connection = api.API()
+        self.client = session.LXDAPISession()
         self.container_dir = container_dir.LXDContainerDirectories()
         self.lock_path = str(os.path.join(CONF.instances_path, 'locks'))
 
@@ -57,7 +59,7 @@ class LXDContainerImage(object):
                                                   instance.image_ref),
                                 external=True):
 
-                if self._image_defined(instance):
+                if self.client.image_defined(instance):
                     return
 
                 base_dir = self.container_dir.get_base_dir()
@@ -213,18 +215,6 @@ class LXDContainerImage(object):
             raise exception.ImageUnacceptable(
                 image_id=instance.image_ref,
                 reason=_('Image already exists: %s') % ex)
-
-    def _image_defined(self, instance):
-        LOG.debug('Checking alias existance')
-
-        try:
-            return self.connection.alias_defined(instance.image_ref)
-        except lxd_exceptions.APIError as ex:
-            if ex.status_code == 404:
-                return False
-            else:
-                msg = _('Failed to determine image alias: %s') % ex
-                raise exception.NovaException(msg)
 
     def _cleanup_image(self, image_meta):
         container_rootfs_img = (
