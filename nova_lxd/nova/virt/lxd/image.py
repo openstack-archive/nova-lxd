@@ -77,9 +77,9 @@ class LXDContainerImage(object):
                                                                 image_meta)
                 utils.execute('xz', '-9', container_manifest_img)
 
-                self._image_upload(
+                self.image_upload(
                     (container_manifest_img + '.xz', container_rootfs_img),
-                    container_manifest_img.split('/')[-1], False,
+                    container_manifest_img.split('/')[-1],
                     instance)
 
                 self._setup_alias((container_manifest_img + '.xz',
@@ -139,46 +139,40 @@ class LXDContainerImage(object):
                           instance=instance)
                 self._cleanup_image(image_meta)
 
-    def _image_upload(self, path, filename, split, instance):
-        LOG.debug('Uploading Image to LXD.')
+    def image_upload(self, path, filename, instance):
+        LOG.debug('image_upload called for instance=', instance=instance)
         headers = {}
 
-        if split:
-            headers['Content-Type'] = "application/octet-stream"
+        meta_path, rootfs_path = path
+        boundary = str(uuid.uuid1())
 
-            self.client.image_upload(data=open(path, 'rb'),
-                                     headers=headers, instance=instance)
-        else:
-            meta_path, rootfs_path = path
-            boundary = str(uuid.uuid1())
-
-            form = []
-            for name, path in [("metadata", meta_path),
-                               ("rootfs", rootfs_path)]:
-                filename = os.path.basename(path)
-                form.append("--%s" % boundary)
-                form.append("Content-Disposition: form-data; "
-                            "name=%s; filename=%s" % (name, filename))
-                form.append("Content-Type: application/octet-stream")
-                form.append("")
-                with open(path, "rb") as fd:
-                    form.append(fd.read())
-
-            form.append("--%s--" % boundary)
+        form = []
+        for name, path in [("metadata", meta_path),
+                            ("rootfs", rootfs_path)]:
+            filename = os.path.basename(path)
+            form.append("--%s" % boundary)
+            form.append("Content-Disposition: form-data; "
+                        "name=%s; filename=%s" % (name, filename))
+            form.append("Content-Type: application/octet-stream")
             form.append("")
+            with open(path, "rb") as fd:
+                form.append(fd.read())
 
-            body = b""
-            for entry in form:
-                if isinstance(entry, bytes):
-                    body += entry + b"\r\n"
-                else:
-                    body += entry.encode() + b"\r\n"
+        form.append("--%s--" % boundary)
+        form.append("")
 
-            headers['Content-Type'] = ("multipart/form-data; boundary=%s"
-                                       % boundary)
+        body = b""
+        for entry in form:
+            if isinstance(entry, bytes):
+                body += entry + b"\r\n"
+            else:
+                body += entry.encode() + b"\r\n"
 
-            self.client.image_upload(data=body, headers=headers,
-                                     instance=instance)
+        headers['Content-Type'] = ("multipart/form-data; boundary=%s"
+                                    % boundary)
+
+        self.client.image_upload(data=body, headers=headers,
+                                instance=instance)
 
     def _setup_alias(self, path, instance):
         LOG.debug('Updating image and metadata')
