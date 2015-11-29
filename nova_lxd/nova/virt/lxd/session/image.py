@@ -42,7 +42,7 @@ class ImageMixin(object):
         LOG.debug('image_defined called for instance', instance=instance)
         try:
             client = self.get_session(instance.host)
-            return client.image_defined(instance.image_ref)
+            return client.alias_defined(instance.image_ref)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return False

@@ -42,5 +42,5 @@ class SessionImageTest(test.NoDBTestCase):
         instance = stubs._fake_instance()
         self.ml.image_define.return_value = True
         self.assertTrue(self.session.image_defined(instance))
-        calls = [mock.call.image_defined(None)]
+        calls = [mock.call.alias_defined(None)]
         self.assertEqual(calls, self.ml.method_calls)
