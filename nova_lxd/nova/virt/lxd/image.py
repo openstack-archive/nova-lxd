@@ -83,7 +83,7 @@ class LXDContainerImage(object):
                     instance)
 
                 self._setup_alias((container_manifest_img + '.xz',
-                                  container_rootfs_img), instance)
+                                   container_rootfs_img), instance)
 
                 os.unlink(container_manifest_img + '.xz')
 
@@ -146,14 +146,8 @@ class LXDContainerImage(object):
         if split:
             headers['Content-Type'] = "application/octet-stream"
 
-            try:
-                status, data = (self.connection.image_upload(
-                    data=open(path, 'rb'),
-                    headers=headers))
-            except lxd_exceptions as ex:
-                raise exception.ImageUnacceptable(
-                    image_id=instance.image_ref,
-                    reason=_('Failed to upload image: %s') % ex)
+            self.client.image_upload(data=open(path, 'rb'),
+                                     headers=headers, instance=instance)
         else:
             meta_path, rootfs_path = path
             boundary = str(uuid.uuid1())
@@ -183,18 +177,8 @@ class LXDContainerImage(object):
             headers['Content-Type'] = ("multipart/form-data; boundary=%s"
                                        % boundary)
 
-            try:
-                status, data = self.connection.image_upload(data=body,
-                                                            headers=headers)
-                self.connection.wait_container_operation(
-                    data.get('operation'), 200, -1)
-
-            except lxd_exceptions as ex:
-                raise exception.ImageUnacceptable(
-                    image_id=instance.image_ref,
-                    reason=_('Failed to upload image: %s') % ex)
-
-        return data
+            self.client.image_upload(data=body, headers=headers,
+                                     instance=instance)
 
     def _setup_alias(self, path, instance):
         LOG.debug('Updating image and metadata')

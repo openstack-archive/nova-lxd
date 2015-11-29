@@ -83,3 +83,30 @@ class ImageMixin(object):
                               '%(instance)s: %(reason)s'),
                           {'instance': instance.image_ref, 'reason': e},
                           instance=instance)
+
+    def image_upload(self, data, headers, instance):
+        """Upload an image to the local LXD image store
+
+        :param data: image data
+        :param headers: image headers
+        :param intance: The nova instance
+
+        """
+        LOG.debug('upload_image called for instnace', instance=instance)
+        try:
+            client = self.get_session(instance.host)
+            (state, data) = client.image_upload(data=data,
+                                                headers=headers)
+            self.operation_wait(data.get('operation'), instance)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to communicate with LXD API %(isntance)s:'
+                    '%(reason)s') % {'instance': instance.image_ref,
+                                     'reason': ex}
+            LOG.error(msg)
+            raise exception.NovaException(msg)
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Error from LXD during image_defined '
+                              '%(instance)s: %(reason)s'),
+                          {'instance': instance.image_ref, 'reason': e},
+                          instance=instance)
