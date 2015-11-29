@@ -44,6 +44,7 @@ IMAGE_API = image.API()
 
 
 class LXDContainerImage(object):
+    """ Upload an image from glance to the local LXD image store."""
 
     def __init__(self):
         self.connection = api.API()
@@ -52,6 +53,13 @@ class LXDContainerImage(object):
         self.lock_path = str(os.path.join(CONF.instances_path, 'locks'))
 
     def setup_image(self, context, instance, image_meta):
+        """ Download an image from glance and upload it to LXD
+
+        :param context: context object
+        :param instance: The nova instance
+        :param image_meta: Image dict returned by nova.image.glance
+
+        """
         try:
             LOG.debug('Fetching image info from glance')
             with lockutils.lock(self.lock_path,
@@ -95,6 +103,12 @@ class LXDContainerImage(object):
                 self._cleanup_image(image_meta)
 
     def _get_lxd_manifest(self, instance, image_meta):
+        """ Creates the LXD manifest, needed for split images
+
+        :param instance: nova instance
+        :param image_meta: image metadata dictionary
+
+        """
         LOG.debug('Creating LXD manifest')
 
         try:
@@ -140,6 +154,13 @@ class LXDContainerImage(object):
                 self._cleanup_image(image_meta)
 
     def image_upload(self, path, filename, instance):
+        """Upload an image to the LXD image store
+
+        :param path: path to the glance image
+        :param filenmae: name of the file
+        :param instance: nova instance
+
+        """
         LOG.debug('image_upload called for instance=', instance=instance)
         headers = {}
 
@@ -175,6 +196,11 @@ class LXDContainerImage(object):
                                 instance=instance)
 
     def _setup_alias(self, path, instance):
+        """Creates the LXD alias for the image
+
+        :param path: fileystem path of the glance image
+        :param instance: nova instance
+        """
         LOG.debug('Updating image and metadata')
 
         try:
@@ -194,6 +220,11 @@ class LXDContainerImage(object):
                 reason=_('Image already exists: %s') % ex)
 
     def _cleanup_image(self, image_meta):
+        """Cleanup the remaning bits of the glance/lxd interaction
+
+        :params image_meta: image_meta dictionary
+
+        """
         container_rootfs_img = (
             self.container_dir.get_container_rootfs_image(
                 image_meta))
