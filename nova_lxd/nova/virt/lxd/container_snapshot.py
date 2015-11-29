@@ -51,9 +51,7 @@ class LXDSnapshot(object):
         (state, data) = self.client.client('stop',
                                            instance=instance.name,
                                            host=instance.host)
-        self.client.client('wait',
-                           oid=data.get('operation'),
-                           host=instance.host)
+        self.session.operation_wait(data.get('operation'), instance)
         fingerprint = self.create_lxd_image(snapshot, instance)
         self.create_glance_image(
             context, image_id, snapshot, fingerprint, instance)
@@ -72,9 +70,7 @@ class LXDSnapshot(object):
                                            instance=instance.name,
                                            container_snapshot=csnapshot,
                                            host=instance.host)
-        self.client.client('wait',
-                           oid=data.get('operation'),
-                           host=instance.host)
+        self.session.operation_wait(data.get('operation'), instance)
 
     def create_lxd_image(self, snapshot, instance):
         LOG.debug('Uploading image to LXD image store.')

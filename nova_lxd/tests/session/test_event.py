@@ -23,10 +23,10 @@ from nova_lxd.tests import stubs
 
 
 @ddt.ddt
-class SessionImageTest(test.NoDBTestCase):
+class SessionEventTest(test.NoDBTestCase):
 
     def setUp(self):
-        super(SessionImageTest, self).setUp()
+        super(SessionEventTest, self).setUp()
 
         self.ml = stubs.lxd_mock()
         lxd_patcher = mock.patch('pylxd.api.API',
@@ -36,19 +36,11 @@ class SessionImageTest(test.NoDBTestCase):
 
         self.session = session.LXDAPISession()
 
-    def test_image_defined(self):
-        """Test the image is defined in the LXD hypervisor."""
+    def test_container_wait(self):
         instance = stubs._fake_instance()
-        self.ml.alias_defined.return_value = True
-        self.assertTrue(self.session.image_defined(instance))
-        calls = [mock.call.alias_defined(instance.image_ref)]
-        self.assertEqual(calls, self.ml.method_calls)
-
-    def test_alias_create(self):
-        """Test the alias is created."""
-        instance = stubs._fake_instance()
-        alias = mock.Mock()
-        self.ml.alias_create.return_value = True
-        self.assertTrue(self.session.create_alias(alias, instance))
-        calls = [mock.call.alias_create(alias)]
-        self.assertEqual(calls, self.ml.method_calls)
+        operation_id = mock.Mock()
+        self.ml.wait_container_operation.return_value = True
+        self.assertEqual(None,
+                         self.session.operation_wait(operation_id, instance))
+        self.ml.wait_container_operation.assert_called_with(operation_id,
+                                                            200, -1)

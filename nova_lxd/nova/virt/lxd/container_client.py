@@ -196,16 +196,6 @@ class LXDContainerClient(object):
             msg = _('Failed to migrate container: %s') % ex
             raise exception.NovaException(msg)
 
-    def container_wait(self, lxd, **kwargs):
-        LOG.debug('REST API - container defined')
-        if not kwargs['oid']:
-            msg = _('Unable to determine container operation')
-            raise exception.NovaException(msg)
-
-        if not lxd.wait_container_operation(kwargs['oid'], 200, -1):
-            msg = _('Container creation timed out')
-            raise exception.NovaException(msg)
-
     def container_alias_defined(self, lxd, **kwargs):
         LOG.debug('REST API - container alias defined')
         try:
