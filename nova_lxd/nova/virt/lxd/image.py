@@ -44,7 +44,7 @@ IMAGE_API = image.API()
 
 
 class LXDContainerImage(object):
-    """ Upload an image from glance to the local LXD image store."""
+    """Upload an image from glance to the local LXD image store."""
 
     def __init__(self):
         self.connection = api.API()
@@ -53,7 +53,7 @@ class LXDContainerImage(object):
         self.lock_path = str(os.path.join(CONF.instances_path, 'locks'))
 
     def setup_image(self, context, instance, image_meta):
-        """ Download an image from glance and upload it to LXD
+        """Download an image from glance and upload it to LXD
 
         :param context: context object
         :param instance: The nova instance
@@ -74,16 +74,16 @@ class LXDContainerImage(object):
                 if not os.path.exists(base_dir):
                     fileutils.ensure_tree(base_dir)
 
-                 container_rootfs_img = (
-                                     self.container_dir.get_container_rootfs_image(
-                                                             image_meta)
+                container_rootfs_img = (
+                    self.container_dir.get_container_rootfs_image(
+                        image_meta))
                 self._fetch_image(context, image_meta, instance)
 
                 container_manifest_img = self._get_lxd_manifest(instance,
                                                                 image_meta)
                 utils.execute('xz', '-9', container_manifest_img)
 
-                self.image_upload(
+                self._image_upload(
                     (container_manifest_img + '.xz', container_rootfs_img),
                     container_manifest_img.split('/')[-1],
                     instance)
@@ -109,14 +109,13 @@ class LXDContainerImage(object):
 
         """
         LOG.debug('_fetch_iamge called for instance', instance=instance)
-        path = self.container_dir,get_container_rootfs_image(
+        path = self.container_dir.get_container_rootfs_image(
             image_meta)
-        with fileutils.remote_path_on_error(path):
+        with fileutils.remove_path_on_error(path):
             IMAGE_API.download(context, instance.image_ref, dest_path=path)
 
-
     def _get_lxd_manifest(self, instance, image_meta):
-        """ Creates the LXD manifest, needed for split images
+        """Creates the LXD manifest, needed for split images
 
         :param instance: nova instance
         :param image_meta: image metadata dictionary
@@ -166,7 +165,7 @@ class LXDContainerImage(object):
                           instance=instance)
                 self._cleanup_image(image_meta, instance)
 
-    def image_upload(self, path, filename, instance):
+    def _image_upload(self, path, filename, instance):
         """Upload an image to the LXD image store
 
         :param path: path to the glance image
@@ -182,7 +181,7 @@ class LXDContainerImage(object):
 
         form = []
         for name, path in [("metadata", meta_path),
-                            ("rootfs", rootfs_path)]:
+                           ("rootfs", rootfs_path)]:
             filename = os.path.basename(path)
             form.append("--%s" % boundary)
             form.append("Content-Disposition: form-data; "
@@ -203,10 +202,10 @@ class LXDContainerImage(object):
                 body += entry.encode() + b"\r\n"
 
         headers['Content-Type'] = ("multipart/form-data; boundary=%s"
-                                    % boundary)
+                                   % boundary)
 
         self.client.image_upload(data=body, headers=headers,
-                                instance=instance)
+                                 instance=instance)
 
     def _setup_alias(self, path, instance):
         """Creates the LXD alias for the image
@@ -232,7 +231,7 @@ class LXDContainerImage(object):
                 image_id=instance.image_ref,
                 reason=_('Image already exists: %s') % ex)
 
-    def _cleanup_image(self, image_meta, instnace):
+    def _cleanup_image(self, image_meta, instance):
         """Cleanup the remaning bits of the glance/lxd interaction
 
         :params image_meta: image_meta dictionary
