@@ -77,7 +77,7 @@ class LXDContainerImage(object):
                  container_rootfs_img = (
                                      self.container_dir.get_container_rootfs_image(
                                                              image_meta)
-                self._fetch_image(context, image_meta, path)
+                self._fetch_image(context, image_meta, instance)
 
                 container_manifest_img = self._get_lxd_manifest(instance,
                                                                 image_meta)
