@@ -74,13 +74,6 @@ class LXDContainerImage(object):
                 if not os.path.exists(base_dir):
                     fileutils.ensure_tree(base_dir)
 
-                container_rootfs_img = (
-                    self.container_dir.get_container_rootfs_image(
-                        image_meta))
-                IMAGE_API.download(
-                    context, instance.image_ref,
-                    dest_path=container_rootfs_img)
-
                 container_manifest_img = self._get_lxd_manifest(instance,
                                                                 image_meta)
                 utils.execute('xz', '-9', container_manifest_img)
@@ -101,6 +94,21 @@ class LXDContainerImage(object):
                           {'image': instance.image_ref, 'reason': ex},
                           instance=instance)
                 self._cleanup_image(image_meta)
+
+    def _fetch_image(self, context, image_meta, instance):
+        """Fetch an image from glance
+
+        :param context: nova security object
+        :param image_meta: glance image dict
+        :param instance: the nova instance object
+
+        """
+        LOG.debug('_fetch_iamge called for instance', instance=instance)
+        path = self.container_dir,get_container_rootfs_image(
+            image_meta)
+        with fileutils.remote_path_on_error(path):
+            IMAGE_API.download(context, instance.image_ref, dest_path=path)
+
 
     def _get_lxd_manifest(self, instance, image_meta):
         """ Creates the LXD manifest, needed for split images
