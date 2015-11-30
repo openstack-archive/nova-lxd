@@ -17,6 +17,7 @@ import contextlib
 import inspect
 import json
 import os
+import platform
 from pylxd import exceptions as lxd_exceptions
 
 import ddt
@@ -528,7 +529,7 @@ class LXDTestDriver(test.NoDBTestCase):
         value = self.connection.get_available_resource(None)
         value['cpu_info'] = json.loads(value['cpu_info'])
         value['supported_instances'] = json.loads(value['supported_instances'])
-        expected = {'cpu_info': {'arch': 'x86_64',
+        expected = {'cpu_info': {'arch': platform.uname()[5],
                                  'features': 'fake flag goes here',
                                  'model': 'Fake CPU',
                                  'topology': {'cores': '5',
