@@ -22,6 +22,7 @@ from nova import test
 
 from nova_lxd.nova.virt.lxd import container_client
 from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.tests import fake_api
 from nova_lxd.tests import stubs
 
@@ -41,57 +42,59 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         with contextlib.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_start'),
-            mock.patch.object(container_client.LXDContainerClient,
-                              'container_wait'),
+            mock.patch.object(session.LXDAPISession,
+                              'operation_wait'),
         ) as (
             container_start,
-            container_wait
+            operation_wait
         ):
             container_start.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
                              (self.container_utils.container_start(
                                  instance_name, instance)))
             self.assertTrue(container_start)
-            self.assertTrue(container_wait)
+            self.assertTrue(operation_wait)
 
     def test_container_stop(self):
         instance = stubs._fake_instance()
         instance_name = 'fake-uuid'
+        host = 'fake_host'
         with contextlib.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_stop'),
-            mock.patch.object(container_client.LXDContainerClient,
-                              'container_wait'),
+            mock.patch.object(session.LXDAPISession,
+                              'operation_wait'),
         ) as (
             container_stop,
-            container_wait
+            operation_wait
         ):
             container_stop.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
                              (self.container_utils.container_stop(
-                                 instance_name, instance)))
+                                 instance_name, host, instance)))
             self.assertTrue(container_stop)
-            self.assertTrue(container_wait)
+            self.assertTrue(operation_wait)
 
     def test_container_reboot(self):
         instance = stubs._fake_instance()
         with contextlib.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_reboot'),
-            mock.patch.object(container_client.LXDContainerClient,
-                              'container_wait'),
+            mock.patch.object(session.LXDAPISession,
+                              'operation_wait'),
         ) as (
             container_reboot,
-            container_wait
+            operation_wait
         ):
             container_reboot.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
                              self.container_utils.container_reboot(instance))
             self.assertTrue(container_reboot)
-            self.assertTrue(container_wait)
+            self.assertTrue(operation_wait)
 
     def test_container_destroy(self):
         instance_name = mock.Mock()
+        instance = stubs._fake_instance()
         host = mock.Mock()
         with contextlib.nested(
             mock.patch.object(container_client.LXDContainerClient,
@@ -100,23 +103,23 @@ class LXDTestContainerUtils(test.NoDBTestCase):
                               'container_stop'),
             mock.patch.object(container_client.LXDContainerClient,
                               'container_destroy'),
-            mock.patch.object(container_client.LXDContainerClient,
-                              'container_wait')
+            mock.patch.object(session.LXDAPISession,
+                              'operation_wait')
         ) as (
             container_defined,
             container_stop,
             container_destroy,
-            container_wait
+            operation_wait
         ):
             container_defined.retrun_value = True
             container_destroy.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
                              (self.container_utils.container_destroy(
-                                 instance_name, host)))
+                                 instance_name, host, instance)))
             self.assertTrue(container_defined)
             self.assertTrue(container_stop)
             self.assertTrue(container_destroy)
-            self.assertTrue(container_wait)
+            self.assertTrue(operation_wait)
 
     def test_container_pause(self):
         instance = stubs._fake_instance()
@@ -124,18 +127,18 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         with contextlib.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_pause'),
-            mock.patch.object(container_client.LXDContainerClient,
-                              'container_wait'),
+            mock.patch.object(session.LXDAPISession,
+                              'operation_wait'),
         ) as (
             container_pause,
-            container_wait
+            operation_wait
         ):
             container_pause.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
                              (self.container_utils.container_pause(
                                  instance_name, instance)))
             self.assertTrue(container_pause)
-            self.assertTrue(container_wait)
+            self.assertTrue(operation_wait)
 
     def test_container_unpause(self):
         instance = stubs._fake_instance()
@@ -143,18 +146,18 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         with contextlib.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_pause'),
-            mock.patch.object(container_client.LXDContainerClient,
-                              'container_wait'),
+            mock.patch.object(session.LXDAPISession,
+                              'operation_wait'),
         ) as (
             container_pause,
-            container_wait
+            operation_wait
         ):
             container_pause.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
                              self.container_utils.container_pause(
                                  instance_name, instance))
             self.assertTrue(container_pause)
-            self.assertTrue(container_wait)
+            self.assertTrue(operation_wait)
 
     def test_container_suspend(self):
         instance = stubs._fake_instance()
@@ -162,18 +165,18 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         with contextlib.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_snapshot_create'),
-            mock.patch.object(container_client.LXDContainerClient,
-                              'container_wait'),
+            mock.patch.object(session.LXDAPISession,
+                              'operation_wait'),
         ) as (
             snapshot_create,
-            container_wait
+            operation_wait
         ):
             snapshot_create.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
                              (self.container_utils.container_snapshot(
                                  snapshot, instance)))
             self.assertTrue(snapshot_create)
-            self.assertTrue(container_wait)
+            self.assertTrue(operation_wait)
 
     def test_container_copy(self):
         instance = stubs._fake_instance()
@@ -182,18 +185,18 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         with contextlib.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_local_copy'),
-            mock.patch.object(container_client.LXDContainerClient,
-                              'container_wait'),
+            mock.patch.object(session.LXDAPISession,
+                              'operation_wait'),
         ) as (
             container_copy,
-            container_wait
+            operation_wait
         ):
             container_copy.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
                              (self.container_utils.container_copy(config,
                                                                   instance)))
             self.assertTrue(container_copy)
-            self.assertTrue(container_wait)
+            self.assertTrue(operation_wait)
 
     def test_container_move(self):
         instance = stubs._fake_instance()
@@ -203,11 +206,11 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         with contextlib.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_local_move'),
-            mock.patch.object(container_client.LXDContainerClient,
-                              'container_wait'),
+            mock.patch.object(session.LXDAPISession,
+                              'operation_wait'),
         ) as (
             container_move,
-            container_wait
+            operation_wait
         ):
             container_move.return_value = (200, fake_api.fake_operation())
             self.assertEqual(None,
@@ -215,7 +218,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
                                                                   config,
                                                                   instance)))
             self.assertTrue(container_move)
-            self.assertTrue(container_wait)
+            self.assertTrue(operation_wait)
 
     def test_container_init(self):
         config = mock.Mock()
@@ -224,13 +227,13 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         with contextlib.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_init'),
-            mock.patch.object(container_client.LXDContainerClient,
-                              'container_wait'),
+            mock.patch.object(session.LXDAPISession,
+                              'operation_wait'),
             mock.patch.object(container_client.LXDContainerClient,
                               'container_operation_info'),
         ) as (
             container_init,
-            container_wait,
+            operation_wait,
             container_operation_info,
         ):
             container_init.return_value = (200, fake_api.fake_operation())
@@ -242,7 +245,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
                                                                   instance,
                                                                   host)))
             self.assertTrue(container_init)
-            self.assertTrue(container_wait)
+            self.assertTrue(operation_wait)
             self.assertTrue(container_operation_info)
 
     def test_container_init_failure(self):
@@ -252,13 +255,13 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         with contextlib.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_init'),
-            mock.patch.object(container_client.LXDContainerClient,
-                              'container_wait'),
+            mock.patch.object(session.LXDAPISession,
+                              'operation_wait'),
             mock.patch.object(container_client.LXDContainerClient,
                               'container_operation_info'),
         ) as (
             container_init,
-            container_wait,
+            operation_wait,
             container_operation_info,
         ):
             container_init.return_value = (200, fake_api.fake_operation())
@@ -269,5 +272,5 @@ class LXDTestContainerUtils(test.NoDBTestCase):
                               self.container_utils.container_init,
                               config, instance, host)
             self.assertTrue(container_init)
-            self.assertTrue(container_wait)
+            self.assertTrue(operation_wait)
             self.assertTrue(container_operation_info)

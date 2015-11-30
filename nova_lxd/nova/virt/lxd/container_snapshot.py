@@ -23,6 +23,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from nova_lxd.nova.virt.lxd import container_client
+from nova_lxd.nova.virt.lxd.session import session
 
 _ = i18n._
 
@@ -34,6 +35,7 @@ IMAGE_API = image.API()
 
 class LXDSnapshot(object):
     def __init__(self):
+        self.session = session.LXDAPISession()
         self.client = container_client.LXDContainerClient()
 
     def snapshot(self, context, instance, image_id, update_task_state):
@@ -49,9 +51,7 @@ class LXDSnapshot(object):
         (state, data) = self.client.client('stop',
                                            instance=instance.name,
                                            host=instance.host)
-        self.client.client('wait',
-                           oid=data.get('operation'),
-                           host=instance.host)
+        self.session.operation_wait(data.get('operation'), instance)
         fingerprint = self.create_lxd_image(snapshot, instance)
         self.create_glance_image(
             context, image_id, snapshot, fingerprint, instance)
@@ -70,9 +70,7 @@ class LXDSnapshot(object):
                                            instance=instance.name,
                                            container_snapshot=csnapshot,
                                            host=instance.host)
-        self.client.client('wait',
-                           oid=data.get('operation'),
-                           host=instance.host)
+        self.session.operation_wait(data.get('operation'), instance)
 
     def create_lxd_image(self, snapshot, instance):
         LOG.debug('Uploading image to LXD image store.')
@@ -93,9 +91,7 @@ class LXDSnapshot(object):
         snapshot_alias = {'name': snapshot['id'],
                           'target': fingerprint}
         LOG.debug(snapshot_alias)
-        self.client.client('alias_create',
-                           alias=snapshot_alias,
-                           host=instance.host)
+        self.session.create_alias(snapshot_alias, instance)
         return fingerprint
 
     def create_glance_image(self, context, image_id, snapshot, fingerprint,

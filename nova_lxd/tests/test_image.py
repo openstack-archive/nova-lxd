@@ -23,13 +23,14 @@ import mock
 from oslo_concurrency import lockutils
 from oslo_config import fixture as config_fixture
 
-from nova_lxd.nova.virt.lxd import container_image
 from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd import image
+from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.tests import stubs
 
 
 @ddt.ddt
-@mock.patch.object(container_image, 'CONF', stubs.MockConf())
+@mock.patch.object(image, 'CONF', stubs.MockConf())
 @mock.patch.object(container_utils, 'CONF', stubs.MockConf())
 class LXDTestContainerImage(test.NoDBTestCase):
 
@@ -44,7 +45,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
         self.fixture.config(disable_process_locking=True,
                             group='oslo_concurrency')
 
-        self.container_image = container_image.LXDContainerImage()
+        self.image = image.LXDContainerImage()
 
     @mock.patch('os.path.exists', mock.Mock(return_value=False))
     @mock.patch('oslo_utils.fileutils.ensure_tree', mock.Mock())
@@ -54,15 +55,15 @@ class LXDTestContainerImage(test.NoDBTestCase):
         instance = stubs._fake_instance()
         image_meta = {'name': 'new_image', 'id': 'fake_image'}
         with contextlib.nested(
-                mock.patch.object(container_image.LXDContainerImage,
-                                  '_image_defined'),
-                mock.patch.object(container_image.IMAGE_API,
+                mock.patch.object(session.LXDAPISession,
+                                  'image_defined'),
+                mock.patch.object(image.IMAGE_API,
                                   'download'),
-                mock.patch.object(container_image.LXDContainerImage,
+                mock.patch.object(image.LXDContainerImage,
                                   '_get_lxd_manifest'),
-                mock.patch.object(container_image.LXDContainerImage,
+                mock.patch.object(image.LXDContainerImage,
                                   '_image_upload'),
-                mock.patch.object(container_image.LXDContainerImage,
+                mock.patch.object(image.LXDContainerImage,
                                   '_setup_alias'),
                 mock.patch.object(os, 'unlink')
         ) as (
@@ -77,9 +78,9 @@ class LXDTestContainerImage(test.NoDBTestCase):
             mock_image_manifest.return_value = \
                 '/fake/image/cache/fake_image-manifest.tar'
             self.assertEqual(None,
-                             self.container_image.setup_image(context,
-                                                              instance,
-                                                              image_meta))
+                             self.image.setup_image(context,
+                                                    instance,
+                                                    image_meta))
             mock_execute.assert_called_once_with('xz', '-9',
                                                  '/fake/image/cache/'
                                                  'fake_image-manifest.tar')
@@ -92,15 +93,15 @@ class LXDTestContainerImage(test.NoDBTestCase):
         instance = stubs._fake_instance()
         image_meta = {'name': 'new_image', 'id': 'fake_image'}
         with contextlib.nested(
-            mock.patch.object(container_image.LXDContainerImage,
-                              '_image_defined'),
-            mock.patch.object(container_image.IMAGE_API,
+            mock.patch.object(session.LXDAPISession,
+                              'image_defined'),
+            mock.patch.object(image.IMAGE_API,
                               'download'),
-            mock.patch.object(container_image.LXDContainerImage,
+            mock.patch.object(image.LXDContainerImage,
                               '_get_lxd_manifest'),
-            mock.patch.object(container_image.LXDContainerImage,
+            mock.patch.object(image.LXDContainerImage,
                               '_image_upload'),
-            mock.patch.object(container_image.LXDContainerImage,
+            mock.patch.object(image.LXDContainerImage,
                               '_setup_alias'),
             mock.patch.object(os, 'unlink')
         ) as (
@@ -113,7 +114,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
         ):
             mock_image_defined.return_value = True
             self.assertEqual(None,
-                             self.container_image.setup_image(context,
-                                                              instance,
-                                                              image_meta))
+                             self.image.setup_image(context,
+                                                    instance,
+                                                    image_meta))
             self.assertFalse(mock_image_manifest.called)

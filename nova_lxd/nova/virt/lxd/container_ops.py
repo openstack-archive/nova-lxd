@@ -33,8 +33,8 @@ from nova import utils
 from nova_lxd.nova.virt.lxd import container_client
 from nova_lxd.nova.virt.lxd import container_config
 from nova_lxd.nova.virt.lxd import container_firewall
-from nova_lxd.nova.virt.lxd import container_image
 from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd import image
 from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.nova.virt.lxd import vif
 
@@ -60,7 +60,7 @@ class LXDContainerOperations(object):
         self.container_client = container_client.LXDContainerClient()
         self.container_dir = container_dir.LXDContainerDirectories()
         self.container_utils = container_utils.LXDContainerUtils()
-        self.container_image = container_image.LXDContainerImage()
+        self.image = image.LXDContainerImage()
         self.firewall_driver = container_firewall.LXDContainerFirewall()
 
         self.vif_driver = vif.LXDGenericDriver()
@@ -89,7 +89,7 @@ class LXDContainerOperations(object):
 
         start = time.time()
         try:
-            self.container_image.setup_image(context, instance, image_meta)
+            self.image.setup_image(context, instance, image_meta)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Upload image failed: %(e)s'),
@@ -172,12 +172,14 @@ class LXDContainerOperations(object):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        self.container_utils.container_destroy(instance.name, instance.host)
+        self.container_utils.container_destroy(instance.name, instance.host,
+                                               instance)
         self.cleanup(context, instance, network_info, block_device_info)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
         return self.container_utils.container_stop(instance.name,
-                                                   instance.host)
+                                                   instance.host,
+                                                   instance)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
@@ -205,7 +207,8 @@ class LXDContainerOperations(object):
 
         self.container_utils.container_stop(instance.name, instance.host)
         self._container_local_copy(instance)
-        self.container_utils.container_destroy(instance.name, instance.host)
+        self.container_utils.container_destroy(instance.name, instance.host,
+                                               instance)
 
         self.spawn(context, instance, image_meta, injected_files=None,
                    admin_password=None, network_info=network_info,
@@ -239,7 +242,8 @@ class LXDContainerOperations(object):
         self.container_utils.container_move(old_name, container_config,
                                             instance)
         self.container_utils.container_destroy(instance.name,
-                                               instance.host)
+                                               instance.host,
+                                               instance)
 
     def _unplug_vifs(self, instance, network_info, ignore_errors):
         """Unplug VIFs from networks."""

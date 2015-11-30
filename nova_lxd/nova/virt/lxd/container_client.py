@@ -196,28 +196,6 @@ class LXDContainerClient(object):
             msg = _('Failed to migrate container: %s') % ex
             raise exception.NovaException(msg)
 
-    def container_wait(self, lxd, **kwargs):
-        LOG.debug('REST API - container defined')
-        if not kwargs['oid']:
-            msg = _('Unable to determine container operation')
-            raise exception.NovaException(msg)
-
-        if not lxd.wait_container_operation(kwargs['oid'], 200, -1):
-            msg = _('Container creation timed out')
-            raise exception.NovaException(msg)
-
-    # container images
-    def container_image_defined(self, lxd, **kwargs):
-        LOG.debug('REST API - container image defined')
-        try:
-            return lxd.image_defined(kwargs['instance'])
-        except lxd_exceptions.APIError as ex:
-            if ex.status_code == 404:
-                return False
-            else:
-                msg = _('Failed to determine image: %s') % ex
-                raise exception.NovaException(msg)
-
     def container_alias_defined(self, lxd, **kwargs):
         LOG.debug('REST API - container alias defined')
         try:
@@ -272,14 +250,6 @@ class LXDContainerClient(object):
             return lxd.container_publish(kwargs['container_image'])
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to publish snapshot: %s') % ex
-            raise exception.NovaException(msg)
-
-    def container_alias_create(self, lxd, **kwargs):
-        LOG.debug('REST API - container alias create')
-        try:
-            return lxd.alias_create(kwargs['alias'])
-        except lxd_exceptions.APIError as ex:
-            msg = _('Failed to create alias: %s') % ex
             raise exception.NovaException(msg)
 
     def container_image_export(self, lxd, **kwargs):

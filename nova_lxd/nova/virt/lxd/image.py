@@ -32,6 +32,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import fileutils
 
+from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.nova.virt.lxd import utils as container_dir
 
 _ = i18n._
@@ -43,21 +44,30 @@ IMAGE_API = image.API()
 
 
 class LXDContainerImage(object):
+    """Upload an image from glance to the local LXD image store."""
 
     def __init__(self):
         self.connection = api.API()
+        self.client = session.LXDAPISession()
         self.container_dir = container_dir.LXDContainerDirectories()
         self.lock_path = str(os.path.join(CONF.instances_path, 'locks'))
 
     def setup_image(self, context, instance, image_meta):
+        """Download an image from glance and upload it to LXD
+
+        :param context: context object
+        :param instance: The nova instance
+        :param image_meta: Image dict returned by nova.image.glance
+
+        """
+        LOG.debug('setup_image called for instance', instance=instance)
         try:
-            LOG.debug('Fetching image info from glance')
             with lockutils.lock(self.lock_path,
                                 lock_file_prefix=('lxd-image-%s' %
                                                   instance.image_ref),
                                 external=True):
 
-                if self._image_defined(instance):
+                if self.client.image_defined(instance):
                     return
 
                 base_dir = self.container_dir.get_base_dir()
@@ -67,9 +77,7 @@ class LXDContainerImage(object):
                 container_rootfs_img = (
                     self.container_dir.get_container_rootfs_image(
                         image_meta))
-                IMAGE_API.download(
-                    context, instance.image_ref,
-                    dest_path=container_rootfs_img)
+                self._fetch_image(context, image_meta, instance)
 
                 container_manifest_img = self._get_lxd_manifest(instance,
                                                                 image_meta)
@@ -77,11 +85,11 @@ class LXDContainerImage(object):
 
                 self._image_upload(
                     (container_manifest_img + '.xz', container_rootfs_img),
-                    container_manifest_img.split('/')[-1], False,
+                    container_manifest_img.split('/')[-1],
                     instance)
 
                 self._setup_alias((container_manifest_img + '.xz',
-                                  container_rootfs_img), instance)
+                                   container_rootfs_img), instance)
 
                 os.unlink(container_manifest_img + '.xz')
 
@@ -90,10 +98,30 @@ class LXDContainerImage(object):
                 LOG.error(_LE('Failed to upload %(image)s to LXD: %(reason)s'),
                           {'image': instance.image_ref, 'reason': ex},
                           instance=instance)
-                self._cleanup_image(image_meta)
+                self._cleanup_image(image_meta, instance)
+
+    def _fetch_image(self, context, image_meta, instance):
+        """Fetch an image from glance
+
+        :param context: nova security object
+        :param image_meta: glance image dict
+        :param instance: the nova instance object
+
+        """
+        LOG.debug('_fetch_iamge called for instance', instance=instance)
+        path = self.container_dir.get_container_rootfs_image(
+            image_meta)
+        with fileutils.remove_path_on_error(path):
+            IMAGE_API.download(context, instance.image_ref, dest_path=path)
 
     def _get_lxd_manifest(self, instance, image_meta):
-        LOG.debug('Creating LXD manifest')
+        """Creates the LXD manifest, needed for split images
+
+        :param instance: nova instance
+        :param image_meta: image metadata dictionary
+
+        """
+        LOG.debug('_get_lxd_manifest called for instance', instance=instance)
 
         try:
             container_manifest = (
@@ -135,67 +163,57 @@ class LXDContainerImage(object):
                 LOG.error(_LE('Failed to upload %(image)s to LXD: %(reason)s'),
                           {'image': instance.image_ref, 'reason': ex},
                           instance=instance)
-                self._cleanup_image(image_meta)
+                self._cleanup_image(image_meta, instance)
 
-    def _image_upload(self, path, filename, split, instance):
-        LOG.debug('Uploading Image to LXD.')
+    def _image_upload(self, path, filename, instance):
+        """Upload an image to the LXD image store
+
+        :param path: path to the glance image
+        :param filenmae: name of the file
+        :param instance: nova instance
+
+        """
+        LOG.debug('image_upload called for instance', instance=instance)
         headers = {}
 
-        if split:
-            headers['Content-Type'] = "application/octet-stream"
+        meta_path, rootfs_path = path
+        boundary = str(uuid.uuid1())
 
-            try:
-                status, data = (self.connection.image_upload(
-                    data=open(path, 'rb'),
-                    headers=headers))
-            except lxd_exceptions as ex:
-                raise exception.ImageUnacceptable(
-                    image_id=instance.image_ref,
-                    reason=_('Failed to upload image: %s') % ex)
-        else:
-            meta_path, rootfs_path = path
-            boundary = str(uuid.uuid1())
-
-            form = []
-            for name, path in [("metadata", meta_path),
-                               ("rootfs", rootfs_path)]:
-                filename = os.path.basename(path)
-                form.append("--%s" % boundary)
-                form.append("Content-Disposition: form-data; "
-                            "name=%s; filename=%s" % (name, filename))
-                form.append("Content-Type: application/octet-stream")
-                form.append("")
-                with open(path, "rb") as fd:
-                    form.append(fd.read())
-
-            form.append("--%s--" % boundary)
+        form = []
+        for name, path in [("metadata", meta_path),
+                           ("rootfs", rootfs_path)]:
+            filename = os.path.basename(path)
+            form.append("--%s" % boundary)
+            form.append("Content-Disposition: form-data; "
+                        "name=%s; filename=%s" % (name, filename))
+            form.append("Content-Type: application/octet-stream")
             form.append("")
+            with open(path, "rb") as fd:
+                form.append(fd.read())
 
-            body = b""
-            for entry in form:
-                if isinstance(entry, bytes):
-                    body += entry + b"\r\n"
-                else:
-                    body += entry.encode() + b"\r\n"
+        form.append("--%s--" % boundary)
+        form.append("")
 
-            headers['Content-Type'] = ("multipart/form-data; boundary=%s"
-                                       % boundary)
+        body = b""
+        for entry in form:
+            if isinstance(entry, bytes):
+                body += entry + b"\r\n"
+            else:
+                body += entry.encode() + b"\r\n"
 
-            try:
-                status, data = self.connection.image_upload(data=body,
-                                                            headers=headers)
-                self.connection.wait_container_operation(
-                    data.get('operation'), 200, -1)
+        headers['Content-Type'] = ("multipart/form-data; boundary=%s"
+                                   % boundary)
 
-            except lxd_exceptions as ex:
-                raise exception.ImageUnacceptable(
-                    image_id=instance.image_ref,
-                    reason=_('Failed to upload image: %s') % ex)
-
-        return data
+        self.client.image_upload(data=body, headers=headers,
+                                 instance=instance)
 
     def _setup_alias(self, path, instance):
-        LOG.debug('Updating image and metadata')
+        """Creates the LXD alias for the image
+
+        :param path: fileystem path of the glance image
+        :param instance: nova instance
+        """
+        LOG.debug('_setup_alias called for instance', instance=instance)
 
         try:
             meta_path, rootfs_path = path
@@ -207,26 +225,19 @@ class LXDContainerImage(object):
                 'name': instance.image_ref,
                 'target': fingerprint
             }
-            LOG.debug('Creating alias: %s' % alias_config)
-            self.connection.alias_create(alias_config)
+            self.client.create_alias(alias_config, instance)
         except lxd_exceptions.APIError as ex:
             raise exception.ImageUnacceptable(
                 image_id=instance.image_ref,
                 reason=_('Image already exists: %s') % ex)
 
-    def _image_defined(self, instance):
-        LOG.debug('Checking alias existance')
+    def _cleanup_image(self, image_meta, instance):
+        """Cleanup the remaning bits of the glance/lxd interaction
 
-        try:
-            return self.connection.alias_defined(instance.image_ref)
-        except lxd_exceptions.APIError as ex:
-            if ex.status_code == 404:
-                return False
-            else:
-                msg = _('Failed to determine image alias: %s') % ex
-                raise exception.NovaException(msg)
+        :params image_meta: image_meta dictionary
 
-    def _cleanup_image(self, image_meta):
+        """
+        LOG.debug('_cleanup_image called for instance', instance=instance)
         container_rootfs_img = (
             self.container_dir.get_container_rootfs_image(
                 image_meta))

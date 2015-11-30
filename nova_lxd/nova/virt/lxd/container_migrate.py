@@ -81,7 +81,7 @@ class LXDContainerMigrate(object):
             if self.client.client('defined', instance=instance.name,
                                   host=dst_host):
                 LOG.exception(_LE('Container already migrated'))
-            self.utils.container_stop(instance.name, src_host)
+            self.utils.container_stop(instance.name, src_host, instance)
             container_ws = self.utils.container_migrate(
                 instance.name, src_host)
             container_config = (
