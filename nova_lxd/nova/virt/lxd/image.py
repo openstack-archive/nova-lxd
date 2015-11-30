@@ -60,8 +60,8 @@ class LXDContainerImage(object):
         :param image_meta: Image dict returned by nova.image.glance
 
         """
+        LOG.debug('setup_image called for instance', instance=instance)
         try:
-            LOG.debug('Fetching image info from glance')
             with lockutils.lock(self.lock_path,
                                 lock_file_prefix=('lxd-image-%s' %
                                                   instance.image_ref),
@@ -117,7 +117,7 @@ class LXDContainerImage(object):
         :param image_meta: image metadata dictionary
 
         """
-        LOG.debug('Creating LXD manifest')
+        LOG.debug('_get_lxd_manifest called for instance', instance=instance)
 
         try:
             container_manifest = (
@@ -169,7 +169,7 @@ class LXDContainerImage(object):
         :param instance: nova instance
 
         """
-        LOG.debug('image_upload called for instance=', instance=instance)
+        LOG.debug('image_upload called for instance', instance=instance)
         headers = {}
 
         meta_path, rootfs_path = path
@@ -209,7 +209,7 @@ class LXDContainerImage(object):
         :param path: fileystem path of the glance image
         :param instance: nova instance
         """
-        LOG.debug('Updating image and metadata')
+        LOG.debug('_setup_alias called for instance', instance=instance)
 
         try:
             meta_path, rootfs_path = path
@@ -233,6 +233,7 @@ class LXDContainerImage(object):
         :params image_meta: image_meta dictionary
 
         """
+        LOG.debug('_cleanup_image called for instance', instance=instance)
         container_rootfs_img = (
             self.container_dir.get_container_rootfs_image(
                 image_meta))
