@@ -74,6 +74,11 @@ class LXDContainerImage(object):
                 if not os.path.exists(base_dir):
                     fileutils.ensure_tree(base_dir)
 
+                 container_rootfs_img = (
+                                     self.container_dir.get_container_rootfs_image(
+                                                             image_meta)
+                self._fetch_image(context, image_meta, path)
+
                 container_manifest_img = self._get_lxd_manifest(instance,
                                                                 image_meta)
                 utils.execute('xz', '-9', container_manifest_img)
@@ -93,7 +98,7 @@ class LXDContainerImage(object):
                 LOG.error(_LE('Failed to upload %(image)s to LXD: %(reason)s'),
                           {'image': instance.image_ref, 'reason': ex},
                           instance=instance)
-                self._cleanup_image(image_meta)
+                self._cleanup_image(image_meta, instance)
 
     def _fetch_image(self, context, image_meta, instance):
         """Fetch an image from glance
@@ -159,7 +164,7 @@ class LXDContainerImage(object):
                 LOG.error(_LE('Failed to upload %(image)s to LXD: %(reason)s'),
                           {'image': instance.image_ref, 'reason': ex},
                           instance=instance)
-                self._cleanup_image(image_meta)
+                self._cleanup_image(image_meta, instance)
 
     def image_upload(self, path, filename, instance):
         """Upload an image to the LXD image store
@@ -227,7 +232,7 @@ class LXDContainerImage(object):
                 image_id=instance.image_ref,
                 reason=_('Image already exists: %s') % ex)
 
-    def _cleanup_image(self, image_meta):
+    def _cleanup_image(self, image_meta, instnace):
         """Cleanup the remaning bits of the glance/lxd interaction
 
         :params image_meta: image_meta dictionary
