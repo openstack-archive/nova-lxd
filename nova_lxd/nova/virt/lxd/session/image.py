@@ -47,7 +47,7 @@ class ImageMixin(object):
             if ex.status_code == 404:
                 return False
             else:
-                msg = _('Failed to communicate with LXD API %(isntance)s:'
+                msg = _('Failed to communicate with LXD API %(instance)s:'
                         ' %(reason)s') % {'instance': instance.image_ref,
                                           'reason': ex}
                 LOG.error(msg)
@@ -72,14 +72,14 @@ class ImageMixin(object):
             client = self.get_session(instance.host)
             return client.alias_create(alias)
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD API %(isntance)s:'
+            msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.image_ref,
                                       'reason': ex}
             LOG.error(msg)
             raise exception.NovaException(msg)
         except Exception as e:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Error from LXD during image_defined '
+                LOG.error(_LE('Error from LXD during create alias'
                               '%(instance)s: %(reason)s'),
                           {'instance': instance.image_ref, 'reason': e},
                           instance=instance)
@@ -99,14 +99,14 @@ class ImageMixin(object):
                                                 headers=headers)
             self.operation_wait(data.get('operation'), instance)
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD API %(isntance)s:'
+            msg = _('Failed to communicate with LXD API %(instance)s:'
                     '%(reason)s') % {'instance': instance.image_ref,
                                      'reason': ex}
             LOG.error(msg)
             raise exception.NovaException(msg)
         except Exception as e:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Error from LXD during image_defined '
+                LOG.error(_LE('Error from LXD during image upload'
                               '%(instance)s: %(reason)s'),
                           {'instance': instance.image_ref, 'reason': e},
                           instance=instance)

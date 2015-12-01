@@ -88,7 +88,7 @@ class LXDGenericDriver(object):
 
         return conf
 
-    def get_config_ovs_bridge(self, isntance, vif):
+    def get_config_ovs_bridge(self, instance, vif):
         conf = {'bridge': self.get_bridge_name(vif),
                 'mac_address': vif['address']}
 
