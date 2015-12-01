@@ -29,6 +29,7 @@ import os
 import platform
 from pylxd import api
 from pylxd import exceptions as lxd_exceptions
+import socket
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -69,7 +70,7 @@ class LXDHost(object):
             'hypervisor_type': 'lxd',
             'hypervisor_version': '011',
             'cpu_info': jsonutils.dumps(local_cpu_info),
-            'hypervisor_hostname': platform.node(),
+            'hypervisor_hostname': socket.getfqdn(),
             'supported_instances': jsonutils.dumps(
                 [(arch.I686, hv_type.LXC, vm_mode.EXE),
                     (arch.X86_64, hv_type.LXC, vm_mode.EXE)]),
