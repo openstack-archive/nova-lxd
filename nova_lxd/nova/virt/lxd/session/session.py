@@ -26,6 +26,7 @@ from oslo_log import log as logging
 from nova_lxd.nova.virt.lxd.session import container
 from nova_lxd.nova.virt.lxd.session import event
 from nova_lxd.nova.virt.lxd.session import image
+from nova_lxd.nova.virt.lxd.session import migrate
 
 _ = i18n._
 _LE = i18n._LE
@@ -37,7 +38,8 @@ LOG = logging.getLogger(__name__)
 
 class LXDAPISession(container.ContainerMixin,
                     event.EventMixin,
-                    image.ImageMixin):
+                    image.ImageMixin,
+                    migrate.MigrateMixin):
     """The session to invoke the LXD API session."""
 
     def __init__(self):
