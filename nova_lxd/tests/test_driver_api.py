@@ -544,9 +544,9 @@ class LXDTestDriver(test.NoDBTestCase):
                     'memory_mb': 10000,
                     'memory_mb_used': 8000,
                     'numa_topology': None,
-                    'supported_instances': [[arch.I686, hv_type.LXC,
+                    'supported_instances': [[arch.I686, hv_type.LXD,
                                              vm_mode.EXE],
-                                            [arch.X86_64, hv_type.LXC,
+                                            [arch.X86_64, hv_type.LXD,
                                              vm_mode.EXE]],
                     'vcpus': 200,
                     'vcpus_used': 0}
