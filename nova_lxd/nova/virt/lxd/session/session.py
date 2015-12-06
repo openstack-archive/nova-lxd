@@ -23,6 +23,7 @@ from pylxd import api
 from oslo_config import cfg
 from oslo_log import log as logging
 
+from nova_lxd.nova.virt.lxd.session import container
 from nova_lxd.nova.virt.lxd.session import event
 from nova_lxd.nova.virt.lxd.session import image
 
@@ -34,7 +35,8 @@ CONF.import_opt('host', 'nova.netconf')
 LOG = logging.getLogger(__name__)
 
 
-class LXDAPISession(event.EventMixin,
+class LXDAPISession(container.ContainerMixin,
+                    event.EventMixin,
                     image.ImageMixin):
     """The session to invoke the LXD API session."""
 
