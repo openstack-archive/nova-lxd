@@ -32,6 +32,7 @@ The following tests the ContainerMixin class
 for nova-lxd.
 """
 
+
 @ddt.ddt
 class SessionContainerTest(test.NoDBTestCase):
 
@@ -84,8 +85,8 @@ class SessionContainerTest(test.NoDBTestCase):
         ('missing_container', False, None,
          exception.InstanceNotFound)
     )
-    def test_container_update_fail(self, tag, container_defined, side_effect, 
-                            expected):
+    def test_container_update_fail(self, tag, container_defined, side_effect,
+                                   expected):
         """Test container update fail."""
         config = mock.Mock()
         instance = stubs._fake_instance()
@@ -101,7 +102,6 @@ class SessionContainerTest(test.NoDBTestCase):
             self.assertRaises(
                 expected,
                 self.session.container_update, config, instance)
-
 
     @stubs.annotated_data(
         ('running', True),
@@ -143,7 +143,7 @@ class SessionContainerTest(test.NoDBTestCase):
         ('missing', False, None, power_state.NOSTATE)
     )
     def test_container_state_fail(self, tag, container_defined, side_effect,
-                                      expected):
+                                  expected):
         """Test container state fail."""
         instance = stubs._fake_instance()
         if container_defined:
@@ -170,9 +170,7 @@ class SessionContainerTest(test.NoDBTestCase):
 
     @stubs.annotated_data(
         ('api_fail', True, lxd_exceptions.APIError('Fake', 500),
-          exception.NovaException),
-        ('missing', True, None,
-          exception.InstanceNotFound)
+         exception.NovaException),
     )
     def test_container_config_fail(self, tag, container_defined, side_effect,
                                    expected):
@@ -181,11 +179,6 @@ class SessionContainerTest(test.NoDBTestCase):
         if container_defined:
             self.ml.container_defined.return_value = container_defined
             self.ml.get_container_config.side_effect = side_effect
-            self.assertRaises(
-                expected,
-                self.session.container_config, instance)
-        if not container_defined:
-            self.ml.container_defined.return_value = container_defined
             self.assertRaises(
                 expected,
                 self.session.container_config, instance)
@@ -227,7 +220,7 @@ class SessionContainerTest(test.NoDBTestCase):
         ('1', True, (200, fake_api.fake_operation_info_ok()))
     )
     def test_container_start(self, tag, defined, side_effect=None):
-        """ Test container_start function."""
+        """Test container_start function."""
         instance = stubs._fake_instance()
         self.ml.container_defined.return_value = defined
         self.ml.container_start.return_value = side_effect
@@ -249,7 +242,7 @@ class SessionContainerTest(test.NoDBTestCase):
     )
     def test_container_start_fail(self, tag, container_defined,
                                   expected, side_effect=None):
-        """ Test container start function to fail."""
+        """Test container start function to fail."""
         instance = stubs._fake_instance()
         if container_defined:
             self.ml.container_defined.return_value = container_defined
@@ -267,16 +260,16 @@ class SessionContainerTest(test.NoDBTestCase):
         ('1', (200, fake_api.fake_operation_info_ok()))
     )
     def test_container_stop(self, tag, side_effect):
-        """ Test conainer_stop function."""
+        """Test conainer_stop function."""
         instance = stubs._fake_instance()
         self.ml.container_stop.return_value = side_effect
         self.assertEqual(None,
                          self.session.container_stop(instance.name,
                                                      instance.host, instance))
         calls = [mock.call.container_defined(instance.name),
-                mock.call.container_stop(instance.name, 5),
-                mock.call.wait_container_operation(
-                    '/1.0/operation/1234', 200, -1)]
+                 mock.call.container_stop(instance.name, 5),
+                 mock.call.wait_container_operation(
+            '/1.0/operation/1234', 200, -1)]
         self.assertEqual(calls, self.ml.method_calls)
 
     @stubs.annotated_data(

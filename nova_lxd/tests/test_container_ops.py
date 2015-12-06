@@ -24,16 +24,14 @@ from pylxd import exceptions as lxd_exception
 
 from nova_lxd.nova.virt.lxd import container_config
 from nova_lxd.nova.virt.lxd import container_ops
-from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.tests import stubs
 
 
 @ddt.ddt
 @mock.patch.object(container_ops, 'CONF', stubs.MockConf())
-@mock.patch.object(container_utils, 'CONF', stubs.MockConf())
 class LXDTestContainerOps(test.NoDBTestCase):
 
-    @mock.patch.object(container_utils, 'CONF', stubs.MockConf())
     def setUp(self):
         super(LXDTestContainerOps, self).setUp()
         self.ml = stubs.lxd_mock()
@@ -89,7 +87,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
         with contextlib.nested(
                 mock.patch.object(container_config.LXDContainerConfig,
                                   'create_container'),
-                mock.patch.object(container_utils.LXDContainerUtils,
+                mock.patch.object(session.LXDAPISession,
                                   'container_init'),
                 mock.patch.object(self.container_ops,
                                   'start_container')

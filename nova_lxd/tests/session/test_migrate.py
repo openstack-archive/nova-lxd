@@ -19,7 +19,6 @@ import mock
 from nova import test
 
 from nova_lxd.nova.virt.lxd.session import session
-from nova_lxd.tests import fake_api
 from nova_lxd.tests import stubs
 
 

@@ -30,8 +30,7 @@ from oslo_utils import fileutils
 from oslo_utils import units
 import six
 
-from nova_lxd.nova.virt.lxd import container_client
-from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.nova.virt.lxd import vif
 
@@ -48,8 +47,7 @@ class LXDContainerConfig(object):
 
     def __init__(self):
         self.container_dir = container_dir.LXDContainerDirectories()
-        self.container_client = container_client.LXDContainerClient()
-        self.container_utils = container_utils.LXDContainerUtils()
+        self.session = session.LXDAPISession()
         self.vif_driver = vif.LXDGenericDriver()
 
     def _init_container_config(self):
@@ -153,9 +151,7 @@ class LXDContainerConfig(object):
                                                 'type': 'nic'})
 
         LOG.debug(pprint.pprint(container_config))
-        self.container_client.client('update', instance=instance.name,
-                                     container_config=network_devices,
-                                     host=instance.host)
+        self.session.container_update(network_devices, instance)
 
         return container_config
 
@@ -174,7 +170,7 @@ class LXDContainerConfig(object):
         instance_name = '%s-backup' % instance.name
 
         if self.container_dir.is_lvm(instance_name):
-            self.container_utils.mount_filesystem(
+            self.session.mount_filesystem(
                 self.container_dir.get_container_lvm(instance_name),
                 (os.path.join(self.container_dir.get_container_dir(
                     instance), instance_name)))
@@ -268,9 +264,7 @@ class LXDContainerConfig(object):
         if host is None:
             host = instance.host
 
-        container_old = self.container_client.client(
-            'config', instance=instance.name,
-            host=host)
+        container_old = self.session.container_config(instance)
 
         container_config = self._convert(container_old['config'])
         container_devices = self._convert(container_old['devices'])
@@ -283,8 +277,7 @@ class LXDContainerConfig(object):
         return container_update
 
     def _get_network_device(self, instance):
-        data = self.container_client.client(
-            'info', instance=instance, host=None)
+        data = self.session.container_info(instance)
         lines = open('/proc/%s/net/dev' % data['init']).readlines()
         interfaces = []
         for line in lines[2:]:
