@@ -1,0 +1,6 @@
+# Add nova-lxd to enabled services
+enable_service nova-lxd
+
+# LXD install/upgrade settings
+INTSALL_LXD=${INSTALL_LXD:-False}
+LXD_GROUP=${LXD_GROUP:lxd}

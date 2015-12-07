@@ -37,8 +37,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'nova-compute-lxd'
-copyright = u'2013, OpenStack Foundation'
+project = u'nova-lxd'
+copyright = u'2015, Canonical Ltd'
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 add_function_parentheses = True
