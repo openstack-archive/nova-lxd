@@ -19,12 +19,13 @@ from nova import i18n
 from nova import utils
 import os
 
-import container_client
 from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 import six
+
+from nclxd.nova.virt.lxd import container_client
 
 
 _ = i18n._
