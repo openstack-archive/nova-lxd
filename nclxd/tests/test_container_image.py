@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import contextlib
 from nova import test
 import os
 
@@ -53,7 +52,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
         context = mock.Mock()
         instance = stubs._fake_instance()
         image_meta = {'name': 'new_image', 'id': 'fake_image'}
-        with contextlib.nested(
+        with test.nested(
                 mock.patch.object(container_image.LXDContainerImage,
                                   '_image_defined'),
                 mock.patch.object(container_image.IMAGE_API,
@@ -91,7 +90,7 @@ class LXDTestContainerImage(test.NoDBTestCase):
         context = mock.Mock()
         instance = stubs._fake_instance()
         image_meta = {'name': 'new_image', 'id': 'fake_image'}
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_image.LXDContainerImage,
                               '_image_defined'),
             mock.patch.object(container_image.IMAGE_API,

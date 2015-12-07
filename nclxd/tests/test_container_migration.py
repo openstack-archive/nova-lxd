@@ -13,8 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import contextlib
-
 import mock
 
 from nova import test
@@ -44,7 +42,7 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
         bdevice_info = mock.Mock()
         disk_info = mock.Mock()
         network_info = mock.Mock()
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'client'),
             mock.patch.object(container_utils.LXDContainerUtils,
@@ -59,6 +57,15 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
             container_init,
             container_destroy
         ):
+            def side_effect(*args, **kwargs):
+                # XXX: rockstar (7 Dec 2015) - This mock is a little greedy,
+                # and hits too many interfaces. It should become more specific
+                # to the single places it needs to fully mocked. Truthiness of
+                # the mock changes in py3.
+                if args[0] == 'defined':
+                    return false
+                return container_defined
+            container_defined.side_effect = side_effect
             self.assertEqual(None,
                              (self.migrate.finish_migration(context,
                                                             migration,
