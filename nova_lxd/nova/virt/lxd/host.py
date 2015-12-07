@@ -73,7 +73,9 @@ class LXDHost(object):
             'hypervisor_hostname': socket.getfqdn(),
             'supported_instances': jsonutils.dumps(
                 [(arch.I686, hv_type.LXD, vm_mode.EXE),
-                    (arch.X86_64, hv_type.LXD, vm_mode.EXE)]),
+                    (arch.X86_64, hv_type.LXD, vm_mode.EXE),
+                    (arch.I686, hv_type.LXC, vm_mode.EXE),
+                    (arch.X86_64, hv_type.LXC, vm_mode.EXE)]),
             'numa_topology': None,
         }
 
