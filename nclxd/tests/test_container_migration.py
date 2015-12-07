@@ -63,7 +63,7 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
                 # to the single places it needs to fully mocked. Truthiness of
                 # the mock changes in py3.
                 if args[0] == 'defined':
-                    return false
+                    return False
                 return container_defined
             container_defined.side_effect = side_effect
             self.assertEqual(None,
