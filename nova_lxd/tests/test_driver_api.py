@@ -13,7 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import contextlib
 import inspect
 import json
 import os
@@ -178,7 +177,7 @@ class LXDTestDriver(test.NoDBTestCase):
         block_device_info = mock.Mock()
         self.ml.container_defined.side_effect = [side_effect]
 
-        with contextlib.nested(
+        with test.nested(
                 mock.patch.object(self.connection.container_ops,
                                   'create_container'),
         ) as (
@@ -195,7 +194,7 @@ class LXDTestDriver(test.NoDBTestCase):
         network_info = mock.Mock()
         self.ml.container_destroy.side_effect = (
             lxd_exceptions.APIError('Fake', 500))
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(session.LXDAPISession,
                               'container_destroy'),
             mock.patch.object(session.LXDAPISession,
@@ -216,7 +215,7 @@ class LXDTestDriver(test.NoDBTestCase):
         instance = stubs._fake_instance()
         context = mock.Mock()
         network_info = mock.Mock()
-        with contextlib.nested(
+        with test.nested(
                 mock.patch.object(session.LXDAPISession,
                                   'container_stop'),
                 mock.patch.object(session.LXDAPISession,
@@ -283,7 +282,7 @@ class LXDTestDriver(test.NoDBTestCase):
         image_meta = mock.Mock()
         network_info = mock.Mock()
         self.ml.container_defined.return_value = True
-        with contextlib.nested(
+        with test.nested(
                 mock.patch.object(session.LXDAPISession,
                                   'container_stop'),
                 mock.patch.object(self.connection.container_ops,
@@ -309,7 +308,7 @@ class LXDTestDriver(test.NoDBTestCase):
     def test_container_unrescue(self):
         instance = stubs.MockInstance()
         network_info = mock.Mock()
-        with contextlib.nested(
+        with test.nested(
                 mock.patch.object(session.LXDAPISession,
                                   'container_move'),
                 mock.patch.object(session.LXDAPISession,
@@ -367,7 +366,11 @@ class LXDTestDriver(test.NoDBTestCase):
                     'memory_mb': 10000,
                     'memory_mb_used': 8000,
                     'numa_topology': None,
-                    'supported_instances': [[arch.I686, hv_type.LXC,
+                    'supported_instances': [[arch.I686, hv_type.LXD,
+                                             vm_mode.EXE],
+                                            [arch.X86_64, hv_type.LXD,
+                                             vm_mode.EXE],
+                                            [arch.I686, hv_type.LXC,
                                              vm_mode.EXE],
                                             [arch.X86_64, hv_type.LXC,
                                              vm_mode.EXE]],
@@ -385,7 +388,7 @@ class LXDTestDriver(test.NoDBTestCase):
         context = mock.Mock()
         network_info = mock.Mock()
         reboot_type = 'SOFT'
-        with contextlib.nested(
+        with test.nested(
                 mock.patch.object(self.connection.container_ops,
                                   'reboot')
         ) as (
@@ -397,7 +400,7 @@ class LXDTestDriver(test.NoDBTestCase):
 
     def test_container_power_off(self):
         instance = stubs._fake_instance()
-        with contextlib.nested(
+        with test.nested(
                 mock.patch.object(self.connection.container_ops,
                                   'power_off')
         ) as (
@@ -410,7 +413,7 @@ class LXDTestDriver(test.NoDBTestCase):
         context = mock.Mock()
         instance = stubs._fake_instance()
         network_info = mock.Mock()
-        with contextlib.nested(
+        with test.nested(
                 mock.patch.object(self.connection.container_ops,
                                   'power_on')
         ) as (

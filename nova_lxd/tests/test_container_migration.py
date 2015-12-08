@@ -41,7 +41,7 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
         disk_info = mock.Mock()
         network_info = mock.Mock()
         with test.nested(
-            mock.patch.object(session.LXDAPISession
+            mock.patch.object(session.LXDAPISession,
                               'container_stop'),
             mock.patch.object(session.LXDAPISession,
                               'container_init'),

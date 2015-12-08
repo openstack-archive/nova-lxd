@@ -96,7 +96,7 @@ class LXDContainerMigrate(object):
                 LOG.error(_LE('Failed to migrate container %(instance)s: '
                               '%(reason)s'),
                           {'instance': instance.name, 'reason': ex},
-                          instnace=instance)
+                          instance=instance)
 
     def live_migration(self, context, instance_ref, dest, post_method,
                        recover_method, block_migration=False,

@@ -16,7 +16,6 @@
 import ddt
 import mock
 
-import contextlib
 from nova import exception
 from nova import test
 from nova.virt import fake
@@ -84,7 +83,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
         need_vif_plugged = mock.Mock()
         self.ml.container_defined.return_value = True
 
-        with contextlib.nested(
+        with test.nested(
                 mock.patch.object(container_config.LXDContainerConfig,
                                   'create_container'),
                 mock.patch.object(session.LXDAPISession,
