@@ -20,7 +20,6 @@ from nova.virt import fake
 
 from nova_lxd.nova.virt.lxd import container_migrate
 from nova_lxd.nova.virt.lxd.session import session
-from nova_lxd.tests import fake_api
 from nova_lxd.tests import stubs
 
 
@@ -36,7 +35,6 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
         self.migrate = container_migrate.LXDContainerMigrate(
             fake.FakeVirtAPI())
 
-
     def test_finish_migration(self):
         context = mock.Mock()
         migration = {'source_compute': 'fake-source',
@@ -47,7 +45,7 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
         network_info = mock.Mock()
         with test.nested(
             mock.patch.object(session.LXDAPISession,
-                             'container_defined'),
+                              'container_defined'),
             mock.patch.object(session.LXDAPISession,
                               'container_migrate'),
             mock.patch.object(session.LXDAPISession,
