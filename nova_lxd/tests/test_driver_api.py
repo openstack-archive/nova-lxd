@@ -498,7 +498,7 @@ class LXDTestDriver(test.NoDBTestCase):
             self.assertTrue(container_move)
             self.assertTrue(container_destroy)
 
-    @mock.patch('socket.getfqdn', mock.Mock(return_value='fake_hostname'))
+    @mock.patch('socket.gethostname', mock.Mock(return_value='fake_hostname'))
     @mock.patch('os.statvfs', return_value=mock.Mock(f_blocks=131072000,
                                                      f_bsize=8192,
                                                      f_bavail=65536000))
