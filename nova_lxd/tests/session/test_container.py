@@ -13,6 +13,13 @@
 #    implied. See the License for the specific language governing
 #    permissions and limitations under the License.
 
+"""
+Unit tests for ContinerMixin class
+
+The following tests the ContainerMixin class
+for nova-lxd.
+"""
+
 import ddt
 import mock
 
@@ -24,13 +31,6 @@ from pylxd import exceptions as lxd_exceptions
 from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.tests import fake_api
 from nova_lxd.tests import stubs
-
-"""
-Unit tests for ContinerMixin class
-
-The following tests the ContainerMixin class
-for nova-lxd.
-"""
 
 @ddt.ddt
 class SessionContainerTest(test.NoDBTestCase):
