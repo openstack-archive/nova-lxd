@@ -97,7 +97,8 @@ class ImageMixin(object):
             client = self.get_session(instance.host)
             (state, data) = client.image_upload(data=data,
                                                 headers=headers)
-            self.operation_wait(data.get('operation'), instance)
+            if 'operation' in data:
+                self.operation_wait(data.get('operation'), instance)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     '%(reason)s') % {'instance': instance.image_ref,
