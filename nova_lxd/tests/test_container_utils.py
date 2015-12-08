@@ -12,9 +12,6 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
-import contextlib
-
 import mock
 
 from nova import exception
@@ -39,7 +36,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
     def test_container_start(self):
         instance = stubs._fake_instance()
         instance_name = 'fake-uuid'
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_start'),
             mock.patch.object(session.LXDAPISession,
@@ -59,7 +56,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         instance = stubs._fake_instance()
         instance_name = 'fake-uuid'
         host = 'fake_host'
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_stop'),
             mock.patch.object(session.LXDAPISession,
@@ -77,7 +74,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
 
     def test_container_reboot(self):
         instance = stubs._fake_instance()
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_reboot'),
             mock.patch.object(session.LXDAPISession,
@@ -96,7 +93,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         instance_name = mock.Mock()
         instance = stubs._fake_instance()
         host = mock.Mock()
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_defined'),
             mock.patch.object(container_utils.LXDContainerUtils,
@@ -124,7 +121,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
     def test_container_pause(self):
         instance = stubs._fake_instance()
         instance_name = 'fake-uuid'
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_pause'),
             mock.patch.object(session.LXDAPISession,
@@ -143,7 +140,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
     def test_container_unpause(self):
         instance = stubs._fake_instance()
         instance_name = 'fake-uuid'
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_pause'),
             mock.patch.object(session.LXDAPISession,
@@ -162,7 +159,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
     def test_container_suspend(self):
         instance = stubs._fake_instance()
         snapshot = mock.Mock()
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_snapshot_create'),
             mock.patch.object(session.LXDAPISession,
@@ -182,7 +179,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         instance = stubs._fake_instance()
         config = mock.Mock()
 
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_local_copy'),
             mock.patch.object(session.LXDAPISession,
@@ -203,7 +200,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         config = mock.Mock()
         old_name = mock.Mock()
 
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_local_move'),
             mock.patch.object(session.LXDAPISession,
@@ -224,7 +221,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         config = mock.Mock()
         instance = stubs._fake_instance()
         host = mock.Mock()
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_init'),
             mock.patch.object(session.LXDAPISession,
@@ -252,7 +249,7 @@ class LXDTestContainerUtils(test.NoDBTestCase):
         config = mock.Mock()
         instance = stubs._fake_instance()
         host = mock.Mock()
-        with contextlib.nested(
+        with test.nested(
             mock.patch.object(container_client.LXDContainerClient,
                               'container_init'),
             mock.patch.object(session.LXDAPISession,
