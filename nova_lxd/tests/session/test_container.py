@@ -32,6 +32,7 @@ from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.tests import fake_api
 from nova_lxd.tests import stubs
 
+
 @ddt.ddt
 class SessionContainerTest(test.NoDBTestCase):
 
@@ -191,7 +192,7 @@ class SessionContainerTest(test.NoDBTestCase):
         container_config returns a dictionary representation
         of the LXD container. Verify that the funciton returns 
         a container_config
-        """ 
+        """
         instance = stubs._fake_instance()
         self.ml.get_container_config.return_value = \
             (200, fake_api.fake_container_config())
