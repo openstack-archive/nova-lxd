@@ -52,7 +52,7 @@ class MigrateMixin(object):
             (state, data) = client.container_migrate(instance_name)
 
             LOG.info(_LI('Successfully initialized migration for instance '
-                         '%(instance)s with' '%(image)s'),
+                         '%(instance)s with %(image)s'),
                      {'instance': instance.name,
                       'image': instance.image_ref})
             return (state, data)
@@ -64,6 +64,6 @@ class MigrateMixin(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
-                    _LE('Failed to move container %(instance)s: %('
+                    _LE('Failed to migrate container %(instance)s: %('
                         'reason)s'), {'instance': instance.name,
                                       'reason': ex}, instance=instance)

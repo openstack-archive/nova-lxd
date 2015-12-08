@@ -80,7 +80,7 @@ class LXDContainerMigrate(object):
                 LOG.exception(_LE('Container already migrated'))
             self.session.container_stop(instance.name, src_host, instance)
             container_ws = self.session.container_migrate(
-                instance.name, src_host)
+                instance.name, src_host, instance)
             container_config = (
                 self.config.configure_container_migrate(
                     instance, container_ws, src_host))
@@ -90,7 +90,7 @@ class LXDContainerMigrate(object):
             self.container_ops.start_container(container_config, instance,
                                                network_info,
                                                need_vif_plugged=True)
-            self.sesison.container_destroy(instance.name, src_host)
+            self.session.container_destroy(instance.name, src_host)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to migrate container %(instance)s: '

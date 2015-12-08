@@ -63,7 +63,7 @@ class SessionContainerTest(test.NoDBTestCase):
 
     def test_container_list_fail(self):
         """
-        container_list returns an exception.NovaException, 
+        container_list returns an exception.NovaException,
         if pylxd raises an APIError.
         """
         self.ml.container_list.side_effect = (
@@ -152,7 +152,7 @@ class SessionContainerTest(test.NoDBTestCase):
         """
         container_state translates LXD container status into
         what nova understands. Verify that status_code sends
-        a power_state.RUNNING and a 108 sends a 
+        a power_state.RUNNING and a 108 sends a
         power_state.CRASHED.
         """
         instance = stubs._fake_instance()
@@ -170,7 +170,7 @@ class SessionContainerTest(test.NoDBTestCase):
         """
         container_state translates LXD container status into
         what nova understands. If the API sends an APIError
-        then raise an power_state.NOSTATE, same if the 
+        then raise an power_state.NOSTATE, same if the
         the container goes missing.
         """
         instance = stubs._fake_instance()
@@ -190,7 +190,7 @@ class SessionContainerTest(test.NoDBTestCase):
     def test_container_config(self):
         """
         container_config returns a dictionary representation
-        of the LXD container. Verify that the funciton returns 
+        of the LXD container. Verify that the funciton returns
         a container_config
         """
         instance = stubs._fake_instance()
@@ -207,7 +207,7 @@ class SessionContainerTest(test.NoDBTestCase):
     def test_container_config_fail(self, tag, container_defined, side_effect,
                                    expected):
         """
-        container_config returns a dictionary represeation of the 
+        container_config returns a dictionary represeation of the
         LXD container. Verify that the function raises an
         exception.NovaException when there is a APIError.
         """
@@ -221,7 +221,7 @@ class SessionContainerTest(test.NoDBTestCase):
 
     def test_container_info(self):
         """
-        container_info returns a dictonary represenation of 
+        container_info returns a dictonary represenation of
         useful information about a container, (ip address, pid, etc).
         Verify that the function returns the approiate dictionary
         representation for the LXD API.
@@ -235,7 +235,7 @@ class SessionContainerTest(test.NoDBTestCase):
 
     def test_container_info_fail(self):
         """
-        container_info returns a dictionary reprsentation of 
+        container_info returns a dictionary reprsentation of
         userful information about a container (ip address, pid, etc).
         Verify that the container_info returns an exception.NovaException
         when there is an APIError.
@@ -320,7 +320,7 @@ class SessionContainerTest(test.NoDBTestCase):
     def test_container_stop(self, tag, side_effect):
         """
         container_stop stops a container on a given LXD ost.
-        Verifty that that the apprioated pylxd calls are 
+        Verifty that that the apprioated pylxd calls are
         made to the LXD api.
         """
         instance = stubs._fake_instance()
@@ -341,7 +341,7 @@ class SessionContainerTest(test.NoDBTestCase):
     def test_container_stop_fail(self, tag, side_effect, expected):
         """
         contianer_stop stops a container on a given LXD host.
-        Verifty that we raise an exception.NovaException when there is an 
+        Verifty that we raise an exception.NovaException when there is an
         APIError.
         """
         instance = stubs._fake_instance()
@@ -375,7 +375,7 @@ class SessionContainerTest(test.NoDBTestCase):
     def test_container_reboot_fail(self, tag, side_effect, expected):
         """
         container_reboot reboots a container on a given LXD host.
-        Check that an exception.NovaException is raised when 
+        Check that an exception.NovaException is raised when
         there is an LXD API error.
         """
         instance = stubs._fake_instance()
@@ -526,9 +526,9 @@ class SessionContainerTest(test.NoDBTestCase):
     )
     def test_container_init(self, tag, side_effect):
         """
-        conatainer_init creates a container based on given config for a container.
-        Check to see if we are returning the right pylxd calls for the 
-        LXD API.
+        conatainer_init creates a container based on given config
+        for a container. Check to see if we are returning the right
+        pylxd calls for the LXD API.
         """
         config = mock.Mock()
         instance = stubs._fake_instance()
@@ -551,7 +551,7 @@ class SessionContainerTest(test.NoDBTestCase):
     def test_container_init_fail(self, tag, side_effect, expected):
         """
         continer_init create as container on a given LXD host. Make
-        sure that we reaise an exception.NovaException if there is 
+        sure that we reaise an exception.NovaException if there is
         an APIError from the LXD API.
         """
         config = mock.Mock()

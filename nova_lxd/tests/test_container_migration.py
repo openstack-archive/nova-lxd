@@ -18,19 +18,24 @@ import mock
 from nova import test
 from nova.virt import fake
 
+from nova_lxd.nova.virt.lxd import container_migrate
 from nova_lxd.nova.virt.lxd.session import session
+from nova_lxd.tests import fake_api
 from nova_lxd.tests import stubs
 
 
 @mock.patch.object(container_migrate, 'CONF', stubs.MockConf())
+@mock.patch.object(session, 'CONF', stubs.MockConf())
 class LXDTestContainerMigrate(test.NoDBTestCase):
 
     @mock.patch.object(container_migrate, 'CONF', stubs.MockConf())
+    @mock.patch.object(session, 'CONF', stubs.MockConf())
     def setUp(self):
         super(LXDTestContainerMigrate, self).setUp()
 
         self.migrate = container_migrate.LXDContainerMigrate(
             fake.FakeVirtAPI())
+
 
     def test_finish_migration(self):
         context = mock.Mock()
@@ -42,13 +47,24 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
         network_info = mock.Mock()
         with test.nested(
             mock.patch.object(session.LXDAPISession,
+                             'container_defined'),
+            mock.patch.object(session.LXDAPISession,
+                              'container_migrate'),
+            mock.patch.object(session.LXDAPISession,
+                              'container_config'),
+            mock.patch.object(session.LXDAPISession,
                               'container_stop'),
+            mock.patch.object(session.LXDAPISession,
+                              'container_running'),
             mock.patch.object(session.LXDAPISession,
                               'container_init'),
             mock.patch.object(session.LXDAPISession,
                               'container_destroy'),
         ) as (
             container_defined,
+            container_migrate,
+            container_config,
+            container_running,
             container_stop,
             container_init,
             container_destroy
