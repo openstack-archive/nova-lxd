@@ -154,7 +154,8 @@ class SnapshotMixin(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
-                    _LE('Failed to publish container %(instance)s: %(reason)s'),
+                    _LE('Failed to publish container %(instance)s: '
+                        '%(reason)s'),
                     {'instance': instance.name,
                      'reason': ex}, instance=instance)
 
