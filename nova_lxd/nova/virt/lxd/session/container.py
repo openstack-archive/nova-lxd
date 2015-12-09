@@ -53,7 +53,7 @@ class ContainerMixin(object):
             raise exception.NovaException(msg)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Error from LXD durint container_list: '
+                LOG.error(_LE('Error from LXD during container_list: '
                               '%(reason)s') % {'reason': ex})
 
     def container_update(self, config, instance):
@@ -68,7 +68,7 @@ class ContainerMixin(object):
         try:
             client = self.get_session(instance.host)
             if not self.container_defined(instance.name, instance):
-                msg = _('Instance does not exist: %s') % instance.name
+                msg = _('Instance is not found..: %s') % instance.name
                 raise exception.InstanceNotFound(msg)
 
             return client.container_update(instance.name,
@@ -148,7 +148,7 @@ class ContainerMixin(object):
         LOG.debug('container_config called for instance', instance=instance)
         try:
             if not self.container_defined(instance.name, instance):
-                msg = _('Instance doesnt exist %s') % instance.name
+                msg = _('Instance is not found.. %s') % instance.name
                 raise exception.InstanceNotFound(msg)
 
             client = self.get_session(instance.host)
@@ -175,7 +175,7 @@ class ContainerMixin(object):
         LOG.debug('container_info called for instance', instance=instance)
         try:
             if not self.container_defined(instance.name, instance):
-                msg = _('Instance doesnt exist %s') % instance.name
+                msg = _('Instance is not found.. %s') % instance.name
                 raise exception.InstanceNotFound(msg)
 
             client = self.get_session(instance.host)
@@ -235,7 +235,7 @@ class ContainerMixin(object):
             # (chuck): Something wicked could happen between
             # container
             if not self.container_defined(instance_name, instance):
-                msg = _('Instance does not exist %s ') % instance.name
+                msg = _('Instance is not found.. %s ') % instance.name
                 raise exception.InstanceNotFound(msg)
 
             (state, data) = client.container_start(instance_name,
@@ -268,7 +268,7 @@ class ContainerMixin(object):
         LOG.debug('container_stop called for instance', instance=instance)
         try:
             if not self.container_defined(instance_name, instance):
-                msg = _('Instance does not exist: %s') % instance.name
+                msg = _('Instance is not found..: %s') % instance.name
                 raise exception.InstanceNotFound(msg)
 
             LOG.info(_LI('Stopping instance %(instance)s with'
@@ -304,7 +304,7 @@ class ContainerMixin(object):
         LOG.debug('container_reboot called for instance', instance=instance)
         try:
             if not self.container_defined(instance.name, instance):
-                msg = _('Instance does not exist: %s') % instance.name
+                msg = _('Instance is not found..: %s') % instance.name
                 raise exception.InstanceNotFound(msg)
 
             LOG.info(_LI('Rebooting instance %(instance)s with'
@@ -380,7 +380,7 @@ class ContainerMixin(object):
         LOG.debug('container_paused called for instance', instance=instance)
         try:
             if not self.container_defined(instance_name, instance):
-                msg = _('Instance is not found %s') % instance_name
+                msg = _('Instance is not found. %s') % instance_name
                 raise exception.InstanceNotFound(msg)
 
             LOG.info(_LI('Pausing instance %(instance)s with'
@@ -418,7 +418,7 @@ class ContainerMixin(object):
         LOG.debug('container_unpause called for instance', instance=instance)
         try:
             if not self.container_defined(instance_name, instance):
-                msg = _('Instance is not found %s') % instance_name
+                msg = _('Instance is not found. %s') % instance_name
                 raise exception.InstanceNotFound(msg)
 
             LOG.info(_LI('Unpausing instance %(instance)s with'
@@ -455,7 +455,7 @@ class ContainerMixin(object):
         """
         LOG.debug('container_init called for instance', instance=instance)
         try:
-            LOG.info(_LI('Creating instance %(instance)s with'
+            LOG.info(_LI('Creating container %(instance)s with'
                          '%(image)s'), {'instance': instance.name,
                                         'image': instance.image_ref})
 
@@ -468,7 +468,7 @@ class ContainerMixin(object):
             if not data['status_code'] == 200:
                 raise exception.NovaException(data['metadata'])
 
-            LOG.info(_LI('Successfully created instance %(instance)s with'
+            LOG.info(_LI('Successfully created container %(instance)s with'
                          '%(image)s'), {'instance': instance.name,
                                         'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
