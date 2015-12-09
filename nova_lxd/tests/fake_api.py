@@ -126,7 +126,7 @@ def fake_container_state(status):
         "status": "Success",
         "status_code": 200,
         "metadata": {
-            "status": status
+            "status_code": status
         }
     }
 
@@ -309,4 +309,75 @@ def fake_network():
             "type": "bridge",
             "members": ["/1.0/containers/trusty-1"]
         }
+    }
+
+
+def fake_container_config():
+    return {
+        'name': "my-container",
+        'profiles': ["default"],
+        'architecture': 2,
+        'config': {"limits.cpus": "3"},
+        'expanded_config': {"limits.cpus": "3"},
+        'devices': {
+            'rootfs': {
+                'type': "disk",
+                'path': "/",
+                'source': "UUID=8f7fdf5e-dc60-4524-b9fe-634f82ac2fb6"
+            }
+        },
+        'expanded_devices': {
+            'rootfs': {
+                'type': "disk",
+                'path': "/",
+                'source': "UUID=8f7fdf5e-dc60-4524-b9fe-634f82ac2fb6"}
+        },
+        "eth0": {
+            "type": "nic",
+            "parent": "lxcbr0",
+            "hwaddr": "00:16:3e:f4:e7:1c",
+            "name": "eth0",
+            "nictype": "bridged",
+        }
+    }
+
+
+def fake_container_info():
+    return {
+        'name': "my-container",
+        'profiles': ["default"],
+        'architecture': 2,
+        'config': {"limits.cpus": "3"},
+        'expanded_config': {"limits.cpus": "3"},
+        'devices': {
+            'rootfs': {
+                'type': "disk",
+                'path': "/",
+                'source': "UUID=8f7fdf5e-dc60-4524-b9fe-634f82ac2fb6"
+            }
+        },
+        'expanded_devices': {
+            'rootfs': {
+                'type': "disk",
+                'path': "/",
+                'source': "UUID=8f7fdf5e-dc60-4524-b9fe-634f82ac2fb6"}
+        },
+        "eth0": {
+            "type": "nic",
+            "parent": "lxcbr0",
+            "hwaddr": "00:16:3e:f4:e7:1c",
+            "name": "eth0",
+            "nictype": "bridged",
+        },
+        'status': {
+            'status': "Running",
+            'status_code': 103,
+            'ips': [{'interface': "eth0",
+                     'protocol': "INET6",
+                     'address': "2001:470:b368:1020:1::2",
+                     'host_veth': "vethGMDIY9"},
+                    {'interface': "eth0",
+                     'protocol': "INET",
+                     'address': "172.16.15.30",
+                     'host_veth': "vethGMDIY9"}]},
     }

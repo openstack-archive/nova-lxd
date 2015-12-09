@@ -33,12 +33,10 @@ from nova import test
 from nova.virt import fake
 from nova.virt import hardware
 
-from nova_lxd.nova.virt.lxd import container_client
 from nova_lxd.nova.virt.lxd import container_ops
-from nova_lxd.nova.virt.lxd import container_snapshot
-from nova_lxd.nova.virt.lxd import container_utils
 from nova_lxd.nova.virt.lxd import driver
 from nova_lxd.nova.virt.lxd import host
+from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.tests import stubs
 
@@ -118,8 +116,8 @@ class LXDTestDriver(test.NoDBTestCase):
     )
     def test_get_info(self, tag, side_effect, expected):
         instance = stubs._fake_instance()
-        with mock.patch.object(container_client.LXDContainerClient,
-                               "client",
+        with mock.patch.object(session.LXDAPISession,
+                               "container_state",
                                ) as state:
             state.return_value = side_effect
             info = self.connection.get_info(instance)
@@ -197,9 +195,9 @@ class LXDTestDriver(test.NoDBTestCase):
         self.ml.container_destroy.side_effect = (
             lxd_exceptions.APIError('Fake', 500))
         with test.nested(
-            mock.patch.object(container_utils.LXDContainerUtils,
+            mock.patch.object(session.LXDAPISession,
                               'container_destroy'),
-            mock.patch.object(container_utils.LXDContainerUtils,
+            mock.patch.object(session.LXDAPISession,
                               'container_stop'),
             mock.patch.object(self.connection, 'cleanup'),
             mock.patch.object(container_ops.LXDContainerOperations,
@@ -218,9 +216,9 @@ class LXDTestDriver(test.NoDBTestCase):
         context = mock.Mock()
         network_info = mock.Mock()
         with test.nested(
-                mock.patch.object(container_utils.LXDContainerUtils,
+                mock.patch.object(session.LXDAPISession,
                                   'container_stop'),
-                mock.patch.object(container_utils.LXDContainerUtils,
+                mock.patch.object(session.LXDAPISession,
                                   'container_destroy'),
                 mock.patch.object(self.connection,
                                   'cleanup'),
@@ -278,181 +276,6 @@ class LXDTestDriver(test.NoDBTestCase):
         mi.return_value = return_value
         self.assertEqual('1.2.3.4', self.connection.get_host_ip_addr())
 
-    @mock.patch('six.moves.builtins.open')
-    @stubs.annotated_data(
-        {'tag': 'single-if',
-         'net': 'Head\nHead\n\neth0:\n',
-         'expected_if': 'eth1',
-         'config': {'config': {}, 'devices': {}}},
-        {'tag': 'firewall-fail',
-         'firewall_setup': exception.NovaException,
-         'success': False},
-        {'tag': 'config-fail',
-         'config': lxd_exceptions.APIError('Fake', 500),
-         'success': False},
-        {'tag': 'info-fail',
-         'config': {'config': {}, 'devices': {}},
-         'info': lxd_exceptions.APIError('Fake', 500),
-         'success': False},
-        {'tag': 'update-fail',
-         'config': {'config': {}, 'devices': {}},
-         'net': 'Head\nHead\n\neth0:\n',
-         'expected_if': 'eth1',
-         'update': lxd_exceptions.APIError('Fake', 500),
-         'success': False},
-    )
-    def test_attach_interface(self, mo, tag, net='', config={},
-                              info={'init': 1}, firewall_setup=None,
-                              update=None, expected_if='', success=True):
-        instance = stubs.MockInstance()
-        vif = {
-            'type': 'ovs',
-            'id': '0123456789abcdef',
-            'address': '00:11:22:33:44:55',
-        }
-        self.ml.get_container_config.side_effect = [config]
-        self.ml.container_info.side_effect = [info]
-        self.ml.container_update.side_effect = [update]
-        mo.return_value = six.moves.cStringIO(net)
-        with mock.patch.object(self.connection.container_ops,
-                               'vif_driver') as mv, (
-                mock.patch.object((self.connection.container_ops
-                                   .firewall_driver), 'firewall_driver')) \
-                as mf:
-            manager = mock.Mock()
-            manager.attach_mock(mv, 'vif_driver')
-            manager.attach_mock(mf, 'firewall')
-            mf.setup_basic_filtering.side_effect = [firewall_setup]
-            self.assertEqual(
-                None,
-                self.connection.attach_interface(instance, {}, vif)
-            )
-            calls = [
-                mock.call.vif_driver.plug(instance, vif),
-                mock.call.firewall.setup_basic_filtering(instance, vif)
-            ]
-            if not success:
-                calls.append(mock.call.vif_driver.unplug(instance, vif))
-            self.assertEqual(calls, manager.method_calls)
-        if success or update is not None:
-            self.ml.container_update.assert_called_once_with(
-                'fake-uuid',
-                {'profiles': ['nova-lxd-profile'],
-                 'devices': {'qbr0123456789a': {'nictype': 'bridged',
-                                                'hwaddr': '00:11:22:33:44:55',
-                                                'name': 'eth1',
-                                                'parent': 'qbr0123456789a',
-                                                'type': 'nic'}},
-                 'name': 'fake-uuid',
-                 'config': {}})
-
-    def test_detach_interface_fail(self):
-        instance = stubs.MockInstance()
-        vif = mock.Mock()
-        with mock.patch.object(self.connection.container_ops,
-                               'vif_driver') as mv:
-            mv.unplug.side_effect = [TypeError]
-
-            self.assertRaises(
-                TypeError,
-                self.connection.detach_interface,
-                instance, vif)
-
-    @stubs.annotated_data(
-        ('ok', True),
-        ('nova-exc', exception.NovaException),
-    )
-    def test_detach_interface(self, tag, side_effect):
-        instance = stubs.MockInstance()
-        vif = mock.Mock()
-        with mock.patch.object(self.connection.container_ops,
-                               'vif_driver') as mv:
-            mv.unplug.side_effect = [side_effect]
-            self.assertEqual(
-                None,
-                self.connection.detach_interface(instance, vif)
-            )
-            mv.unplug.assert_called_once_with(instance, vif)
-
-    @mock.patch.object(container_snapshot, 'IMAGE_API')
-    @stubs.annotated_data(
-        ('export-fail', lxd_exceptions.APIError('Fake', 500), None),
-        ('update-fail', None, exception.NovaException),
-    )
-    def test_snapshot_fail(self, tag, export_effect, update_effect, mi):
-        instance = stubs.MockInstance()
-        mi.get.return_value = {'id': 'abcdefgh', 'name': 'mock_snapshot'}
-        self.ml.container_snapshot_create.return_value = (
-            200, {'operation': '/1.0/operations/0123456789'})
-        self.ml.container_stop.return_value = (
-            200, {'operation': '/1.0/operations/1234567890'})
-        self.ml.container_start.return_value = (
-            200, {'operation': '/1.0/operations/2345678901'})
-        self.ml.container_publish.return_value = (
-            200, {'metadata': {'fingerprint': 'abcdef0123456789'}})
-        self.ml.image_export.side_effect = export_effect
-        mi.update.side_effect = update_effect
-        self.assertRaises(exception.NovaException,
-                          self.connection.snapshot,
-                          {}, instance, '', mock.Mock())
-
-    @mock.patch.object(container_snapshot, 'IMAGE_API')
-    def test_snapshot(self, mi):
-        context = mock.Mock()
-        instance = stubs.MockInstance()
-        image_id = 'mock_image'
-
-        mi.get.return_value = {'name': 'mock_snapshot', 'id': '123456789'}
-        self.ml.container_snapshot_create.return_value = (
-            200, {'operation': '/1.0/operations/0123456789'})
-        self.ml.container_stop.return_value = (
-            200, {'operation': '/1.0/operations/1234567890'})
-        self.ml.container_start.return_value = (
-            200, {'operation': '/1.0/operations/2345678901'})
-        self.ml.container_publish.return_value = (
-            200, {'metadata': {'fingerprint': 'abcdef0123456789'}})
-
-        manager = mock.Mock()
-        manager.attach_mock(mi, 'image')
-        manager.attach_mock(self.ml, 'lxd')
-
-        self.assertEqual(
-            None,
-            self.connection.snapshot(
-                context, instance, image_id, manager.update)
-        )
-        calls = [
-            mock.call.update(task_state='image_pending_upload'),
-            mock.call.image.get(context, 'mock_image'),
-            mock.call.lxd.container_snapshot_create(
-                'fake-uuid',
-                {'name': 'mock_snapshot',
-                 'stateful': False}),
-            mock.call.lxd.wait_container_operation(
-                '/1.0/operations/0123456789', 200, -1),
-            mock.call.lxd.container_stop('fake-uuid', 5),
-            mock.call.lxd.wait_container_operation(
-                '/1.0/operations/1234567890', 200, -1),
-            mock.call.lxd.container_publish({'source': {'name': 'fake-uuid/'
-                                                                'mock_'
-                                                                'snapshot',
-                                                        'type': 'snapshot'}}),
-            mock.call.lxd.alias_create(
-                {'name': '123456789',
-                 'target': 'abcdef0123456789'}),
-            mock.call.lxd.image_export('abcdef0123456789'),
-            mock.call.image.update(context,
-                                   'mock_image',
-                                   {'name': 'mock_snapshot',
-                                    'container_format': 'bare',
-                                    'disk_format': 'raw'},
-                                   self.ml.image_export.return_value),
-            mock.call.update(expected_state='image_pending_upload',
-                             task_state='image_uploading'),
-            mock.call.lxd.container_start('fake-uuid', 5)
-        ]
-        self.assertEqual(calls, manager.method_calls)
-
     def test_rescue(self):
         context = mock.Mock()
         instance = stubs.MockInstance()
@@ -460,11 +283,11 @@ class LXDTestDriver(test.NoDBTestCase):
         network_info = mock.Mock()
         self.ml.container_defined.return_value = True
         with test.nested(
-                mock.patch.object(container_utils.LXDContainerUtils,
+                mock.patch.object(session.LXDAPISession,
                                   'container_stop'),
                 mock.patch.object(self.connection.container_ops,
                                   '_container_local_copy'),
-                mock.patch.object(container_utils.LXDContainerUtils,
+                mock.patch.object(session.LXDAPISession,
                                   'container_destroy'),
                 mock.patch.object(self.connection.container_ops,
                                   'spawn')
@@ -486,9 +309,9 @@ class LXDTestDriver(test.NoDBTestCase):
         instance = stubs.MockInstance()
         network_info = mock.Mock()
         with test.nested(
-                mock.patch.object(container_utils.LXDContainerUtils,
+                mock.patch.object(session.LXDAPISession,
                                   'container_move'),
-                mock.patch.object(container_utils.LXDContainerUtils,
+                mock.patch.object(session.LXDAPISession,
                                   'container_destroy')
         ) as (
                 container_move,

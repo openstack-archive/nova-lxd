@@ -18,23 +18,27 @@ import mock
 from nova import test
 from nova.virt import fake
 
-from nova_lxd.nova.virt.lxd import container_client
+from nova_lxd.nova.virt.lxd import container_config
 from nova_lxd.nova.virt.lxd import container_migrate
-from nova_lxd.nova.virt.lxd import container_utils
+from nova_lxd.nova.virt.lxd import container_ops
+from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.tests import stubs
 
 
 @mock.patch.object(container_migrate, 'CONF', stubs.MockConf())
+@mock.patch.object(session, 'CONF', stubs.MockConf())
 class LXDTestContainerMigrate(test.NoDBTestCase):
 
     @mock.patch.object(container_migrate, 'CONF', stubs.MockConf())
+    @mock.patch.object(session, 'CONF', stubs.MockConf())
     def setUp(self):
         super(LXDTestContainerMigrate, self).setUp()
 
         self.migrate = container_migrate.LXDContainerMigrate(
             fake.FakeVirtAPI())
 
-    def test_finish_migration(self):
+    @mock.patch.object(session.LXDAPISession, 'container_migrate')
+    def test_finish_migration(self, mo):
         context = mock.Mock()
         migration = {'source_compute': 'fake-source',
                      'dest_compute': 'fake-dest'}
@@ -43,19 +47,22 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
         disk_info = mock.Mock()
         network_info = mock.Mock()
         with test.nested(
-            mock.patch.object(container_client.LXDContainerClient,
-                              'client'),
-            mock.patch.object(container_utils.LXDContainerUtils,
+            mock.patch.object(session.LXDAPISession,
+                              'container_defined'),
+            mock.patch.object(session.LXDAPISession,
                               'container_stop'),
-            mock.patch.object(container_utils.LXDContainerUtils,
+            mock.patch.object(container_config.LXDContainerConfig,
+                              'configure_container_migrate'),
+            mock.patch.object(session.LXDAPISession,
                               'container_init'),
-            mock.patch.object(container_utils.LXDContainerUtils,
-                              'container_destroy'),
+            mock.patch.object(container_ops.LXDContainerOperations,
+                              'start_container'),
         ) as (
             container_defined,
             container_stop,
+            container_migrate,
             container_init,
-            container_destroy
+            container_start
         ):
             def side_effect(*args, **kwargs):
                 # XXX: rockstar (7 Dec 2015) - This mock is a little greedy,
@@ -64,7 +71,6 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
                 # the mock changes in py3.
                 if args[0] == 'defined':
                     return False
-                return container_defined
             container_defined.side_effect = side_effect
             self.assertEqual(None,
                              (self.migrate.finish_migration(context,

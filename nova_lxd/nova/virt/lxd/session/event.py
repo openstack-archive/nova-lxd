@@ -37,12 +37,30 @@ class EventMixin(object):
 
         :param operation_id: The operation to wait for.
         """
-        LOG.debug('wait_for_contianer for instance', isntance=instance)
+        LOG.debug('wait_for_contianer for instance', instance=instance)
         try:
             client = self.get_session(instance.host)
             if not client.wait_container_operation(operation_id, 200, -1):
                 msg = _('Container creation timed out')
                 raise exception.NovaException(msg)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to communicate with LXD API %(isntance)s:'
+                    '%(reason)s') % {'instance': instance.image_ref,
+                                     'reason': ex}
+            LOG.error(msg)
+            raise exception.NovaException(msg)
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Error from LXD during image_defined '
+                              '%(instance)s: %(reason)s'),
+                          {'instance': instance.image_ref, 'reason': e},
+                          instance=instance)
+
+    def operation_info(self, operation_id, instance):
+        LOG.debug('operation_info called for instance', instance=instance)
+        try:
+            client = self.get_session(instance.host)
+            return client.operation_info(operation_id)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(isntance)s:'
                     '%(reason)s') % {'instance': instance.image_ref,
