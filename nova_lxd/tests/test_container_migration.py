@@ -69,7 +69,7 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
                 # and hits too many interfaces. It should become more specific
                 # to the single places it needs to fully mocked. Truthiness of
                 # the mock changes in py3.
-                 if args[0] == 'defined':
+                if args[0] == 'defined':
                     return False
             container_defined.side_effect = side_effect
             self.assertEqual(None,
