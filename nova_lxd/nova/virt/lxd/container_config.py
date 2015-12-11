@@ -73,7 +73,7 @@ class LXDContainerConfig(object):
         # Check to see if ephemeral block devices exist.
         ephemeral_gb = instance.ephemeral_gb
         if ephemeral_gb > 0:
-            msg = _('Ephemeral block devices is not supported by LXD.')
+            msg = _('Ephemeral block devices are not supported by LXD.')
             raise exception.NovaException(msg)
 
         container_config = self._init_container_config()
