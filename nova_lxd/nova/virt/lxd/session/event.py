@@ -51,7 +51,7 @@ class EventMixin(object):
             raise exception.NovaException(msg)
         except Exception as e:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Error from LXD during image_defined '
+                LOG.error(_LE('Error from LXD during operation wait'
                               '%(instance)s: %(reason)s'),
                           {'instance': instance.image_ref, 'reason': e},
                           instance=instance)
@@ -69,7 +69,7 @@ class EventMixin(object):
             raise exception.NovaException(msg)
         except Exception as e:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Error from LXD during image_defined '
+                LOG.error(_LE('Error from LXD during operation_info '
                               '%(instance)s: %(reason)s'),
                           {'instance': instance.image_ref, 'reason': e},
                           instance=instance)

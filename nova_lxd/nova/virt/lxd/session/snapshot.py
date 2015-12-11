@@ -41,17 +41,14 @@ class SnapshotMixin(object):
         """
         LOG.debug('container_copy called for instance', instance=instance)
         try:
-            LOG.info(_LI('Copying instance %(instance)s with'
+            LOG.info(_LI('Copying container %(instance)s with'
                          '%(image)s'), {'instance': instance.name,
                                         'image': instance.image_ref})
 
             client = self.get_session(instance.host)
             (state, data) = client.contianer_local_copy(config)
             self.operation_wait(data.get('operation'), instance)
-            LOG.info(_LI('Successfully copied container %s'),
-                     instance.name, instance=instance)
-
-            LOG.info(_LI('Successfully copied instance %(instance)s with'
+            LOG.info(_LI('Successfully copied container %(instance)s with'
                          '%(image)s'), {'instance': instance.name,
                                         'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
@@ -77,7 +74,7 @@ class SnapshotMixin(object):
         """
         LOG.debug('container_move called for instance', instnace=instance)
         try:
-            LOG.info(_LI('Moving instance %(instance)s with'
+            LOG.info(_LI('Moving container %(instance)s with'
                          '%(image)s'), {'instance': instance.name,
                                         'image': instance.image_ref})
 
@@ -86,7 +83,7 @@ class SnapshotMixin(object):
             (state, data) = client.container_local_move(old_name, config)
             self.operation_wait(data.get('operation'), instance)
 
-            LOG.info(_LI('Successfully moved instance %(instance)s with'
+            LOG.info(_LI('Successfully moved container %(instance)s with'
                          '%(image)s'), {'instance': instance.name,
                                         'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
@@ -111,7 +108,7 @@ class SnapshotMixin(object):
         """
         LOG.debug('container_snapshot called for instance', instance=instance)
         try:
-            LOG.info(_LI('Snapshotting instance %(instance)s with'
+            LOG.info(_LI('Snapshotting container %(instance)s with'
                          '%(image)s'), {'instance': instance.name,
                                         'image': instance.image_ref})
 
@@ -121,7 +118,7 @@ class SnapshotMixin(object):
                 instance.name, snapshot)
             self.operation_wait(data.get('operation'), instance)
 
-            LOG.info(_LI('Successfully snapshotted instance %(instance)s with'
+            LOG.info(_LI('Successfully snapshotted container %(instance)s with'
                          '%(image)s'), {'instance': instance.name,
                                         'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
@@ -157,7 +154,8 @@ class SnapshotMixin(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
-                    _LE('Failed to create container %(instance)s: %(reason)s'),
+                    _LE('Failed to publish container %(instance)s: '
+                        '%(reason)s'),
                     {'instance': instance.name,
                      'reason': ex}, instance=instance)
 
