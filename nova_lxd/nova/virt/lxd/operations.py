@@ -501,15 +501,6 @@ class LXDContainerOperations(object):
                                        instance.host,
                                        instance)
 
-    def _unplug_vifs(self, instance, network_info, ignore_errors):
-        """Unplug VIFs from networks."""
-        for viface in network_info:
-            try:
-                self.vif_driver.unplug(instance, viface)
-            except exception.NovaException:
-                if not ignore_errors:
-                    raise
-
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
         if destroy_vifs:
@@ -563,17 +554,6 @@ class LXDContainerOperations(object):
             self.vif_driver.unplug(instance, vif)
         except exception.NovaException:
             pass
-
-    def _get_neutron_events(self, network_info):
-        return [('network-vif-plugged', vif['id'])
-                for vif in network_info if vif.get('active', True) is False]
-
-    def _neutron_failed_callback(self, event_name, instance):
-        LOG.error(_LE('Neutron Reported failure on event '
-                      '%(event)s for instance %(uuid)s'),
-                  {'event': event_name, 'uuid': instance.name})
-        if CONF.vif_plugging_is_fatal:
-            raise exception.VirtualInterfaceCreateException()
 
     def _start_firewall(self, instance, network_info):
         self.firewall_driver.setup_basic_filtering(instance, network_info)
