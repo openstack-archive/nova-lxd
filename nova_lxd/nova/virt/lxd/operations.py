@@ -515,13 +515,31 @@ class LXDContainerOperations(object):
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
-        if destroy_vifs:
-            self._unplug_vifs(instance, network_info, True)
+        """Cleanup a contianer after its been deleted.
 
-        LOG.debug('container cleanup')
-        container_dir = self.container_dir.get_instance_dir(instance.name)
-        if os.path.exists(container_dir):
-            shutil.rmtree(container_dir)
+        :param context: security context
+        :param instance: Instance object as returned by DB layer.
+        :param network_info:
+           :py:meth:`~nova.network.manager.NetworkManager.get_instance_nw_info`
+        :param block_device_info: Information about block devices that should
+                                  be detached from the instance.
+        :param destroy_disks: Indicates if disks should be destroyed
+        :param migrate_data: implementation specific params
+        """
+        LOG.debug('cleanup called for instance', instance=instance)
+        try:
+            if destroy_vifs:
+                self._unplug_vifs(instance, network_info, True)
+
+            container_dir = self.container_dir.get_instance_dir(instance.name)
+            if os.path.exists(container_dir):
+                shutil.rmtree(container_dir)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container cleanup failed for '
+                                  '%(instance)s: %(ex)s'),
+                                  {'instance': instance.name,
+                                   'ex': ex}, instance=instance)
 
     def get_info(self, instance):
         container_state = self.session.container_state(instance)
