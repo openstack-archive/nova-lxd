@@ -299,10 +299,29 @@ class LXDContainerOperations(object):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        self.session.profile_delete(instance)
-        self.session.container_destroy(instance.name, instance.host,
+        """Destroy the instance on the LXD host
+
+        :param context: security context
+        :param instance: Instance object as returned by DB layer.
+        :param network_info:
+           :py:meth:`~nova.network.manager.NetworkManager.get_instance_nw_info`
+        :param block_device_info: Information about block devices that should
+                                  be detached from the instance.
+        :param destroy_disks: Indicates if disks should be destroyed
+        :param migrate_data: implementation specific params
+        """
+        LOG.debug('destroy called for instance', instance=instance)
+        try:
+            self.session.profile_delete(instance)
+            self.session.container_destroy(instance.name, instance.host,
                                        instance)
-        self.cleanup(context, instance, network_info, block_device_info)
+            self.cleanup(context, instance, network_info, block_device_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to remove container'
+                              ' for %(instance)s: %(ex)s'),
+                             {'instance': instance.name, 'ex': ex},
+                              instance=instance)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
         return self.session.container_stop(instance.name,
