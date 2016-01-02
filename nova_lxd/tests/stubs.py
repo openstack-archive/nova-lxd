@@ -36,7 +36,6 @@ class MockConf(mock.Mock):
         super(MockConf, self).__init__(*args, **default)
 
         lxd_default = {
-            'default_profile': 'fake_profile',
             'root_dir': '/fake/lxd/root',
             'timeout': 20,
             'retry_interval': 2

@@ -73,6 +73,85 @@ class LXDContainerConfig(object):
                           {'instance': instance_name, 'ex': ex},
                           instance=instance)
 
+    def create_container_profile(self, instance, network_info, rescue):
+        """Create a LXD container profile configuration
+
+        :param instance: nova instance object
+        :param network_info: nova network configuration object
+        :param rescue: boolean for rescue container
+        :return: LXD container profile dictionary
+        """
+        LOG.debug('create_container_profile called for instance',
+                  instance=instance)
+        try:
+            instance_name = instance.name
+            if rescue:
+                instance_name = '%s-rescue' % instance.name
+
+            config = dict()
+            config['name'] = str(instance_name)
+            config['config'] = self._create_config(instance_name, instance)
+            config['devices'] = self._create_network(instance_name, instance,
+                                                     network_info)
+            self.session.profile_create(config, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(
+                    _LE('Failed to create profile %(instance)s: %(ex)s'),
+                    {'isntance': instance_name, 'ex': ex}, instance=instance)
+
+    def _create_config(self, instance_name, instance):
+        """Create the LXD container resources
+
+        :param instance_name: instance name
+        :param instance: nova instance object
+        :return: LXD resources dictionary
+        """
+        LOG.debug('_create_config called for instance', instance=instance)
+        try:
+            config = dict()
+
+            mem = instance.memory_mb
+            if mem >= 0:
+                config['limits.memory'] = 'sMB' % mem
+
+            config['raw.lxc'] = 'lxc.console.logfile=%s\n' \
+                % self.container_dir.get_console_path(instance_name)
+
+            return config
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(
+                    _LE('Failed to set container resources %(instnace)s: '
+                        '%(ex)s'), {'instance': instance_name, 'ex': ex},
+                    instance=instance)
+
+    def _create_network(self, instance_name, instance, network_info):
+        """Create the LXD container network on the host
+
+        :param instance_name: nova instance name
+        :param instance: nova instance object
+        :param network_info: instance network configuration object
+        :return:network configuration dictionary
+        """
+        LOG.debug('_create_network called for instance', instance=instance)
+        try:
+            network_devices = dict()
+
+            for vifaddr in network_info:
+                cfg = self.vif_driver.get_config(instance, vifaddr)
+                network_devices[str(cfg['bridge'])] = \
+                    {'nictype': 'bridged',
+                     'hwaddr': str(cfg['mac_address']),
+                     'parent': str(cfg['bridge']),
+                     'type': 'nic'}
+                return network_devices
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(
+                    _LE('Fail to configure network for %(instance)s: %(ex)s'),
+                    {'instance': instance_name, 'ex': ex}, instance=instance)
+
     def get_container_config(self, instance, rescue):
         """Translate the nova instance object into an LXD configuration
            dictionary.

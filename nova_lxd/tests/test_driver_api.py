@@ -48,7 +48,6 @@ class LXDTestConfig(test.NoDBTestCase):
         self.assertEqual(os.path.abspath('/var/lib/lxd'),
                          os.path.abspath(driver.CONF.lxd.root_dir))
         self.assertEqual(5, driver.CONF.lxd.timeout)
-        self.assertEqual('nova-lxd-profile', driver.CONF.lxd.default_profile)
 
 
 @ddt.ddt
