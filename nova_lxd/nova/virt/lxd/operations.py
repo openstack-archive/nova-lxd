@@ -564,25 +564,37 @@ class LXDContainerOperations(object):
                               instance=instance)
 
     def get_console_output(self, context, instance):
-        LOG.debug('in console output')
-
-        console_log = self.container_dir.get_console_path(instance.name)
-        if not os.path.exists(console_log):
-            return
-        uid = pwd.getpwuid(os.getuid()).pw_uid
-        utils.execute('chown', '%s:%s' % (uid, uid),
-                      console_log, run_as_root=True)
-        utils.execute('chmod', '755',
-                      os.path.join(
-                          self.container_dir.get_container_dir(
-                              instance.name), instance.name),
-                      run_as_root=True)
-        with open(console_log, 'rb') as fp:
-            log_data, remaning = utils.last_bytes(fp,
-                                                  MAX_CONSOLE_BYTES)
-            return log_data
+        """Get console output for an instance
+        :param context: security context
+        :param instance: nova.objects.instance.Instance
+        """
+        LOG.debug('get_console_output called for instnace', instance=instance)
+        try:
+            console_log = self.container_dir.get_console_path(instance.name)
+            if not os.path.exists(console_log):
+                return
+            uid = pwd.getpwuid(os.getuid()).pw_uid
+            utils.execute('chown', '%s:%s' % (uid, uid),
+                          console_log, run_as_root=True)
+            utils.execute('chmod', '755',
+                          os.path.join(
+                              self.container_dir.get_container_dir(
+                                  instance.name), instance.name),
+                          run_as_root=True)
+            with open(console_log, 'rb') as fp:
+                log_data, remaning = utils.last_bytes(fp,
+                                                      MAX_CONSOLE_BYTES)
+                return log_data
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to get container output'
+                              ' for %(instance)s: %(ex)s'),
+                             {'instance': instance.name, 'ex': ex},
+                              instance=instance)
 
     def container_attach_interface(self, instance, image_meta, vif):
+        LOG.debug('container_attach_interface called for instance',
+            instance=instance)
         try:
             self.vif_driver.plug(instance, vif)
             self.firewall_driver.setup_basic_filtering(instance, vif)
@@ -594,6 +606,8 @@ class LXDContainerOperations(object):
             self.vif_driver.unplug(instance, vif)
 
     def container_detach_interface(self, instance, vif):
+        LOG.debug('container_defatch_interface called for instance',
+            instance=instance)
         try:
             self.vif_driver.unplug(instance, vif)
         except exception.NovaException:
