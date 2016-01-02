@@ -345,13 +345,51 @@ class LXDContainerOperations(object):
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
-        return self.session.container_start(instance.name, instance)
+        """Power on instance
+
+        :param instance: nova.objects.instance.Instance
+        """
+        LOG.debug('power_on called for instance', instance=instance)
+        try:
+            return self.session.container_start(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container power off for '
+                                  '%(instance)s: %(ex)s'),
+                                  {'instance': instance.name,
+                                   'ex': ex}, instance=instance)
 
     def pause(self, instance):
-        return self.session.container_pause(instance.name, instance)
+        """Pause an instance
+
+        :param nova.objects.instance.Instance instance:
+            The instance which should be paused.
+        """
+        LOG.debug('pause called for instance', instance=instance)
+        try:
+            return self.session.container_pause(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to pause container'
+                              ' for %(instance)s: %(ex)s'),
+                             {'instance': instance.name, 'ex': ex},
+                              instance=instance)
 
     def unpause(self, instance):
-        return self.session.container_unpause(instance.name, instance)
+        """Unpause an instance
+
+        :param nova.objects.instance.Instance instance:
+            The instance which should be paused.
+        """
+        LOG.debug('unpause called for instance', instance=instance)
+        try:
+            return self.session.container_unpause(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to unpause container'
+                              ' for %(instance)s: %(ex)s'),
+                             {'instance': instance.name, 'ex': ex},
+                              instance=instance)
 
     def suspend(self, context, instance):
         return self.session.container_pause(instance.name, instance)
