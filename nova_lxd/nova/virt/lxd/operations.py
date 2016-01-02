@@ -21,9 +21,7 @@ from nova.virt import hardware
 import os
 import pwd
 import shutil
-import time
 
-import eventlet
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -54,6 +52,7 @@ MAX_CONSOLE_BYTES = 100 * units.Ki
 
 
 class LXDContainerOperations(object):
+    """LXD container operations."""
 
     def __init__(self, virtapi):
         self.virtapi = virtapi
@@ -151,9 +150,9 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Upload image failed for %(instance)s '
                               'for %(image)s: %(e)s'),
-                              {'instance': instance.name,
-                               'image': instance.image_ref,
-                               'ex': ex}, instance=instance)
+                          {'instance': instance.name,
+                           'image': instance.image_ref,
+                           'ex': ex}, instance=instance)
 
     def _setup_network(self, instance_name, instance, network_info):
         """Setup the network when creating the lXD container
@@ -169,8 +168,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to create container network for '
                               '%(instance)s: %(ex)s'),
-                              {'instance': instance_name, 'ex': ex},
-                              instance=instance)
+                          {'instance': instance_name, 'ex': ex},
+                          instance=instance)
 
     def _setup_profile(self, instance_name, instance, network_info, rescue):
         """Create an LXD container profile for the nova intsance
@@ -190,8 +189,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to create a profile for'
                               ' %(instance)s: %(ex)s'),
-                              {'instance': instance_name,
-                               'ex': ex}, instance=instance)
+                          {'instance': instance_name,
+                           'ex': ex}, instance=instance)
 
     def _setup_container(self, instance_name, instance, rescue):
         """Create and start the LXD container.
@@ -213,8 +212,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container creation failed for '
                                   '%(instance)s: %(ex)s'),
-                                  {'instance': instance.name,
-                                   'ex': ex}, instance=instance)
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def _add_configdrive(self, instance, injected_files):
         """Configure the config drive for the container
@@ -226,8 +225,8 @@ class LXDContainerOperations(object):
 
         extra_md = {}
         inst_md = instance_metadata.InstanceMetadata(instance,
-                    content=injected_files,
-                    extra_md=extra_md)
+                                                     content=injected_files,
+                                                     extra_md=extra_md)
         name = instance.name
         try:
             with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
@@ -238,11 +237,11 @@ class LXDContainerOperations(object):
         except Exception as e:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Creating config drive failed with error: %s'),
-                    e, instance=instance)
+                          e, instance=instance)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
-        """ Reboot a instance on a LXD host
+        """Reboot a instance on a LXD host
 
         :param instance: nova.objects.instance.Instance
         :param network_info:
@@ -259,8 +258,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container reboot failed for '
                                   '%(instance)s: %(ex)s'),
-                                  {'instance': instance.name,
-                                   'ex': ex}, instance=instance)
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def plug_vifs(self, instance, network_info):
         """Setup the container network on the host
@@ -271,14 +270,14 @@ class LXDContainerOperations(object):
         LOG.debug('plug_vifs called for instance', instance=instance)
         try:
             for viface in network_info:
-                    self.vif_driver.plug(instance, viface)
+                self.vif_driver.plug(instance, viface)
             self._start_firewall(instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to configure container network'
                               ' for %(instance)s: %(ex)s'),
-                              {'instance': instance.name, 'ex': ex},
-                              instance=instance)
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def unplug_vifs(self, instance, network_info):
         """Unconfigure the LXD container network
@@ -293,9 +292,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to remove container network'
                               ' for %(instance)s: %(ex)s'),
-                             {'instance': instance.name, 'ex': ex},
-                              instance=instance)
-
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
@@ -314,14 +312,14 @@ class LXDContainerOperations(object):
         try:
             self.session.profile_delete(instance)
             self.session.container_destroy(instance.name, instance.host,
-                                       instance)
+                                           instance)
             self.cleanup(context, instance, network_info, block_device_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to remove container'
                               ' for %(instance)s: %(ex)s'),
-                             {'instance': instance.name, 'ex': ex},
-                              instance=instance)
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
         """Power off an instance
@@ -340,8 +338,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to power_off container'
                               ' for %(instance)s: %(ex)s'),
-                             {'instance': instance.name, 'ex': ex},
-                              instance=instance)
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
@@ -356,8 +354,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container power off for '
                                   '%(instance)s: %(ex)s'),
-                                  {'instance': instance.name,
-                                   'ex': ex}, instance=instance)
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def pause(self, instance):
         """Pause an instance
@@ -372,8 +370,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to pause container'
                               ' for %(instance)s: %(ex)s'),
-                             {'instance': instance.name, 'ex': ex},
-                              instance=instance)
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def unpause(self, instance):
         """Unpause an instance
@@ -388,8 +386,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to unpause container'
                               ' for %(instance)s: %(ex)s'),
-                             {'instance': instance.name, 'ex': ex},
-                              instance=instance)
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def suspend(self, context, instance):
         """Suspend an instance
@@ -405,8 +403,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container suspend failed for '
                                   '%(instance)s: %(ex)s'),
-                                  {'instance': instance.name,
-                                   'ex': ex}, instance=instance)
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def resume(self, context, instance, network_info, block_device_info=None):
         """Resume an instance on an LXD host
@@ -427,8 +425,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to resume container'
                               ' for %(instance)s: %(ex)s'),
-                             {'instance': instance.name, 'ex': ex},
-                              instance=instance)
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
@@ -448,15 +446,15 @@ class LXDContainerOperations(object):
                                            instance)
 
             self.spawn(context, instance, image_meta, injected_files=None,
-                   admin_password=None, network_info=network_info,
-                   block_device_info=None,
-                   rescue=True)
+                       admin_password=None, network_info=network_info,
+                       block_device_info=None,
+                       rescue=True)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container rescue failed for '
                                   '%(instance)s: %(ex)s'),
-                                  {'instance': instance.name,
-                                   'ex': ex}, instance=instance)
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def _container_local_copy(self, instance):
         """Copy a local container
@@ -464,7 +462,7 @@ class LXDContainerOperations(object):
         :param instance: nova instance object
         """
         LOG.debug('_container_local_copy called for instance',
-            instance=instance)
+                  instance=instance)
         try:
             container_snapshot = {
                 'name': 'snap',
@@ -485,8 +483,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to copy container'
                               ' for %(instance)s: %(ex)s'),
-                             {'instance': instance.name, 'ex': ex},
-                              instance=instance)
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def unrescue(self, instance, network_info):
         """Unrescue a LXD host
@@ -510,8 +508,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container unrescue failed for '
                                   '%(instance)s: %(ex)s'),
-                                  {'instance': instance.name,
-                                   'ex': ex}, instance=instance)
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
@@ -538,8 +536,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container cleanup failed for '
                                   '%(instance)s: %(ex)s'),
-                                  {'instance': instance.name,
-                                   'ex': ex}, instance=instance)
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def get_info(self, instance):
         """Get the current status of an instance, by name (not ID!)
@@ -560,8 +558,8 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to get container info'
                               ' for %(instance)s: %(ex)s'),
-                             {'instance': instance.name, 'ex': ex},
-                              instance=instance)
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def get_console_output(self, context, instance):
         """Get console output for an instance
@@ -589,12 +587,12 @@ class LXDContainerOperations(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to get container output'
                               ' for %(instance)s: %(ex)s'),
-                             {'instance': instance.name, 'ex': ex},
-                              instance=instance)
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def container_attach_interface(self, instance, image_meta, vif):
         LOG.debug('container_attach_interface called for instance',
-            instance=instance)
+                  instance=instance)
         try:
             self.vif_driver.plug(instance, vif)
             self.firewall_driver.setup_basic_filtering(instance, vif)
@@ -607,7 +605,7 @@ class LXDContainerOperations(object):
 
     def container_detach_interface(self, instance, vif):
         LOG.debug('container_defatch_interface called for instance',
-            instance=instance)
+                  instance=instance)
         try:
             self.vif_driver.unplug(instance, vif)
         except exception.NovaException:
