@@ -18,7 +18,7 @@ import mock
 from nova import test
 from nova.virt import fake
 
-from nova_lxd.nova.virt.lxd import container_config
+from nova_lxd.nova.virt.lxd import config as container_config
 from nova_lxd.nova.virt.lxd import container_migrate
 from nova_lxd.nova.virt.lxd import container_ops
 from nova_lxd.nova.virt.lxd.session import session

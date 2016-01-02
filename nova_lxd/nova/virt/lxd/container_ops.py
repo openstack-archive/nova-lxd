@@ -30,7 +30,7 @@ from nova import exception
 from nova import i18n
 from nova import utils
 
-from nova_lxd.nova.virt.lxd import container_config
+from nova_lxd.nova.virt.lxd import config as container_config
 from nova_lxd.nova.virt.lxd import container_firewall
 from nova_lxd.nova.virt.lxd import image
 from nova_lxd.nova.virt.lxd.session import session
