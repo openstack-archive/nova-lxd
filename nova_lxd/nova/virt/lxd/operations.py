@@ -409,7 +409,26 @@ class LXDContainerOperations(object):
                                    'ex': ex}, instance=instance)
 
     def resume(self, context, instance, network_info, block_device_info=None):
-        return self.session.container_unpause(instance.name, instance)
+        """Resume an instance on an LXD host
+
+        :param nova.context.RequestContext context:
+            The context for the resume.
+        :param nova.objects.instance.Instance instance:
+            The suspended instance to resume.
+        :param nova.network.model.NetworkInfo network_info:
+            Necessary network information for the resume.
+        :param dict block_device_info:
+            Instance volume block device info.
+        """
+        LOG.debug('resume called for instance', instance=instance)
+        try:
+            return self.session.container_unpause(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to resume container'
+                              ' for %(instance)s: %(ex)s'),
+                             {'instance': instance.name, 'ex': ex},
+                              instance=instance)
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
