@@ -459,21 +459,34 @@ class LXDContainerOperations(object):
                                    'ex': ex}, instance=instance)
 
     def _container_local_copy(self, instance):
-        container_snapshot = {
-            'name': 'snap',
-            'stateful': False
-        }
-        self.session.container_snapshot(container_snapshot, instance)
+        """Copy a local container
 
-        ''' Creating container copy '''
-        container_copy = {
-            "config": None,
-            "name": "%s-backup" % instance.name,
-            "profiles": None,
-            "source": {
-                "source": "%s/snap" % instance.name,
-                "type": "copy"}}
-        self.session.container_copy(container_copy, instance)
+        :param instance: nova instance object
+        """
+        LOG.debug('_container_local_copy called for instance',
+            instance=instance)
+        try:
+            container_snapshot = {
+                'name': 'snap',
+                'stateful': False
+            }
+            self.session.container_snapshot(container_snapshot, instance)
+
+            # Creating container copy
+            container_copy = {
+                "config": None,
+                "name": "%s-backup" % instance.name,
+                "profiles": None,
+                "source": {
+                    "source": "%s/snap" % instance.name,
+                    "type": "copy"}}
+            self.session.container_copy(container_copy, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to copy container'
+                              ' for %(instance)s: %(ex)s'),
+                             {'instance': instance.name, 'ex': ex},
+                              instance=instance)
 
     def unrescue(self, instance, network_info):
         LOG.debug('Conainer unrescue')
