@@ -68,7 +68,7 @@ class LXDContainerOperations(object):
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password=None, network_info=None, block_device_info=None,
-              need_vif_plugged=True, rescue=False):
+              rescue=False):
         msg = ('Spawning container '
                'network_info=%(network_info)s '
                'image_meta=%(image_meta)s '
@@ -92,8 +92,18 @@ class LXDContainerOperations(object):
                               {'e': ex})
 
         try:
+            self.plug_vif(instnace, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                 LOG.exception(_LE('Failed to configure network for '
+                                   '%(instance)s: %(ex)s'),
+                                    {'instance': instance.name,
+                                     'ex': ex}, instance=instance)
+
+
+        try:
             self.create_container(instance, injected_files, network_info,
-                                  block_device_info, rescue, need_vif_plugged)
+                                  block_device_info, rescue)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container creation failed: %(e)s'),
@@ -113,34 +123,13 @@ class LXDContainerOperations(object):
                            container_config, instance,
                            instance.host).wait()
 
-            self.start_container(container_config, instance, network_info,
-                                 need_vif_plugged)
+            self.start_container(container_config, instance, network_info)
 
-    def start_container(self, container_config, instance, network_info,
-                        need_vif_plugged):
+    def start_container(self, container_config, instance, network_info):
         LOG.debug('Starting instance')
 
         if self.session.container_running(instance):
             return
-
-        timeout = CONF.vif_plugging_timeout
-        # check to see if neutron is ready before
-        # doing anything else
-        if (self.session.container_defined(instance.name, instance)
-                and need_vif_plugged and utils.is_neutron() and timeout):
-            events = self._get_neutron_events(network_info)
-        else:
-            events = []
-
-        try:
-            with self.virtapi.wait_for_instance_event(
-                    instance, events, deadline=timeout,
-                    error_callback=self._neutron_failed_callback):
-                self.plug_vifs(
-                    container_config, instance, network_info,
-                    need_vif_plugged)
-        except exception.VirtualInterfaceCreateException:
-            LOG.info(_LW('Failed to connect networking to instance'))
 
         self.session.container_start(instance.name, instance)
 
@@ -149,18 +138,40 @@ class LXDContainerOperations(object):
         LOG.debug('container reboot')
         return self.session.container_reboot(instance)
 
-    def plug_vifs(self, container_config, instance, network_info,
-                  need_vif_plugged):
-        for viface in network_info:
-            container_config = self.container_config.configure_network_devices(
-                container_config, instance, viface)
-            if need_vif_plugged:
-                self.vif_driver.plug(instance, viface)
-        self._start_firewall(instance, network_info)
+    def plug_vifs(self, instance, network_info):
+        """Setup the container network on the host
+
+         :param instance: nova instance object
+         :param network_info: instnace network configuration
+         """
+        LOG.debug('plug_vifs called for instance', instance=instance)
+        try:
+            for viface in network_info:
+                    self.vif_driver.plug(instance, viface)
+            self._start_firewall(instance, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to configure container network'
+                              ' for %(instnace)s: %(ex)s'),
+                              {'instance': instance.name, 'ex': ex},
+                              instance=instance)
 
     def unplug_vifs(self, instance, network_info):
-        self._unplug_vifs(instance, network_info, False)
-        self._start_firewall(instance, network_info)
+        """Unconfigure the LXD container network
+
+           :param instance: nova intance object
+           :param network_info: instance network confiugration
+        """
+        try:
+            self._unplug_vifs(instance, network_info, False)
+            self._start_firewall(instance, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to remove container network'
+                              ' for %(instnace)s: %(ex)s'),
+                             {'instance': instance.name, 'ex': ex},
+                              instance=instance)
+
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
@@ -203,7 +214,7 @@ class LXDContainerOperations(object):
 
         self.spawn(context, instance, image_meta, injected_files=None,
                    admin_password=None, network_info=network_info,
-                   block_device_info=None, need_vif_plugged=False,
+                   block_device_info=None,
                    rescue=True)
 
     def _container_local_copy(self, instance):
