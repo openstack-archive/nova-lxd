@@ -16,116 +16,101 @@
 import ddt
 import mock
 
-from nova import exception
 from nova import test
+from nova.tests.unit import utils as test_utils
 
-from nova_lxd.nova.virt.lxd import config as container_config
+from nova_lxd.nova.virt.lxd import config
+from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.tests import stubs
 
 
 @ddt.ddt
-@mock.patch.object(container_config, 'CONF', stubs.MockConf())
+@mock.patch.object(config, 'CONF', stubs.MockConf())
 @mock.patch.object(container_dir, 'CONF', stubs.MockConf())
 class LXDTestContainerConfig(test.NoDBTestCase):
 
     def setUp(self):
         super(LXDTestContainerConfig, self).setUp()
-        self.container_config = container_config.LXDContainerConfig()
-
-    def test_init_config(self):
-        self.assertEqual({'config': {}, 'devices': {}},
-                         self.container_config._init_container_config())
+        self.config = config.LXDContainerConfig()
 
     @stubs.annotated_data(
-        ('mem_limit', {'memory_mb': 2048},
-         {'limits.memory': '2147483648'}),
-        ('both_limits', {'memory_mb': 4096},
-         {'limits.memory': '4294967296'}),
+        ('test_name', 'name', 'instance-00000001'),
+        ('test_source', 'source', {'type': 'image',
+                                   'alias': 'fake_image'}),
+        ('test_devices', 'devices', {})
     )
-    @mock.patch('oslo_utils.fileutils.ensure_tree',
-                mock.Mock(return_value=None))
-    @mock.patch('os.mkdir',
-                mock.Mock(return_value=None))
-    def test_configure_container_config(self, tag, flavor, expected):
-        instance = stubs.MockInstance(**flavor)
-        config = {'raw.lxc': 'lxc.console.logfile=/fake/lxd/root/containers/'
-                             'fake-uuid/console.log\n'}
-        config.update(expected)
-        self.assertEqual(
-            {'config': config},
-            self.container_config.configure_container_config({},
-                                                             instance))
-
-    def test_configure_network_devices(self):
+    def test_create_container(self, tag, key, expected):
         instance = stubs._fake_instance()
-        self.assertEqual(None,
-                         self.container_config.configure_network_devices(
-                             {}, instance, network_info=[]))
+        rescue = False
+        container_config = self.config.create_container(instance,
+                                                        rescue)
+        self.assertEqual(container_config[key], expected)
 
-    def test_configure_container_rescuedisk(self):
-        instance = stubs.MockInstance()
-        self.assertEqual({
-            'devices':
-            {'rescue': {'path': 'mnt',
-                        'source': '/fake/lxd/root/containers/'
-                                  'fake-uuid-backup/rootfs',
-                        'type': 'disk'}}},
-            self.container_config.configure_container_rescuedisk(
-                {}, instance))
+    @stubs.annotated_data(
+        ('test_name', 'name', 'instance-00000001'),
+        ('test_source', 'source', {'type': 'image',
+                                   'alias': 'fake_image'}),
+        ('test_profile', 'profiles', ['instance-00000001']),
+        ('test_devices', 'devices', {})
+    )
+    def test_get_container_config(self, tag, key, expected):
+        instance = stubs._fake_instance()
+        rescue = False
+        container_config = self.config.get_container_config(
+            instance, rescue)
+        self.assertEqual(container_config[key], expected)
 
-    def test_configure_container_configdrive_wrong_format(self):
-        instance = stubs.MockInstance()
-        with mock.patch.object(container_config.CONF, 'config_drive_format',
-                               new='fake-format'):
-            self.assertRaises(
-                exception.InstancePowerOnFailure,
-                self.container_config.configure_container_configdrive,
-                {}, instance, {})
+    @stubs.annotated_data(
+        ('test_name', 'name', 'instance-00000001-rescue'),
+        ('test_source', 'source', {'type': 'image',
+                                   'alias': 'fake_image'}),
+        ('test_devices', 'devices',
+            {'rescue': {'path': '/fake/lxd/root/containers/'
+                                'instance-00000001-rescue/rootfs',
+                        'source': 'mnt',
+                        'type': 'disk'}})
+    )
+    def test_get_container_config_rescue(self, tag, key, expected):
+        instance = stubs._fake_instance()
+        rescue = True
+        container_config = self.config.get_container_config(
+            instance, rescue)
+        self.assertEqual(container_config[key], expected)
 
-    @mock.patch('nova.api.metadata.base.InstanceMetadata')
-    def test_configure_container_configdrive_fail(self, mi):
-        instance = None
-        injected_files = mock.Mock()
-        self.assertRaises(
-            AttributeError,
-            self.container_config.configure_container_configdrive,
-            {}, instance, injected_files)
-        mi.assert_called_once_with(
-            instance, content=injected_files, extra_md={})
+    def test_create_profile(self):
+        instance = stubs._fake_instance()
+        rescue = False
+        network_info = test_utils.get_test_network_info()
+        config = mock.Mock()
+        with test.nested(
+            mock.patch.object(config.LXDContainerConfig,
+                              '_create_config'),
+            mock.patch.object(config.LXDContainerConfig,
+                              '_create_network'),
+            mock.patch.object(session.LXDAPISession,
+                              'profile_create')
 
-    @mock.patch('nova.api.metadata.base.InstanceMetadata')
-    @mock.patch('nova.virt.configdrive.ConfigDriveBuilder')
-    def test_configure_container_configdrive_fail_dir(self, md, mi):
-        instance = stubs.MockInstance()
-        injected_files = mock.Mock()
-        self.assertRaises(
-            AttributeError,
-            self.container_config.configure_container_configdrive,
-            None, instance, injected_files)
-        md.assert_called_once_with(instance_md=mi.return_value)
-        (md.return_value.__enter__.return_value
-         .make_drive.assert_called_once_with(
-             '/fake/instances/path/fake-uuid/config-drive'))
-        mi.assert_called_once_with(
-            instance, content=injected_files, extra_md={})
+        ) as (
+            mock_create_config,
+            mock_create_network,
+            mock_profile_create
+        ):
+            (self.assertEqual(None,
+                              self.config.create_profile(instance,
+                                                         network_info,
+                                                         rescue)))
 
-    @mock.patch('nova.api.metadata.base.InstanceMetadata')
-    @mock.patch('nova.virt.configdrive.ConfigDriveBuilder')
-    def test_configure_container_configdrive(self, md, mi):
-        instance = stubs.MockInstance()
-        injected_files = mock.Mock()
-        self.assertEqual(
-            {'devices': {'configdrive':
-                         {'path': 'mnt',
-                          'type': 'disk',
-                          'source': '/fake/instances/path/'
-                                    'fake-uuid/config-drive'}}},
-            self.container_config.configure_container_configdrive(
-                {}, instance, injected_files))
-        md.assert_called_once_with(instance_md=mi.return_value)
-        (md.return_value.__enter__.return_value
-         .make_drive.assert_called_once_with(
-             '/fake/instances/path/fake-uuid/config-drive'))
-        mi.assert_called_once_with(
-            instance, content=injected_files, extra_md={})
+    @stubs.annotated_data(
+        ('test_memmoy', 'limits.memory', '512MB')
+    )
+    def test_create_config(self, tag, key, expected):
+        instance = stubs._fake_instance()
+        instance_name = 'fake_instance'
+        config = self.config._create_config(instance_name, instance)
+        self.assertEqual(config[key], expected)
+
+    def test_create_container_source(self):
+        instance = stubs._fake_instance()
+        config = self.config._get_container_source(instance)
+        self.assertEqual(config, {'type': 'image', 'alias': 'fake_image'})

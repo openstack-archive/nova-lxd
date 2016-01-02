@@ -17,7 +17,6 @@
 from nova import exception
 from nova import i18n
 from nova.virt import configdrive
-import os
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -73,7 +72,7 @@ class LXDContainerConfig(object):
                           {'instance': instance_name, 'ex': ex},
                           instance=instance)
 
-    def create_container_profile(self, instance, network_info, rescue):
+    def create_profile(self, instance, network_info, rescue):
         """Create a LXD container profile configuration
 
         :param instance: nova instance object
@@ -113,7 +112,7 @@ class LXDContainerConfig(object):
 
             mem = instance.memory_mb
             if mem >= 0:
-                config['limits.memory'] = 'sMB' % mem
+                config['limits.memory'] = '%sMB' % mem
 
             config['raw.lxc'] = 'lxc.console.logfile=%s\n' \
                 % self.container_dir.get_console_path(instance_name)
@@ -122,7 +121,7 @@ class LXDContainerConfig(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
-                    _LE('Failed to set container resources %(instnace)s: '
+                    _LE('Failed to set container resources %(instance)s: '
                         '%(ex)s'), {'instance': instance_name, 'ex': ex},
                     instance=instance)
 
@@ -207,7 +206,8 @@ class LXDContainerConfig(object):
         LOG.debug('_get_container_source called for instance',
                   instance=instance)
         try:
-            container_source = {'type': 'image', 'alias': str(instance.name)}
+            container_source = {'type': 'image',
+                                'alias': str(instance.image_ref)}
             if container_source is None:
                 msg = _('Failed to determine container source for %s') \
                     % instance.name
@@ -227,16 +227,13 @@ class LXDContainerConfig(object):
         :param src_path: source path on the house
         :param dest_path: destination path on the LXD container
         :param vfs_type: dictionary identifier
-        :param instance: nova instnace object
+        :param instance: nova instance object
         :return: container disk paths
         """
         LOG.debug('_configure_disk_path called for instance',
                   instance=instance)
         try:
             config = {}
-            if not os.path.exists(src_path):
-                return config['vfs_type']
-
             config[vfs_type] = {'path': src_path,
                                 'source': dest_path,
                                 'type': 'disk'}

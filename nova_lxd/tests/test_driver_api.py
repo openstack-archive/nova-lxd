@@ -86,13 +86,8 @@ class LXDTestDriver(test.NoDBTestCase):
             True,
             self.connection.init_host(None)
         )
-        self.ml.profile_create.assert_called_once_with(
-            {'name': 'fake_profile'})
 
     @stubs.annotated_data(
-        ('profile_fail', {'profile_list.side_effect': (lxd_exceptions.
-                                                       APIError('Fake',
-                                                                500))}),
         ('no_ping', {'host_ping.return_value': False}),
         ('ping_fail', {'host_ping.side_effect': (lxd_exceptions.
                                                  APIError('Fake',

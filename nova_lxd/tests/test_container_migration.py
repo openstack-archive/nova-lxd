@@ -18,7 +18,6 @@ import mock
 from nova import test
 from nova.virt import fake
 
-from nova_lxd.nova.virt.lxd import config as container_config
 from nova_lxd.nova.virt.lxd import container_migrate
 from nova_lxd.nova.virt.lxd import container_ops
 from nova_lxd.nova.virt.lxd.session import session
@@ -51,8 +50,6 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
                               'container_defined'),
             mock.patch.object(session.LXDAPISession,
                               'container_stop'),
-            mock.patch.object(container_config.LXDContainerConfig,
-                              'configure_container_migrate'),
             mock.patch.object(session.LXDAPISession,
                               'container_init'),
             mock.patch.object(container_ops.LXDContainerOperations,
@@ -60,7 +57,6 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
         ) as (
             container_defined,
             container_stop,
-            container_migrate,
             container_init,
             container_start
         ):
