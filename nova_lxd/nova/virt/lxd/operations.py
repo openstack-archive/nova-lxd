@@ -287,8 +287,8 @@ class LXDContainerOperations(object):
            :param network_info: instance network confiugration
         """
         try:
-            self._unplug_vifs(instance, network_info, False)
-            self._start_firewall(instance, network_info)
+            self.unplug_vifs(instance, network_info, False)
+            self.stop_firewall(instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to remove container network'
@@ -489,17 +489,29 @@ class LXDContainerOperations(object):
                               instance=instance)
 
     def unrescue(self, instance, network_info):
-        LOG.debug('Conainer unrescue')
-        old_name = '%s-backup' % instance.name
-        container_config = {
-            'name': '%s' % instance.name
-        }
+        """Unrescue a LXD host
 
-        self.session.container_move(old_name, container_config,
-                                    instance)
-        self.session.container_destroy(instance.name,
-                                       instance.host,
-                                       instance)
+        :param instance: nova instance object
+        :param network_info: nova network configuration
+        """
+        LOG.debug('unrescue called for instance', instance=instance)
+        try:
+            old_name = '%s-backup' % instance.name
+            container_config = {
+                'name': '%s' % instance.name
+            }
+
+            self.session.container_move(old_name, container_config,
+                                        instance)
+            self.session.container_destroy(instance.name,
+                                           instance.host,
+                                           instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container unrescue failed for '
+                                  '%(instance)s: %(ex)s'),
+                                  {'instance': instance.name,
+                                   'ex': ex}, instance=instance)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
