@@ -14,6 +14,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+
+from nova.api.metadata import base as instance_metadata
+from nova.virt import configdrive
 from nova.virt import hardware
 import os
 import pwd
@@ -115,7 +118,10 @@ class LXDContainerOperations(object):
             # Step 3 - Create the container profile
             self._setup_profile(instance_name, instance, network_info, rescue)
 
-            # Step 4- Configure and start the container
+            # Step 4 - Create a config drive (optional)
+            self._add_configdrive(instance, injected_files)
+
+            # Step 5 - Configure and start the container
             self._setup_container(instance_name, instance, rescue)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -206,6 +212,29 @@ class LXDContainerOperations(object):
                                   {'instance': instance.name,
                                    'ex': ex}, instance=instance)
 
+    def _add_configdirve(self, instance, injected_files):
+        """Confiugre the config drive for the container
+
+        :param instance: nova instance object
+        :param injected_files: instance injected files
+        """
+        LOG.debug('add_configdrive called for instance', instance=instance)
+
+        extra_md = {}
+        inst_md = instance_metadata.InstanceMetadata(instance,
+                    content=injected_files,
+                    extra_md=extra_md)
+        name = instance.name
+        try:
+            with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
+                contianer_configdrive = (
+                    self.container_dir.get_container_configdrive(name)
+                )
+                cdb.make_drive(container_configdrive)
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Creating config drive failed with error: %s'),
+                    e, instance=instance)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
