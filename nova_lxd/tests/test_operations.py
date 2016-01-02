@@ -22,7 +22,7 @@ from nova.virt import fake
 from pylxd import exceptions as lxd_exception
 
 from nova_lxd.nova.virt.lxd import config as container_config
-from nova_lxd.nova.virt.lxd import container_ops
+from nova_lxd.nova.virt.lxd import operations as container_ops
 from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.tests import stubs
 

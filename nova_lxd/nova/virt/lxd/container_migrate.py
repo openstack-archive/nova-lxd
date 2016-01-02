@@ -20,7 +20,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from nova_lxd.nova.virt.lxd import config as container_config
-from nova_lxd.nova.virt.lxd import container_ops
+from nova_lxd.nova.virt.lxd import operations as container_ops
 from nova_lxd.nova.virt.lxd.session import session
 
 

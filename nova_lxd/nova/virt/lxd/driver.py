@@ -27,9 +27,9 @@ from oslo_log import log as logging
 
 from nova_lxd.nova.virt.lxd import container_firewall
 from nova_lxd.nova.virt.lxd import container_migrate
-from nova_lxd.nova.virt.lxd import container_ops
 from nova_lxd.nova.virt.lxd import container_snapshot
 from nova_lxd.nova.virt.lxd import host
+from nova_lxd.nova.virt.lxd import operations as container_ops
 from nova_lxd.nova.virt.lxd import vif as lxd_vif
 
 _ = i18n._
