@@ -69,6 +69,28 @@ class LXDContainerOperations(object):
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password=None, network_info=None, block_device_info=None,
               rescue=False):
+        """Start the LXD container
+
+        Once this successfully completes, the instance should be
+        running (power_state.RUNNING).
+
+        If this fails, any partial instance should be completely
+        cleaned up, and the virtualization platform should be in the state
+        that it was before this call began.
+
+        :param context: security context
+        :param instance: nova.objects.instance.Instance
+                         This function should use the data there to guide
+                         the creation of the new instance.
+        :param image_meta: image object returned by nova.image.glance that
+                           defines the image from which to boot this instance
+        :param injected_files: User files to inject into instance.
+        :param admin_password: Administrator password to set in instance.
+        :param network_info:
+            :py:meth:`~nova.network.manager.NetworkManager.get_instance_nw_info`
+        :param block_device_info: Information about block devices to be
+                                  attached to the instance
+        """
         msg = ('Spawning container '
                'network_info=%(network_info)s '
                'image_meta=%(image_meta)s '
@@ -83,55 +105,107 @@ class LXDContainerOperations(object):
         if self.session.container_defined(instance.name, instance):
             raise exception.InstanceExists(name=instance.name)
 
-        start = time.time()
         try:
+            # Step 1 - Fetch the image from glance
+            self._fetch_image(context, instance, image_meta)
+
+            # Step 2 - Setup the container network
+            self._setup_network(instance, network_info)
+
+            # Step 3 - Create the container profile
+            self._setup_profile(instance_name, instance, network_info, rescue)
+
+            # Step 4- Configure and start the container
+            self._setup_container(instance_name, instance, rescue)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Faild to start container '
+                              '%(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
+                self.destroy(context, instance, nework_info)
+
+    def _fetch_image(self, context, instance, image_meta):
+        """Fetch the LXD image from glance
+
+        :param context: nova security context
+        :param instance: nova instance object
+        :param image_meta: nova image opbject
+        """
+        LOG.debug('_fetch_image called for instance', instance=instance)
+        try:
+            # Download the image from glance and upload the image
+            # to the local LXD image store.
             self.image.setup_image(context, instance, image_meta)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Upload image failed: %(e)s'),
-                              {'e': ex})
+                LOG.error(_LE('Upload image failed for %(instance)s '
+                              'for %(image)s: %(e)s'),
+                              {'instance': instance.name,
+                               'image': instance.image_ref,
+                               'ex': ex}, instance=instance)
 
+    def _setup_network(self, instance_name, instance, network_info):
+        """Setup the network when creating the lXD container
+
+        :param instance_name: nova instance name
+        :param instance: nova instance object
+        :param network_info: instance network configuration
+        """
+        LOG.debug('_setup_netwokr called for instance', instance=instance)
         try:
-            self.plug_vif(instnace, network_info)
+            self.plug_vifs(instance, network_info):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                 LOG.exception(_LE('Failed to configure network for '
-                                   '%(instance)s: %(ex)s'),
-                                    {'instance': instance.name,
-                                     'ex': ex}, instance=instance)
+                LOG.error(_LE('Failed to create container network for '
+                              '%(instance)s: %(ex)s'),
+                              {'instance': instance_name, 'ex': ex},
+                              instance=instance)
 
+    def _setup_profile(self, instance_name, instance, network_info, rescue):
+        """Create an LXD container profile for the nova intsance
 
+        :param instance_name: nova instance name
+        :param instance: nova instance object
+        :param newtwork_info: nova instance netowkr configuration
+        :param rescue: boolean rescue instance if True needed to create
+        """
+        LOG.debug('_setup_profile called for instance', instance=instance)
         try:
-            self.create_container(instance, injected_files, network_info,
-                                  block_device_info, rescue)
+            # Setup the container profile based on the nova
+            # instance object and network objects
+            self.container_config.create_profile(instance, network_info,
+                                                 rescue)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Container creation failed: %(e)s'),
-                              {'e': ex})
-        end = time.time()
-        total = end - start
-        LOG.debug('Creation took %s seconds to boot.' % total)
+                LOG.error(_LE('Failed to create a profile for'
+                              ' %(instance)s: %(ex)s'),
+                              {'instance': instance_name,
+                               'ex': ex}, instance=instance)
 
-    def create_container(self, instance, injected_files, network_info,
-                         block_device_info, rescue, need_vif_plugged):
-        if not self.session.container_defined(instance.name, instance):
-            container_config = (self.container_config.create_container(
-                                instance, injected_files, block_device_info,
-                                rescue))
+    def _setup_container(self, instance_name, instance, rescue):
+        """Create and start the LXD container.
 
-            eventlet.spawn(self.session.container_init,
-                           container_config, instance,
-                           instance.host).wait()
+        :param instance_name: nova instjace name
+        :param instance: nova instance object
+        :param rescue: boolean rescue container
+        """
+        LOG.debug('_setup_container called for instance', instance=instance)
+        try:
+            # Create the container
+            container_config = \
+                self.container_config.create_container(instance, rescue)
+            self.session.container_init(container_config, instance, rescue)
 
-            self.start_container(container_config, instance, network_info)
+            # Start the container
+            self.session.container_start(instance_name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container creation failed for '
+                                  '%(insance)s: %(ex)s'),
+                                  {'instance': instance.name,
+                                   'ex': ex}, instance=instance)
 
-    def start_container(self, container_config, instance, network_info):
-        LOG.debug('Starting instance')
-
-        if self.session.container_running(instance):
-            return
-
-        self.session.container_start(instance.name, instance)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
@@ -175,6 +249,7 @@ class LXDContainerOperations(object):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
+        self.session.profile_delete(instance)
         self.session.container_destroy(instance.name, instance.host,
                                        instance)
         self.cleanup(context, instance, network_info, block_device_info)
