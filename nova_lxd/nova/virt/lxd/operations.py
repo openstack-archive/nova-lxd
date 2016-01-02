@@ -392,7 +392,21 @@ class LXDContainerOperations(object):
                               instance=instance)
 
     def suspend(self, context, instance):
-        return self.session.container_pause(instance.name, instance)
+        """Suspend an instance
+
+        :param context: nova security context
+        :param nova.objects.instance.Instance instance:
+            The instance which should be paused.
+        """
+        LOG.debug('suspend called for instance', isntance=instance)
+        try:
+            return self.session.container_pause(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container suspend failed for '
+                                  '%(instance)s: %(ex)s'),
+                                  {'instance': instance.name,
+                                   'ex': ex}, instance=instance)
 
     def resume(self, context, instance, network_info, block_device_info=None):
         return self.session.container_unpause(instance.name, instance)
