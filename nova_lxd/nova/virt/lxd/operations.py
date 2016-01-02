@@ -105,7 +105,11 @@ class LXDContainerOperations(object):
                 'block_device_info': block_device_info})
         LOG.debug(msg, instance=instance)
 
-        if self.session.container_defined(instance.name, instance):
+        instance_name = instance.name
+        if rescue:
+            instance_name = '%s-rescue' % instance.name
+
+        if self.session.container_defined(instance_name, instance):
             raise exception.InstanceExists(name=instance.name)
 
         try:
@@ -129,7 +133,7 @@ class LXDContainerOperations(object):
                               '%(instance)s: %(ex)s'),
                           {'instance': instance.name, 'ex': ex},
                           instance=instance)
-                self.destroy(context, instance, nework_info)
+                self.destroy(context, instance, network_info)
 
     def _fetch_image(self, context, instance, image_meta):
         """Fetch the LXD image from glance
@@ -160,7 +164,7 @@ class LXDContainerOperations(object):
         """
         LOG.debug('_setup_netwokr called for instance', instance=instance)
         try:
-            self.plug_vifs(instance, network_info):
+            self.plug_vifs(instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to create container network for '
@@ -173,7 +177,7 @@ class LXDContainerOperations(object):
 
         :param instance_name: nova instance name
         :param instance: nova instance object
-        :param newtwork_info: nova instance netowkr configuration
+        :param network_info: nova instance netowkr configuration
         :param rescue: boolean rescue instance if True needed to create
         """
         LOG.debug('_setup_profile called for instance', instance=instance)
@@ -208,12 +212,12 @@ class LXDContainerOperations(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container creation failed for '
-                                  '%(insance)s: %(ex)s'),
+                                  '%(instance)s: %(ex)s'),
                                   {'instance': instance.name,
                                    'ex': ex}, instance=instance)
 
-    def _add_configdirve(self, instance, injected_files):
-        """Confiugre the config drive for the container
+    def _add_configdrive(self, instance, injected_files):
+        """Configure the config drive for the container
 
         :param instance: nova instance object
         :param injected_files: instance injected files
@@ -227,7 +231,7 @@ class LXDContainerOperations(object):
         name = instance.name
         try:
             with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
-                contianer_configdrive = (
+                container_configdrive = (
                     self.container_dir.get_container_configdrive(name)
                 )
                 cdb.make_drive(container_configdrive)
@@ -255,7 +259,7 @@ class LXDContainerOperations(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to configure container network'
-                              ' for %(instnace)s: %(ex)s'),
+                              ' for %(instance)s: %(ex)s'),
                               {'instance': instance.name, 'ex': ex},
                               instance=instance)
 
@@ -271,7 +275,7 @@ class LXDContainerOperations(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to remove container network'
-                              ' for %(instnace)s: %(ex)s'),
+                              ' for %(instance)s: %(ex)s'),
                              {'instance': instance.name, 'ex': ex},
                               instance=instance)
 
@@ -302,7 +306,7 @@ class LXDContainerOperations(object):
         return self.session.container_pause(instance.name, instance)
 
     def resume(self, context, instance, network_info, block_device_info=None):
-        return self.sessioncontainer_unpause(instance.name, instance)
+        return self.session.container_unpause(instance.name, instance)
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
