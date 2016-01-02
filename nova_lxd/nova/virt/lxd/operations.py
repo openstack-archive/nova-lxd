@@ -542,12 +542,26 @@ class LXDContainerOperations(object):
                                    'ex': ex}, instance=instance)
 
     def get_info(self, instance):
-        container_state = self.session.container_state(instance)
-        return hardware.InstanceInfo(state=container_state,
-                                     max_mem_kb=0,
-                                     mem_kb=0,
-                                     num_cpu=2,
-                                     cpu_time_ns=0)
+        """Get the current status of an instance, by name (not ID!)
+
+        :param instance: nova.objects.instance.Instance object
+
+        Returns a InstanceInfo object
+        """
+        LOG.debug('get_info called for instance', instance=instance)
+        try:
+            container_state = self.session.container_state(instance)
+            return hardware.InstanceInfo(state=container_state,
+                                         max_mem_kb=0,
+                                         mem_kb=0,
+                                         num_cpu=2,
+                                         cpu_time_ns=0)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to get container info'
+                              ' for %(instance)s: %(ex)s'),
+                             {'instance': instance.name, 'ex': ex},
+                              instance=instance)
 
     def get_console_output(self, context, instance):
         LOG.debug('in console output')
