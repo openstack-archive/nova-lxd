@@ -324,9 +324,24 @@ class LXDContainerOperations(object):
                               instance=instance)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        return self.session.container_stop(instance.name,
-                                           instance.host,
-                                           instance)
+        """Power off an instance
+
+        :param instance: nova.objects.instance.Instance
+        :param timeout: time to wait for GuestOS to shutdown
+        :param retry_interval: How often to signal guest while
+                               waiting for it to shutdown
+        """
+        LOG.debug('power_off called for instance', instance=instance)
+        try:
+            return self.session.container_stop(instance.name,
+                                               instance.host,
+                                               instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to power_off container'
+                              ' for %(instance)s: %(ex)s'),
+                             {'instance': instance.name, 'ex': ex},
+                              instance=instance)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
