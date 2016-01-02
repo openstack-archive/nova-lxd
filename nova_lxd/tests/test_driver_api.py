@@ -173,7 +173,7 @@ class LXDTestDriver(test.NoDBTestCase):
 
         with test.nested(
                 mock.patch.object(self.connection.container_ops,
-                                  'create_container'),
+                                  'spawn'),
         ) as (
                 create_container
         ):
@@ -195,7 +195,7 @@ class LXDTestDriver(test.NoDBTestCase):
                               'container_stop'),
             mock.patch.object(self.connection, 'cleanup'),
             mock.patch.object(container_ops.LXDContainerOperations,
-                              '_unplug_vifs'),
+                              'unplug_vifs'),
 
         ) as (
             container_destroy,
@@ -217,7 +217,7 @@ class LXDTestDriver(test.NoDBTestCase):
                 mock.patch.object(self.connection,
                                   'cleanup'),
                 mock.patch.object(container_ops.LXDContainerOperations,
-                                  '_unplug_vifs'),
+                                  'unplug_vifs'),
         ) as (
                 container_stop,
                 container_destroy,
