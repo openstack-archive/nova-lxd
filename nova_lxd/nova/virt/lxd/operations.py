@@ -432,20 +432,31 @@ class LXDContainerOperations(object):
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
-        LOG.debug('Container rescue')
-        if not self.session.container_defined(instance.name, instance):
-            msg = _('Unable to find instance')
-            raise exception.NovaException(msg)
+        """Rescue an instance
 
-        self.session.container_stop(instance.name, instance.host)
-        self._container_local_copy(instance)
-        self.session.container_destroy(instance.name, instance.host,
-                                       instance)
+        :param instance: nova.objects.instance.Instance
+        """
+        LOG.debug('rescue called for instance', instance=instance)
+        try:
+            if not self.session.container_defined(instance.name, instance):
+                msg = _('Unable to find instance')
+                raise exception.NovaException(msg)
 
-        self.spawn(context, instance, image_meta, injected_files=None,
+            self.session.container_stop(instance.name, instance.host)
+            self._container_local_copy(instance)
+            self.session.container_destroy(instance.name, instance.host,
+                                           instance)
+
+            self.spawn(context, instance, image_meta, injected_files=None,
                    admin_password=None, network_info=network_info,
                    block_device_info=None,
                    rescue=True)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container rescue failed for '
+                                  '%(instance)s: %(ex)s'),
+                                  {'instance': instance.name,
+                                   'ex': ex}, instance=instance)
 
     def _container_local_copy(self, instance):
         container_snapshot = {
