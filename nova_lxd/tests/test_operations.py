@@ -24,6 +24,7 @@ from pylxd import exceptions as lxd_exception
 from nova_lxd.nova.virt.lxd import config as container_config
 from nova_lxd.nova.virt.lxd import operations as container_ops
 from nova_lxd.nova.virt.lxd.session import session
+from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.tests import stubs
 
 
@@ -39,142 +40,210 @@ class LXDTestContainerOps(test.NoDBTestCase):
         lxd_patcher.start()
         self.addCleanup(lxd_patcher.stop)
 
-        self.container_ops = (
+        self.operations = (
             container_ops.LXDContainerOperations(fake.FakeVirtAPI()))
         self.mc = mock.MagicMock()
-        config_patcher = mock.patch.object(self.container_ops,
+        config_patcher = mock.patch.object(self.operations,
                                            'container_config',
                                            self.mc)
         config_patcher.start()
         self.addCleanup(config_patcher.stop)
         self.mv = mock.MagicMock()
-        vif_patcher = mock.patch.object(self.container_ops,
+        vif_patcher = mock.patch.object(self.operations,
                                         'vif_driver',
                                         self.mv)
         vif_patcher.start()
         self.addCleanup(vif_patcher.stop)
 
-    def test_rescue_defined(self):
-        instance = stubs.MockInstance()
-        self.ml.container_defined.return_value = True
-        self.assertRaises(
-            exception.InstanceExists,
-            self.container_ops.spawn,
-            {}, instance, {}, [], 'secret', rescue=True)
-        self.ml.container_defined.called_once_with('fake-instance')
-
-    def test_create_instance_initfail(self):
+    def test_spawn(self):
+        context = mock.Mock()
         instance = stubs._fake_instance()
-        self.ml.container_init.side_effect = (
-            lxd_exception.APIError('Fake', 500))
-        self.assertEqual(None,
-                         self.container_ops.create_container(
-                             instance, [], [], {}, None, True))
-
-    @stubs.annotated_data(
-        ('network_info', False, mock.Mock()),
-        ('rescue', False, mock.Mock()),
-        ('network-rescue', True, mock.Mock())
-    )
-    def test_create_container(self, tag, rescue, network_info):
-        instance = stubs._fake_instance()
+        image_meta = mock.Mock()
         injected_files = mock.Mock()
+        admin_password = mock.Mock()
+        network_info = mock.Mock()
         block_device_info = mock.Mock()
-        need_vif_plugged = mock.Mock()
-        self.ml.container_defined.return_value = True
+        rescue = False
 
         with test.nested(
-                mock.patch.object(container_config.LXDContainerConfig,
-                                  'create_container'),
-                mock.patch.object(session.LXDAPISession,
-                                  'container_init'),
-                mock.patch.object(self.container_ops,
-                                  'start_container')
+          mock.patch.object(session.LXDAPISession, 'container_defined'),
+          mock.patch.object(container_ops.LXDContainerOperations,
+                            '_fetch_image'),
+          mock.patch.object(container_ops.LXDContainerOperations,
+                            '_setup_network'),
+          mock.patch.object(container_ops.LXDContainerOperations,
+                            '_setup_profile'),
+          mock.patch.object(container_ops.LXDContainerOperations,
+                            '_add_configdrive'),
+          mock.patch.object(container_ops.LXDContainerOperations,
+                            '_setup_container')
         ) as (
-                create_container,
-                container_init,
-                start_container
+            mock_container_defined,
+            mock_fetch_image,
+            mock_setup_network,
+            mock_setup_profile,
+            mock_add_configdrive,
+            mock_setup_container
         ):
-            self.assertEqual(None, self.container_ops.create_container(
-                instance, injected_files, network_info,
-                block_device_info, rescue, need_vif_plugged))
-            create_container.called_assert_called_once_with(
-                instance, injected_files, block_device_info,
-                rescue)
-            print(container_init.method_calls)
-            container_init.called_assert_called_once_with(
-                container_config, instance.host)
+            mock_container_defined.return_value = False
+            self.assertEqual(None,
+                self.operations.spawn(context, instance, image_meta,
+                    injected_files, admin_password, network_info,
+                    block_device_info, rescue))
 
-    @mock.patch.object(container_ops, 'utils')
-    @stubs.annotated_data(
-        {'tag': 'rescue', 'rescue': True, 'is_neutron': False, 'timeout': 0},
-        {'tag': 'neutron', 'timeout': 0},
-        {'tag': 'neutron_timeout'},
-        {'tag': 'neutron_unknown',
-         'network_info': [{
-             'id': '0123456789abcdef',
-         }]},
-        {'tag': 'neutron_active', 'network_info':
-         [{
-             'id': '0123456789abcdef',
-             'active': True
-         }]},
-        {'tag': 'neutron_inactive',
-         'network_info': [{
-             'id': '0123456789abcdef',
-             'active': False
-         }],
-         'vifs': ('0123456789abcdef',)},
-        {'tag': 'neutron_multi',
-         'network_info': [{
-             'id': '0123456789abcdef',
-         }, {
-             'id': '123456789abcdef0',
-             'active': True
-         }, {
-             'id': '23456789abcdef01',
-             'active': False
-         }],
-         'vifs': ('23456789abcdef01',)},
-        {'tag': 'neutron_failed',
-         'network_info': [{
-             'id': '0123456789abcdef',
-             'active': False
-         }],
-         'vifs': ('0123456789abcdef',),
-         'plug_side_effect': exception.VirtualInterfaceCreateException},
-    )
-    def test_start_instance(self, mu, tag='', rescue=False, running=False,
-                            is_neutron=True, timeout=10, network_info=[],
-                            vifs=(), plug_side_effect=None):
-        instance = stubs.MockInstance()
-        container_config = mock.Mock()
-        need_vif_plugged = True
-        self.ml.container_running.return_value = running
-        self.ml.container_start.return_value = (
-            200, {'operation': '/1.0/operations/0123456789'})
-        container_ops.CONF.vif_plugging_timeout = timeout
-        mu.is_neutron.return_value = is_neutron
-        self.mv.plug.side_effect = plug_side_effect
-        with mock.patch.object(self.container_ops.virtapi,
-                               'wait_for_instance_event') as mw:
-            self.assertEqual(
-                None,
-                self.container_ops.start_container(container_config,
-                                                   instance,
-                                                   network_info,
-                                                   need_vif_plugged))
-            mw.assert_called_once_with(
-                instance,
-                [('network-vif-plugged', vif) for vif in vifs],
-                deadline=timeout,
-                error_callback=self.container_ops._neutron_failed_callback)
-        self.assertEqual(
-            [mock.call(instance, viface) for viface in network_info],
-            self.mv.plug.call_args_list)
-        calls = [
-            mock.call.container_start('fake-uuid', 5),
-            mock.call.wait_container_operation(
-                '/1.0/operations/0123456789', 200, -1)
-        ]
-        self.assertEqual(calls, self.ml.method_calls[-2:])
+    def test_reboot_container(self):
+        instance = stubs._fake_instance()
+        context = mock.Mock()
+        network_info = mock.Mock()
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_reboot')
+        ) as (container_reboot):
+            self.assertEqual(None,
+                self.operations.reboot(context, instance, {},
+                    None, None, None))
+            self.assertTrue(container_reboot)
+
+    def test_destroy_container(self):
+        context = mock.Mock()
+        instance = stubs._fake_instance()
+        network_info = mock.Mock()
+
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'profile_delete'),
+            mock.patch.object(session.LXDAPISession, 'container_destroy'),
+        ) as (
+            mock_profile_delete,
+            mock_container_destroy
+        ):
+            self.assertEqual(None,
+                             self.operations.destroy(context,
+                                instance, network_info))
+            self.assertTrue(mock_profile_delete)
+            self.assertTrue(mock_container_destroy)
+
+    def test_power_off(self):
+        instance = stubs._fake_instance()
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_stop')
+        ) as ( mock_container_stop ):
+            self.assertEqual(None,
+                self.operations.power_off(instance))
+            self.assertTrue(mock_container_stop)
+
+    def test_power_on(self):
+        instance = stubs._fake_instance()
+        network_info = mock.Mock()
+        context = mock.Mock()
+        block_device_info = mock.Mock()
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_start')
+        ) as ( mock_container_start ):
+            self.assertEqual(None,
+                self.operations.power_on(context, instance, network_info,
+                        block_device_info))
+            self.assertTrue(mock_container_start)
+
+    def test_pause_container(self):
+        instance = stubs._fake_instance()
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_pause')
+        ) as ( mock_container_pause ):
+            self.assertEqual(None,
+                self.operations.pause(instance))
+            self.assertTrue(mock_container_pause)
+
+    def test_unpause_container(self):
+        instance = stubs._fake_instance()
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_unpause')
+        ) as ( mock_container_unpause ):
+            self.assertEqual(None,
+                self.operations.unpause(instance))
+            self.assertTrue(mock_container_unpause)
+
+    def test_container_suspend(self):
+        instance = stubs._fake_instance()
+        context = mock.Mock()
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_pause')
+        ) as ( mock_container_suspend ):
+            self.assertEqual(None,
+                self.operations.suspend(context, instance))
+            self.assertTrue(mock_container_suspend)
+
+    def test_container_resume(self):
+        instance = stubs._fake_instance()
+        context = mock.Mock()
+        network_info = mock.Mock()
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_unpause')
+        ) as ( mock_container_resume ):
+            self.assertEqual(None,
+                self.operations.resume(context, instance, network_info))
+            self.assertTrue(mock_container_resume)
+
+    def test_container_rescue(self):
+        context = mock.Mock()
+        instance = stubs._fake_instance()
+        network_info = mock.Mock()
+        image_meta = mock.Mock()
+        rescue_password = mock.Mock()
+
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_defined'),
+            mock.patch.object(session.LXDAPISession, 'container_stop'),
+            mock.patch.object(container_ops.LXDContainerOperations,
+                                    '_container_local_copy'),
+            mock.patch.object(session.LXDAPISession, 'container_destroy'),
+            mock.patch.object(container_ops.LXDContainerOperations,
+                                    'spawn'),
+        ) as (
+            mock_container_defined,
+            mock_container_stop,
+            mock_container_copy,
+            mock_container_destroy,
+            mock_spawn
+        ):
+            self.assertEqual(None,
+                self.operations.rescue(context, instance, network_info,
+                    image_meta, rescue_password))
+            mock_container_defined.assert_called_once_with(instance.name,
+                    instance)
+
+    def test_container_unrescue(self):
+        instance = stubs._fake_instance()
+        network_info = mock.Mock()
+
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_move'),
+            mock.patch.object(session.LXDAPISession, 'container_destroy')
+        ) as (
+            mock_container_move,
+            mock_container_destroy
+        ):
+            self.assertEqual(None,
+                self.operations.unrescue(instance, network_info))
+            mock_container_move.assert_called_once_with(
+               'instance-00000001-backup', {'name': 'instance-00000001'},
+                instance)
+            mock_container_destroy.assert_called_once_with(instance.name,
+                instance.host, instance)
+
+    @mock.patch('os.path.exists')
+    @mock.patch('shutil.rmtree')
+    def test_container_cleanup(self, mock_os, mock_shutil):
+        context = mock.Mock()
+        instance = stubs._fake_instance()
+        network_info = mock.Mock()
+
+        with test.nested(
+            mock.patch.object(container_ops.LXDContainerOperations,
+                                'unplug_vifs'),
+            mock.patch.object(container_dir.LXDContainerDirectories,
+                                'get_instance_dir'),
+        ) as (
+            mock_unplug_vifs,
+            mock_get_instance_dir
+        ):
+            self.assertEqual(None,
+                self.operations.cleanup(context, instance, network_info))
