@@ -116,13 +116,14 @@ class LXDContainerOperations(object):
             self._fetch_image(context, instance, image_meta)
 
             # Step 2 - Setup the container network
-            self._setup_network(instance, network_info)
+            self._setup_network(instance_name, instance, network_info)
 
             # Step 3 - Create the container profile
             self._setup_profile(instance_name, instance, network_info, rescue)
 
             # Step 4 - Create a config drive (optional)
-            self._add_configdrive(instance, injected_files)
+            if configdrive.required_by(insance):
+                self._add_configdrive(instance, injected_files)
 
             # Step 5 - Configure and start the container
             self._setup_container(instance_name, instance, rescue)
@@ -286,7 +287,8 @@ class LXDContainerOperations(object):
            :param network_info: instance network confiugration
         """
         try:
-            self.vif_driver.unplug_vifs(instance, network_info)
+            for viface in network_info:
+                self.vif_driver.unplug(instance, network_info)
             self.stop_firewall(instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
