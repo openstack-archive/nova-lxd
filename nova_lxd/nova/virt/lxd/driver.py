@@ -39,7 +39,7 @@ lxd_opts = [
                default='/var/lib/lxd/',
                help='Default LXD directory'),
     cfg.IntOpt('timeout',
-               default=5,
+               default=-1,
                help='Default LXD timeout'),
     cfg.IntOpt('retry_interval',
                default=2,
