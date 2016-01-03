@@ -271,7 +271,7 @@ class LXDContainerOperations(object):
         try:
             for viface in network_info:
                 self.vif_driver.plug(instance, viface)
-            self._start_firewall(instance, network_info)
+            self.start_firewall(instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to configure container network'
@@ -286,7 +286,7 @@ class LXDContainerOperations(object):
            :param network_info: instance network confiugration
         """
         try:
-            self.unplug_vifs(instance, network_info, False)
+            self.vif_driver.unplug_vifs(instance, network_info)
             self.stop_firewall(instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -527,7 +527,7 @@ class LXDContainerOperations(object):
         LOG.debug('cleanup called for instance', instance=instance)
         try:
             if destroy_vifs:
-                self._unplug_vifs(instance, network_info, True)
+                self.unplug_vifs(instance, network_info)
 
             container_dir = self.container_dir.get_instance_dir(instance.name)
             if os.path.exists(container_dir):
@@ -611,10 +611,10 @@ class LXDContainerOperations(object):
         except exception.NovaException:
             pass
 
-    def _start_firewall(self, instance, network_info):
+    def start_firewall(self, instance, network_info):
         self.firewall_driver.setup_basic_filtering(instance, network_info)
         self.firewall_driver.prepare_instance_filter(instance, network_info)
         self.firewall_driver.apply_instance_filter(instance, network_info)
 
-    def _stop_firewall(self, instance, network_info):
+    def stop_firewall(self, instance, network_info):
         self.firewall_driver.unfilter_instance(instance, network_info)

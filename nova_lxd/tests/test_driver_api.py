@@ -228,8 +228,7 @@ class LXDTestDriver(test.NoDBTestCase):
             self.assertTrue(container_stop)
             self.assertTrue(container_destroy)
             self.assertTrue(cleanup)
-            unplug_vifs.assert_called_with(instance, network_info,
-                                           True)
+            unplug_vifs.assert_called_with(instance, network_info)
 
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('shutil.rmtree')

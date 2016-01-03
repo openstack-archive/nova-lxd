@@ -88,9 +88,6 @@ class LXDContainerMigrate(object):
 
             self.session.container_init(container_config,
                                         instance, dst_host)
-            self.container_ops.start_container(container_config, instance,
-                                               network_info,
-                                               need_vif_plugged=True)
             self.session.container_destroy(instance.name, src_host, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():

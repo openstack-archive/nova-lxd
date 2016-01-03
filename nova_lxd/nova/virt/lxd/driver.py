@@ -90,17 +90,13 @@ class LXDDriver(driver.ComputeDriver):
         for vif in network_info:
             self.vif_driver.plug(instance, vif)
 
-    def _unplug_vifs(self, instance, network_info, ignore_errors):
+    def unplug_vifs(self, instance, network_info):
         """Unplug VIFs from networks."""
         for vif in network_info:
             try:
                 self.vif_driver.unplug(instance, vif)
             except exception.NovaException:
-                if not ignore_errors:
-                    raise
-
-    def unplug_vifs(self, instance, network_info):
-        self._unplug_vifs(instance, network_info, False)
+                pass
 
     def estimate_instance_overhead(self, instance_info):
         return {'memory_mb': 0}
@@ -121,7 +117,7 @@ class LXDDriver(driver.ComputeDriver):
                 destroy_disks=True, migrate_data=None):
         self.container_ops.destroy(context, instance, network_info,
                                    block_device_info, destroy_disks,
-                                          migrate_data)
+                                   migrate_data)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):

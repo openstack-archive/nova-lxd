@@ -16,12 +16,9 @@
 import ddt
 import mock
 
-from nova import exception
 from nova import test
 from nova.virt import fake
-from pylxd import exceptions as lxd_exception
 
-from nova_lxd.nova.virt.lxd import config as container_config
 from nova_lxd.nova.virt.lxd import operations as container_ops
 from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.nova.virt.lxd import utils as container_dir
@@ -66,17 +63,17 @@ class LXDTestContainerOps(test.NoDBTestCase):
         rescue = False
 
         with test.nested(
-          mock.patch.object(session.LXDAPISession, 'container_defined'),
-          mock.patch.object(container_ops.LXDContainerOperations,
-                            '_fetch_image'),
-          mock.patch.object(container_ops.LXDContainerOperations,
-                            '_setup_network'),
-          mock.patch.object(container_ops.LXDContainerOperations,
-                            '_setup_profile'),
-          mock.patch.object(container_ops.LXDContainerOperations,
-                            '_add_configdrive'),
-          mock.patch.object(container_ops.LXDContainerOperations,
-                            '_setup_container')
+            mock.patch.object(session.LXDAPISession, 'container_defined'),
+            mock.patch.object(container_ops.LXDContainerOperations,
+                              '_fetch_image'),
+            mock.patch.object(container_ops.LXDContainerOperations,
+                              '_setup_network'),
+            mock.patch.object(container_ops.LXDContainerOperations,
+                              '_setup_profile'),
+            mock.patch.object(container_ops.LXDContainerOperations,
+                              '_add_configdrive'),
+            mock.patch.object(container_ops.LXDContainerOperations,
+                              '_setup_container')
         ) as (
             mock_container_defined,
             mock_fetch_image,
@@ -87,20 +84,22 @@ class LXDTestContainerOps(test.NoDBTestCase):
         ):
             mock_container_defined.return_value = False
             self.assertEqual(None,
-                self.operations.spawn(context, instance, image_meta,
-                    injected_files, admin_password, network_info,
-                    block_device_info, rescue))
+                             self.operations.spawn(context, instance,
+                                                   image_meta,
+                                                   injected_files,
+                                                   admin_password,
+                                                   network_info,
+                                                   block_device_info, rescue))
 
     def test_reboot_container(self):
         instance = stubs._fake_instance()
         context = mock.Mock()
-        network_info = mock.Mock()
         with test.nested(
             mock.patch.object(session.LXDAPISession, 'container_reboot')
         ) as (container_reboot):
             self.assertEqual(None,
-                self.operations.reboot(context, instance, {},
-                    None, None, None))
+                             self.operations.reboot(context, instance, {},
+                                                    None, None, None))
             self.assertTrue(container_reboot)
 
     def test_destroy_container(self):
@@ -117,7 +116,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
         ):
             self.assertEqual(None,
                              self.operations.destroy(context,
-                                instance, network_info))
+                                                     instance, network_info))
             self.assertTrue(mock_profile_delete)
             self.assertTrue(mock_container_destroy)
 
@@ -125,9 +124,9 @@ class LXDTestContainerOps(test.NoDBTestCase):
         instance = stubs._fake_instance()
         with test.nested(
             mock.patch.object(session.LXDAPISession, 'container_stop')
-        ) as ( mock_container_stop ):
+        ) as (mock_container_stop):
             self.assertEqual(None,
-                self.operations.power_off(instance))
+                             self.operations.power_off(instance))
             self.assertTrue(mock_container_stop)
 
     def test_power_on(self):
@@ -137,28 +136,29 @@ class LXDTestContainerOps(test.NoDBTestCase):
         block_device_info = mock.Mock()
         with test.nested(
             mock.patch.object(session.LXDAPISession, 'container_start')
-        ) as ( mock_container_start ):
+        ) as (mock_container_start):
             self.assertEqual(None,
-                self.operations.power_on(context, instance, network_info,
-                        block_device_info))
+                             self.operations.power_on(context, instance,
+                                                      network_info,
+                                                      block_device_info))
             self.assertTrue(mock_container_start)
 
     def test_pause_container(self):
         instance = stubs._fake_instance()
         with test.nested(
             mock.patch.object(session.LXDAPISession, 'container_pause')
-        ) as ( mock_container_pause ):
+        ) as (mock_container_pause):
             self.assertEqual(None,
-                self.operations.pause(instance))
+                             self.operations.pause(instance))
             self.assertTrue(mock_container_pause)
 
     def test_unpause_container(self):
         instance = stubs._fake_instance()
         with test.nested(
             mock.patch.object(session.LXDAPISession, 'container_unpause')
-        ) as ( mock_container_unpause ):
+        ) as (mock_container_unpause):
             self.assertEqual(None,
-                self.operations.unpause(instance))
+                             self.operations.unpause(instance))
             self.assertTrue(mock_container_unpause)
 
     def test_container_suspend(self):
@@ -166,9 +166,9 @@ class LXDTestContainerOps(test.NoDBTestCase):
         context = mock.Mock()
         with test.nested(
             mock.patch.object(session.LXDAPISession, 'container_pause')
-        ) as ( mock_container_suspend ):
+        ) as (mock_container_suspend):
             self.assertEqual(None,
-                self.operations.suspend(context, instance))
+                             self.operations.suspend(context, instance))
             self.assertTrue(mock_container_suspend)
 
     def test_container_resume(self):
@@ -177,9 +177,10 @@ class LXDTestContainerOps(test.NoDBTestCase):
         network_info = mock.Mock()
         with test.nested(
             mock.patch.object(session.LXDAPISession, 'container_unpause')
-        ) as ( mock_container_resume ):
+        ) as (mock_container_resume):
             self.assertEqual(None,
-                self.operations.resume(context, instance, network_info))
+                             self.operations.resume(context, instance,
+                                                    network_info))
             self.assertTrue(mock_container_resume)
 
     def test_container_rescue(self):
@@ -193,10 +194,10 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mock.patch.object(session.LXDAPISession, 'container_defined'),
             mock.patch.object(session.LXDAPISession, 'container_stop'),
             mock.patch.object(container_ops.LXDContainerOperations,
-                                    '_container_local_copy'),
+                              '_container_local_copy'),
             mock.patch.object(session.LXDAPISession, 'container_destroy'),
             mock.patch.object(container_ops.LXDContainerOperations,
-                                    'spawn'),
+                              'spawn'),
         ) as (
             mock_container_defined,
             mock_container_stop,
@@ -205,10 +206,11 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mock_spawn
         ):
             self.assertEqual(None,
-                self.operations.rescue(context, instance, network_info,
-                    image_meta, rescue_password))
+                             self.operations.rescue(context, instance,
+                                                    network_info, image_meta,
+                                                    rescue_password))
             mock_container_defined.assert_called_once_with(instance.name,
-                    instance)
+                                                           instance)
 
     def test_container_unrescue(self):
         instance = stubs._fake_instance()
@@ -222,12 +224,13 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mock_container_destroy
         ):
             self.assertEqual(None,
-                self.operations.unrescue(instance, network_info))
+                             self.operations.unrescue(instance, network_info))
             mock_container_move.assert_called_once_with(
-               'instance-00000001-backup', {'name': 'instance-00000001'},
+                'instance-00000001-backup', {'name': 'instance-00000001'},
                 instance)
             mock_container_destroy.assert_called_once_with(instance.name,
-                instance.host, instance)
+                                                           instance.host,
+                                                           instance)
 
     @mock.patch('os.path.exists')
     @mock.patch('shutil.rmtree')
@@ -238,12 +241,13 @@ class LXDTestContainerOps(test.NoDBTestCase):
 
         with test.nested(
             mock.patch.object(container_ops.LXDContainerOperations,
-                                'unplug_vifs'),
+                              'unplug_vifs'),
             mock.patch.object(container_dir.LXDContainerDirectories,
-                                'get_instance_dir'),
+                              'get_instance_dir'),
         ) as (
             mock_unplug_vifs,
             mock_get_instance_dir
         ):
             self.assertEqual(None,
-                self.operations.cleanup(context, instance, network_info))
+                             self.operations.cleanup(context, instance,
+                                                     network_info))
