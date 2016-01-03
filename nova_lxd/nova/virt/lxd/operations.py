@@ -253,7 +253,7 @@ class LXDContainerOperations(object):
         """
         LOG.debug('reboot called for instance', instance=instance)
         try:
-            return self.session.container_reboot(instance)
+            self.session.container_reboot(instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container reboot failed for '
@@ -331,9 +331,9 @@ class LXDContainerOperations(object):
         """
         LOG.debug('power_off called for instance', instance=instance)
         try:
-            return self.session.container_stop(instance.name,
-                                               instance.host,
-                                               instance)
+            self.session.container_stop(instance.name,
+                                        instance.host,
+                                        instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to power_off container'
@@ -349,7 +349,7 @@ class LXDContainerOperations(object):
         """
         LOG.debug('power_on called for instance', instance=instance)
         try:
-            return self.session.container_start(instance.name, instance)
+            self.session.container_start(instance.name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container power off for '
@@ -365,7 +365,7 @@ class LXDContainerOperations(object):
         """
         LOG.debug('pause called for instance', instance=instance)
         try:
-            return self.session.container_pause(instance.name, instance)
+            self.session.container_pause(instance.name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to pause container'
@@ -381,7 +381,7 @@ class LXDContainerOperations(object):
         """
         LOG.debug('unpause called for instance', instance=instance)
         try:
-            return self.session.container_unpause(instance.name, instance)
+            self.session.container_unpause(instance.name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to unpause container'
@@ -398,7 +398,7 @@ class LXDContainerOperations(object):
         """
         LOG.debug('suspend called for instance', isntance=instance)
         try:
-            return self.session.container_pause(instance.name, instance)
+            self.session.container_pause(instance.name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container suspend failed for '
@@ -420,7 +420,7 @@ class LXDContainerOperations(object):
         """
         LOG.debug('resume called for instance', instance=instance)
         try:
-            return self.session.container_unpause(instance.name, instance)
+            self.session.container_unpause(instance.name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to resume container'
