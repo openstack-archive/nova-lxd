@@ -87,7 +87,7 @@ class LXDContainerConfig(object):
             if rescue:
                 instance_name = '%s-rescue' % instance.name
 
-            config = dict()
+            config = {}
             config['name'] = str(instance_name)
             config['config'] = self._create_config(instance_name, instance)
             config['devices'] = self._create_network(instance_name, instance,
@@ -108,7 +108,7 @@ class LXDContainerConfig(object):
         """
         LOG.debug('_create_config called for instance', instance=instance)
         try:
-            config = dict()
+            config = {}
 
             mem = instance.memory_mb
             if mem >= 0:
@@ -135,7 +135,7 @@ class LXDContainerConfig(object):
         """
         LOG.debug('_create_network called for instance', instance=instance)
         try:
-            network_devices = dict()
+            network_devices = {}
 
             for vifaddr in network_info:
                 cfg = self.vif_driver.get_config(instance, vifaddr)
