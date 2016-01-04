@@ -47,7 +47,7 @@ class LXDTestConfig(test.NoDBTestCase):
         self.assertIsInstance(driver.CONF.lxd, cfg.ConfigOpts.GroupAttr)
         self.assertEqual(os.path.abspath('/var/lib/lxd'),
                          os.path.abspath(driver.CONF.lxd.root_dir))
-        self.assertEqual(5, driver.CONF.lxd.timeout)
+        self.assertEqual(-1, driver.CONF.lxd.timeout)
 
 
 @ddt.ddt

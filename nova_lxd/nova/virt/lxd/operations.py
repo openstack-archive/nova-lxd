@@ -122,7 +122,7 @@ class LXDContainerOperations(object):
             self._setup_profile(instance_name, instance, network_info, rescue)
 
             # Step 4 - Create a config drive (optional)
-            if configdrive.required_by(insance):
+            if configdrive.required_by(instance):
                 self._add_configdrive(instance, injected_files)
 
             # Step 5 - Configure and start the container

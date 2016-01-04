@@ -281,7 +281,7 @@ class SessionContainerTest(test.NoDBTestCase):
                          self.session.container_start(instance.name,
                                                       instance))
         calls = [mock.call.container_defined(instance.name),
-                 mock.call.container_start(instance.name, 5),
+                 mock.call.container_start(instance.name, -1),
                  mock.call.wait_container_operation(
             '/1.0/operation/1234', 200, -1)]
         self.assertEqual(calls, self.ml.method_calls)
@@ -329,7 +329,7 @@ class SessionContainerTest(test.NoDBTestCase):
                          self.session.container_stop(instance.name,
                                                      instance.host, instance))
         calls = [mock.call.container_defined(instance.name),
-                 mock.call.container_stop(instance.name, 5),
+                 mock.call.container_stop(instance.name, -1),
                  mock.call.wait_container_operation(
             '/1.0/operation/1234', 200, -1)]
         self.assertEqual(calls, self.ml.method_calls)
@@ -363,7 +363,7 @@ class SessionContainerTest(test.NoDBTestCase):
         self.assertEqual(None,
                          self.session.container_reboot(instance))
         calls = [mock.call.container_defined(instance.name),
-                 mock.call.container_reboot(instance.name, 5),
+                 mock.call.container_reboot(instance.name, -1),
                  mock.call.wait_container_operation(
                      '/1.0/operation/1234', 200, -1)]
         self.assertEqual(calls, self.ml.method_calls)
@@ -403,7 +403,7 @@ class SessionContainerTest(test.NoDBTestCase):
                                                             instance))
             calls = [mock.call.container_defined(instance.name),
                      mock.call.container_defined(instance.name),
-                     mock.call.container_stop(instance.name, 5),
+                     mock.call.container_stop(instance.name, -1),
                      mock.call.wait_container_operation(
                 '/1.0/operation/1234', 200, -1),
                 mock.call.container_destroy(instance.name),
@@ -462,7 +462,7 @@ class SessionContainerTest(test.NoDBTestCase):
                          self.session.container_pause(instance.name,
                                                       instance))
         calls = [
-            mock.call.container_susepnd(instance.name, 5),
+            mock.call.container_susepnd(instance.name, -1),
             mock.call.wait_container_operation(
                 '/1.0/operation/1234', 200, -1)]
         self.assertEqual(calls, self.ml.method_calls)
@@ -500,7 +500,7 @@ class SessionContainerTest(test.NoDBTestCase):
                                                         instance))
         calls = [
             mock.call.container_defined(instance.name),
-            mock.call.container_resume(instance.name, 5),
+            mock.call.container_resume(instance.name, -1),
             mock.call.wait_container_operation(
                 '/1.0/operation/1234', 200, -1)]
         self.assertEqual(calls, self.ml.method_calls)

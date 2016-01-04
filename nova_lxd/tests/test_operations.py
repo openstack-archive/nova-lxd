@@ -21,7 +21,6 @@ from nova.virt import fake
 
 from nova_lxd.nova.virt.lxd import operations as container_ops
 from nova_lxd.nova.virt.lxd.session import session
-from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.tests import stubs
 
 
@@ -110,9 +109,11 @@ class LXDTestContainerOps(test.NoDBTestCase):
         with test.nested(
             mock.patch.object(session.LXDAPISession, 'profile_delete'),
             mock.patch.object(session.LXDAPISession, 'container_destroy'),
+            mock.patch.object(container_ops.LXDContainerOperations, 'cleanup'),
         ) as (
             mock_profile_delete,
-            mock_container_destroy
+            mock_container_destroy,
+            mock_cleanup
         ):
             self.assertEqual(None,
                              self.operations.destroy(context,
@@ -231,23 +232,3 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mock_container_destroy.assert_called_once_with(instance.name,
                                                            instance.host,
                                                            instance)
-
-    @mock.patch('os.path.exists')
-    @mock.patch('shutil.rmtree')
-    def test_container_cleanup(self, mock_os, mock_shutil):
-        context = mock.Mock()
-        instance = stubs._fake_instance()
-        network_info = mock.Mock()
-
-        with test.nested(
-            mock.patch.object(container_ops.LXDContainerOperations,
-                              'unplug_vifs'),
-            mock.patch.object(container_dir.LXDContainerDirectories,
-                              'get_instance_dir'),
-        ) as (
-            mock_unplug_vifs,
-            mock_get_instance_dir
-        ):
-            self.assertEqual(None,
-                             self.operations.cleanup(context, instance,
-                                                     network_info))
