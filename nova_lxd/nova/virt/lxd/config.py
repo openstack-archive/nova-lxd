@@ -43,7 +43,7 @@ class LXDContainerConfig(object):
         self.vif_driver = vif.LXDGenericDriver()
 
     def create_container(self, instance, rescue=False):
-        """Create a LXD contaienr dictionary so that we can
+        """Create a LXD container dictionary so that we can
            use it to initialize a container
 
            :param instance: nova instance object
@@ -97,7 +97,7 @@ class LXDContainerConfig(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to create profile %(instance)s: %(ex)s'),
-                    {'isntance': instance_name, 'ex': ex}, instance=instance)
+                    {'instance': instance_name, 'ex': ex}, instance=instance)
 
     def _create_config(self, instance_name, instance):
         """Create the LXD container resources
@@ -222,7 +222,7 @@ class LXDContainerConfig(object):
                     instance=instance)
 
     def _configure_disk_path(self, src_path, dest_path, vfs_type, instance):
-        """Configure the host mount piont for the LXD container
+        """Configure the host mount point for the LXD container
 
         :param src_path: source path on the house
         :param dest_path: destination path on the LXD container
