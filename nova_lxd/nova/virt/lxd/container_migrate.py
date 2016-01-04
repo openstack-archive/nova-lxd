@@ -79,6 +79,8 @@ class LXDContainerMigrate(object):
             if self.session.container_defined(instance.name, instance):
                 LOG.exception(_LE('Container already migrated'))
             self.session.container_stop(instance.name, src_host, instance)
+            # XXX: zul (Jan 4, 2016) - Temporarily disabled due to LXD config
+            # change refactor.
             # container_ws = self.session.container_migrate(
             #    instance.name, src_host, instance)
             # Temporarily disable since container_migration is broken
