@@ -165,11 +165,11 @@ class LXDContainerConfig(object):
             if rescue:
                 instance_name = '%s-rescue' % instance.name
 
-            container_config = dict(name=instance_name,
-                                    profiles=[str(instance_name)],
-                                    source=self._get_container_source(
-                                        instance),
-                                    devices={})
+            container_config = {
+                'name': instance_name,
+                'profiles': [str(instance_name)],
+                'source': self._get_container_source(instance),
+                'devices': {}}
             # if a config drive is required setup the mount point for the
             # container
             if configdrive.required_by(instance):
