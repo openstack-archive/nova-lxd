@@ -19,7 +19,6 @@ from nova import test
 from nova.virt import fake
 
 from nova_lxd.nova.virt.lxd import container_migrate
-from nova_lxd.nova.virt.lxd import container_ops
 from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.tests import stubs
 
@@ -52,13 +51,10 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
                               'container_stop'),
             mock.patch.object(session.LXDAPISession,
                               'container_init'),
-            mock.patch.object(container_ops.LXDContainerOperations,
-                              'start_container'),
         ) as (
             container_defined,
             container_stop,
-            container_init,
-            container_start
+            container_init
         ):
             def side_effect(*args, **kwargs):
                 # XXX: rockstar (7 Dec 2015) - This mock is a little greedy,

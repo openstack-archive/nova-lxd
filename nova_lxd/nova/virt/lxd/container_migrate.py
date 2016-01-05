@@ -19,7 +19,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 
 from nova_lxd.nova.virt.lxd import config
-from nova_lxd.nova.virt.lxd import container_ops
+from nova_lxd.nova.virt.lxd import operations
 from nova_lxd.nova.virt.lxd.session import session
 
 
@@ -38,7 +38,7 @@ class LXDContainerMigrate(object):
         self.config = config.LXDContainerConfig()
         self.session = session.LXDAPISession()
         self.container_ops = \
-            container_ops.LXDContainerOperations(
+            operations.LXDContainerOperations(
                 self.virtapi)
 
     def migrate_disk_and_power_off(self, context, instance, dest,

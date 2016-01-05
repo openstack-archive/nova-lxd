@@ -33,9 +33,9 @@ from nova import test
 from nova.virt import fake
 from nova.virt import hardware
 
-from nova_lxd.nova.virt.lxd import container_ops
 from nova_lxd.nova.virt.lxd import driver
 from nova_lxd.nova.virt.lxd import host
+from nova_lxd.nova.virt.lxd import operations as container_ops
 from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.tests import stubs
@@ -47,7 +47,7 @@ class LXDTestConfig(test.NoDBTestCase):
         self.assertIsInstance(driver.CONF.lxd, cfg.ConfigOpts.GroupAttr)
         self.assertEqual(os.path.abspath('/var/lib/lxd'),
                          os.path.abspath(driver.CONF.lxd.root_dir))
-        self.assertEqual(5, driver.CONF.lxd.timeout)
+        self.assertEqual(-1, driver.CONF.lxd.timeout)
 
 
 @ddt.ddt
@@ -173,7 +173,7 @@ class LXDTestDriver(test.NoDBTestCase):
 
         with test.nested(
                 mock.patch.object(self.connection.container_ops,
-                                  'create_container'),
+                                  'spawn'),
         ) as (
                 create_container
         ):
@@ -195,7 +195,7 @@ class LXDTestDriver(test.NoDBTestCase):
                               'container_stop'),
             mock.patch.object(self.connection, 'cleanup'),
             mock.patch.object(container_ops.LXDContainerOperations,
-                              '_unplug_vifs'),
+                              'unplug_vifs'),
 
         ) as (
             container_destroy,
@@ -217,7 +217,7 @@ class LXDTestDriver(test.NoDBTestCase):
                 mock.patch.object(self.connection,
                                   'cleanup'),
                 mock.patch.object(container_ops.LXDContainerOperations,
-                                  '_unplug_vifs'),
+                                  'unplug_vifs'),
         ) as (
                 container_stop,
                 container_destroy,
@@ -228,8 +228,7 @@ class LXDTestDriver(test.NoDBTestCase):
             self.assertTrue(container_stop)
             self.assertTrue(container_destroy)
             self.assertTrue(cleanup)
-            unplug_vifs.assert_called_with(instance, network_info,
-                                           True)
+            unplug_vifs.assert_called_with(instance, network_info)
 
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('shutil.rmtree')

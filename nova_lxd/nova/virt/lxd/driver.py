@@ -27,9 +27,9 @@ from oslo_log import log as logging
 
 from nova_lxd.nova.virt.lxd import container_firewall
 from nova_lxd.nova.virt.lxd import container_migrate
-from nova_lxd.nova.virt.lxd import container_ops
 from nova_lxd.nova.virt.lxd import container_snapshot
 from nova_lxd.nova.virt.lxd import host
+from nova_lxd.nova.virt.lxd import operations as container_ops
 from nova_lxd.nova.virt.lxd import vif as lxd_vif
 
 _ = i18n._
@@ -39,7 +39,7 @@ lxd_opts = [
                default='/var/lib/lxd/',
                help='Default LXD directory'),
     cfg.IntOpt('timeout',
-               default=5,
+               default=-1,
                help='Default LXD timeout'),
     cfg.IntOpt('retry_interval',
                default=2,
@@ -90,17 +90,13 @@ class LXDDriver(driver.ComputeDriver):
         for vif in network_info:
             self.vif_driver.plug(instance, vif)
 
-    def _unplug_vifs(self, instance, network_info, ignore_errors):
+    def unplug_vifs(self, instance, network_info):
         """Unplug VIFs from networks."""
         for vif in network_info:
             try:
                 self.vif_driver.unplug(instance, vif)
             except exception.NovaException:
-                if not ignore_errors:
-                    raise
-
-    def unplug_vifs(self, instance, network_info):
-        self._unplug_vifs(instance, network_info, False)
+                pass
 
     def estimate_instance_overhead(self, instance_info):
         return {'memory_mb': 0}
@@ -113,27 +109,27 @@ class LXDDriver(driver.ComputeDriver):
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
-        return self.container_ops.spawn(context, instance, image_meta,
-                                        injected_files, admin_password,
-                                        network_info, block_device_info)
+        self.container_ops.spawn(context, instance, image_meta,
+                                 injected_files, admin_password,
+                                 network_info, block_device_info)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        return self.container_ops.destroy(context, instance, network_info,
-                                          block_device_info, destroy_disks,
-                                          migrate_data)
+        self.container_ops.destroy(context, instance, network_info,
+                                   block_device_info, destroy_disks,
+                                   migrate_data)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
-        return self.container_ops.cleanup(context, instance, network_info,
-                                          block_device_info, destroy_disks,
-                                          migrate_data, destroy_vifs)
+        self.container_ops.cleanup(context, instance, network_info,
+                                   block_device_info, destroy_disks,
+                                   migrate_data, destroy_vifs)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
-        return self.container_ops.reboot(context, instance, network_info,
-                                         reboot_type, block_device_info,
-                                         bad_volumes_callback)
+        self.container_ops.reboot(context, instance, network_info,
+                                  reboot_type, block_device_info,
+                                  bad_volumes_callback)
 
     def get_console_output(self, context, instance):
         return self.container_ops.get_console_output(context, instance)
@@ -199,34 +195,34 @@ class LXDDriver(driver.ComputeDriver):
                                                         network_info)
 
     def pause(self, instance):
-        return self.container_ops.pause(instance)
+        self.container_ops.pause(instance)
 
     def unpause(self, instance):
-        return self.container_ops.unpause(instance)
+        self.container_ops.unpause(instance)
 
     def suspend(self, context, instance):
-        return self.container_ops.suspend(context, instance)
+        self.container_ops.suspend(context, instance)
 
     def resume(self, context, instance, network_info, block_device_info=None):
-        return self.container_ops.resume(context, instance, network_info,
-                                         block_device_info)
+        self.container_ops.resume(context, instance, network_info,
+                                  block_device_info)
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
-        return self.container_ops.rescue(context, instance, network_info,
-                                         image_meta, rescue_password)
+        self.container_ops.rescue(context, instance, network_info,
+                                  image_meta, rescue_password)
 
     def unrescue(self, instance, network_info):
         return self.container_ops.unrescue(instance, network_info)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        return self.container_ops.power_off(instance, timeout=0,
-                                            retry_interval=0)
+        self.container_ops.power_off(instance, timeout=0,
+                                     retry_interval=0)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
-        return self.container_ops.power_on(context, instance, network_info,
-                                           block_device_info)
+        self.container_ops.power_on(context, instance, network_info,
+                                    block_device_info)
 
     def soft_delete(self, instance):
         raise NotImplementedError()
