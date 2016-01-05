@@ -72,34 +72,9 @@ class LXDContainerMigrate(object):
         self._migration(migration, instance, network_info)
 
     def _migration(self, migration, instance, network_info):
-<<<<<<< HEAD
-        src_host = migration['source_compute']
-        dst_host = migration['dest_compute']
-        try:
-            if self.session.container_defined(instance.name, instance):
-                LOG.exception(_LE('Container already migrated'))
-            self.session.container_stop(instance.name, src_host, instance)
-            # container_ws = self.session.container_migrate(
-            #    instance.name, src_host, instance)
-            # Temporarily disable since container_migration is broken
-            # container_config = (
-            #    self.config.configure_container_migrate(
-            #        instance, container_ws, src_host))
-
-            self.session.container_init(container_config,
-                                        instance, dst_host)
-            self.session.container_destroy(instance.name, src_host, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to migrate container %(instance)s: '
-                              '%(reason)s'),
-                          {'instance': instance.name, 'reason': ex},
-                          instance=instance)
-=======
         # XXX: zul (Jan 4, 2016) - Temporarily disabled due to LXD config
         # change refactor.
         LOG.debug('_migration called for instance', instance=instance)
->>>>>>> bf4a705d4f2a499a5a984cdce5dd1a3854675b32
 
     def live_migration(self, context, instance_ref, dest, post_method,
                        recover_method, block_migration=False,

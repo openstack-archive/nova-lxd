@@ -173,7 +173,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
             [mock.call(instance, viface) for viface in network_info],
             self.mv.plug.call_args_list)
         calls = [
-            mock.call.container_start('fake-uuid', 5),
+            mock.call.container_start('fake-uuid', -1),
             mock.call.wait_container_operation(
                 '/1.0/operations/0123456789', 200, -1)
         ]
