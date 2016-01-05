@@ -19,7 +19,7 @@ from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
-from nova_lxd.nova.virt.lxd import config as container_config
+from nova_lxd.nova.virt.lxd import config
 from nova_lxd.nova.virt.lxd import container_ops
 from nova_lxd.nova.virt.lxd.session import session
 
@@ -36,7 +36,7 @@ class LXDContainerMigrate(object):
 
     def __init__(self, virtapi):
         self.virtapi = virtapi
-        self.config = container_config.LXDContainerConfig()
+        self.config = config.LXDContainerConfig()
         self.session = session.LXDAPISession()
         self.container_ops = \
             container_ops.LXDContainerOperations(
@@ -87,13 +87,13 @@ class LXDContainerMigrate(object):
             # container_config = (
             #    self.config.configure_container_migrate(
             #        instance, container_ws, src_host))
-
-            self.session.container_init(container_config,
-                                        instance, dst_host)
-            self.container_ops.start_container(container_config, instance,
-                                               network_info,
-                                               need_vif_plugged=True)
-            self.session.container_destroy(instance.name, src_host, instance)
+            #
+            #self.session.container_init(container_config,
+            #                            instance, dst_host)
+            #self.container_ops.start_container(container_config, instance,
+            #                                   network_info,
+            #                                   need_vif_plugged=True)
+            #self.session.container_destroy(instance.name, src_host, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to migrate container %(instance)s: '
