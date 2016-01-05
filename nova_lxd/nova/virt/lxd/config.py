@@ -36,6 +36,7 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDContainerConfig(object):
+    """LXD configuration methods."""
 
     def __init__(self):
         self.container_dir = container_dir.LXDContainerDirectories()
