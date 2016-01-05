@@ -288,7 +288,7 @@ class LXDContainerOperations(object):
         """
         try:
             for viface in network_info:
-                self.vif_driver.unplug(instance, network_info)
+                self.vif_driver.unplug(instance, viface)
             self.stop_firewall(instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -572,7 +572,7 @@ class LXDContainerOperations(object):
         try:
             console_log = self.container_dir.get_console_path(instance.name)
             if not os.path.exists(console_log):
-                return
+                return ""
             uid = pwd.getpwuid(os.getuid()).pw_uid
             utils.execute('chown', '%s:%s' % (uid, uid),
                           console_log, run_as_root=True)
