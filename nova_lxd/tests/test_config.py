@@ -29,6 +29,7 @@ from nova_lxd.tests import stubs
 @mock.patch.object(config, 'CONF', stubs.MockConf())
 @mock.patch.object(container_dir, 'CONF', stubs.MockConf())
 class LXDTestContainerConfig(test.NoDBTestCase):
+    """LXD Container configuration unit tests."""
 
     def setUp(self):
         super(LXDTestContainerConfig, self).setUp()
@@ -41,6 +42,10 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         ('test_devices', 'devices', {})
     )
     def test_create_container(self, tag, key, expected):
+        """Tests the create_container methond on LXDContainerConfig.
+           Inspect that the correct dictionary is returned for a given
+           instance.
+        """
         instance = stubs._fake_instance()
         rescue = False
         container_config = self.config.create_container(instance,
@@ -55,6 +60,9 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         ('test_devices', 'devices', {})
     )
     def test_get_container_config(self, tag, key, expected):
+        """Test the get_container_config method. Ensure that the
+           correct dicitonary keys and data is returned correctly.
+        """
         instance = stubs._fake_instance()
         rescue = False
         container_config = self.config.get_container_config(
@@ -72,6 +80,9 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                         'type': 'disk'}})
     )
     def test_get_container_config_rescue(self, tag, key, expected):
+        """Test the get_container_config method. Ensure the right
+           correct dictionary is created when using a rescue container.
+        """
         instance = stubs._fake_instance()
         rescue = True
         container_config = self.config.get_container_config(
@@ -79,6 +90,10 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         self.assertEqual(container_config[key], expected)
 
     def test_create_profile(self):
+        """Test the create_profile method, Ensure that the correct
+           method calls are preformed when creating a container
+           profile.
+        """
         instance = stubs._fake_instance()
         rescue = False
         network_info = test_utils.get_test_network_info()
@@ -105,12 +120,19 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         ('test_memmoy', 'limits.memory', '512MB')
     )
     def test_create_config(self, tag, key, expected):
+        """Test the create_config method. Ensure that
+            the container is created with a 512MB memory
+            limit.
+        """
         instance = stubs._fake_instance()
         instance_name = 'fake_instance'
         config = self.config._create_config(instance_name, instance)
         self.assertEqual(config[key], expected)
 
     def test_create_container_source(self):
+        """Test the create_config mehtod. Ensure that
+           the right image is used when creating a container.
+        """
         instance = stubs._fake_instance()
         config = self.config._get_container_source(instance)
         self.assertEqual(config, {'type': 'image', 'alias': 'fake_image'})

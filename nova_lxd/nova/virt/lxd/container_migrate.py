@@ -17,10 +17,9 @@ from nova import i18n
 
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_utils import excutils
 
-from nova_lxd.nova.virt.lxd import config as container_config
-from nova_lxd.nova.virt.lxd import operations as container_ops
+from nova_lxd.nova.virt.lxd import config
+from nova_lxd.nova.virt.lxd import operations
 from nova_lxd.nova.virt.lxd.session import session
 
 
@@ -36,10 +35,10 @@ class LXDContainerMigrate(object):
 
     def __init__(self, virtapi):
         self.virtapi = virtapi
-        self.config = container_config.LXDContainerConfig()
+        self.config = config.LXDContainerConfig()
         self.session = session.LXDAPISession()
         self.container_ops = \
-            container_ops.LXDContainerOperations(
+            operations.LXDContainerOperations(
                 self.virtapi)
 
     def migrate_disk_and_power_off(self, context, instance, dest,
@@ -73,6 +72,7 @@ class LXDContainerMigrate(object):
         self._migration(migration, instance, network_info)
 
     def _migration(self, migration, instance, network_info):
+<<<<<<< HEAD
         src_host = migration['source_compute']
         dst_host = migration['dest_compute']
         try:
@@ -95,6 +95,11 @@ class LXDContainerMigrate(object):
                               '%(reason)s'),
                           {'instance': instance.name, 'reason': ex},
                           instance=instance)
+=======
+        # XXX: zul (Jan 4, 2016) - Temporarily disabled due to LXD config
+        # change refactor.
+        LOG.debug('_migration called for instance', instance=instance)
+>>>>>>> bf4a705d4f2a499a5a984cdce5dd1a3854675b32
 
     def live_migration(self, context, instance_ref, dest, post_method,
                        recover_method, block_migration=False,

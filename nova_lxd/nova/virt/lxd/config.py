@@ -36,6 +36,7 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDContainerConfig(object):
+    """LXD configuration methods."""
 
     def __init__(self):
         self.container_dir = container_dir.LXDContainerDirectories()
@@ -43,7 +44,7 @@ class LXDContainerConfig(object):
         self.vif_driver = vif.LXDGenericDriver()
 
     def create_container(self, instance, rescue=False):
-        """Create a LXD contaienr dictionary so that we can
+        """Create a LXD container dictionary so that we can
            use it to initialize a container
 
            :param instance: nova instance object
@@ -87,7 +88,7 @@ class LXDContainerConfig(object):
             if rescue:
                 instance_name = '%s-rescue' % instance.name
 
-            config = dict()
+            config = {}
             config['name'] = str(instance_name)
             config['config'] = self._create_config(instance_name, instance)
             config['devices'] = self._create_network(instance_name, instance,
@@ -97,7 +98,7 @@ class LXDContainerConfig(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Failed to create profile %(instance)s: %(ex)s'),
-                    {'isntance': instance_name, 'ex': ex}, instance=instance)
+                    {'instance': instance_name, 'ex': ex}, instance=instance)
 
     def _create_config(self, instance_name, instance):
         """Create the LXD container resources
@@ -108,7 +109,7 @@ class LXDContainerConfig(object):
         """
         LOG.debug('_create_config called for instance', instance=instance)
         try:
-            config = dict()
+            config = {}
 
             mem = instance.memory_mb
             if mem >= 0:
@@ -135,7 +136,7 @@ class LXDContainerConfig(object):
         """
         LOG.debug('_create_network called for instance', instance=instance)
         try:
-            network_devices = dict()
+            network_devices = {}
 
             for vifaddr in network_info:
                 cfg = self.vif_driver.get_config(instance, vifaddr)
@@ -165,11 +166,11 @@ class LXDContainerConfig(object):
             if rescue:
                 instance_name = '%s-rescue' % instance.name
 
-            container_config = dict(name=instance_name,
-                                    profiles=[str(instance_name)],
-                                    source=self._get_container_source(
-                                        instance),
-                                    devices={})
+            container_config = {
+                'name': instance_name,
+                'profiles': [str(instance_name)],
+                'source': self._get_container_source(instance),
+                'devices': {}}
             # if a config drive is required setup the mount point for the
             # container
             if configdrive.required_by(instance):
@@ -222,7 +223,7 @@ class LXDContainerConfig(object):
                     instance=instance)
 
     def _configure_disk_path(self, src_path, dest_path, vfs_type, instance):
-        """Configure the host mount piont for the LXD container
+        """Configure the host mount point for the LXD container
 
         :param src_path: source path on the house
         :param dest_path: destination path on the LXD container
