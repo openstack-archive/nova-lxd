@@ -30,7 +30,7 @@ from nova import exception
 from nova import i18n
 from nova import utils
 
-from nova_lxd.nova.virt.lxd import container_config
+from nova_lxd.nova.virt.lxd import config
 from nova_lxd.nova.virt.lxd import container_firewall
 from nova_lxd.nova.virt.lxd import image
 from nova_lxd.nova.virt.lxd.session import session
@@ -55,7 +55,7 @@ class LXDContainerOperations(object):
     def __init__(self, virtapi):
         self.virtapi = virtapi
 
-        self.container_config = container_config.LXDContainerConfig()
+        self.container_config = config.LXDContainerConfig()
         self.container_dir = container_dir.LXDContainerDirectories()
         self.image = image.LXDContainerImage()
         self.firewall_driver = container_firewall.LXDContainerFirewall()

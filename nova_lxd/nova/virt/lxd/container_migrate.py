@@ -17,9 +17,8 @@ from nova import i18n
 
 from oslo_config import cfg
 from oslo_log import log as logging
-from oslo_utils import excutils
 
-from nova_lxd.nova.virt.lxd import container_config
+from nova_lxd.nova.virt.lxd import config
 from nova_lxd.nova.virt.lxd import container_ops
 from nova_lxd.nova.virt.lxd.session import session
 
@@ -36,7 +35,7 @@ class LXDContainerMigrate(object):
 
     def __init__(self, virtapi):
         self.virtapi = virtapi
-        self.config = container_config.LXDContainerConfig()
+        self.config = config.LXDContainerConfig()
         self.session = session.LXDAPISession()
         self.container_ops = \
             container_ops.LXDContainerOperations(
@@ -73,30 +72,9 @@ class LXDContainerMigrate(object):
         self._migration(migration, instance, network_info)
 
     def _migration(self, migration, instance, network_info):
-        src_host = migration['source_compute']
-        dst_host = migration['dest_compute']
-        try:
-            if self.session.container_defined(instance.name, instance):
-                LOG.exception(_LE('Container already migrated'))
-            self.session.container_stop(instance.name, src_host, instance)
-            container_ws = self.session.container_migrate(
-                instance.name, src_host, instance)
-            container_config = (
-                self.config.configure_container_migrate(
-                    instance, container_ws, src_host))
-
-            self.session.container_init(container_config,
-                                        instance, dst_host)
-            self.container_ops.start_container(container_config, instance,
-                                               network_info,
-                                               need_vif_plugged=True)
-            self.session.container_destroy(instance.name, src_host, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to migrate container %(instance)s: '
-                              '%(reason)s'),
-                          {'instance': instance.name, 'reason': ex},
-                          instance=instance)
+        # XXX: zul (Jan 4, 2016) - Temporarily disabled due to LXD config
+        # change refactor.
+        LOG.debug('_migration called for instance', instance=instance)
 
     def live_migration(self, context, instance_ref, dest, post_method,
                        recover_method, block_migration=False,

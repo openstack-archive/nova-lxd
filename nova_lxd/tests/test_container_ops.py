@@ -21,7 +21,7 @@ from nova import test
 from nova.virt import fake
 from pylxd import exceptions as lxd_exception
 
-from nova_lxd.nova.virt.lxd import container_config
+from nova_lxd.nova.virt.lxd import config
 from nova_lxd.nova.virt.lxd import container_ops
 from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.tests import stubs
@@ -84,7 +84,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
         self.ml.container_defined.return_value = True
 
         with test.nested(
-                mock.patch.object(container_config.LXDContainerConfig,
+                mock.patch.object(config.LXDContainerConfig,
                                   'create_container'),
                 mock.patch.object(session.LXDAPISession,
                                   'container_init'),
@@ -103,7 +103,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
                 rescue)
             print(container_init.method_calls)
             container_init.called_assert_called_once_with(
-                container_config, instance.host)
+                config, instance.host)
 
     @mock.patch.object(container_ops, 'utils')
     @stubs.annotated_data(
