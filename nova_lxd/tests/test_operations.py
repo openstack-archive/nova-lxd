@@ -54,7 +54,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
 
     def test_spawn_container(self):
         """Test spawn method. Ensure that the right calls
-           are made when creating a container."""
+           are made when creating a container.
+        """
         context = mock.Mock()
         instance = stubs._fake_instance()
         image_meta = mock.Mock()
@@ -95,7 +96,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
 
     def test_reboot_container(self):
         """Test the reboot method. Ensure that the proper
-           calls are made when rebooting a continer."""
+           calls are made when rebooting a continer.
+        """
         instance = stubs._fake_instance()
         context = mock.Mock()
         with test.nested(
@@ -109,7 +111,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
     def test_destroy_container(self):
         """Test the destroy conainer method. Ensure that
            the correct calls are made when removing
-           the contianer."""
+           the contianer.
+        """
         context = mock.Mock()
         instance = stubs._fake_instance()
         network_info = mock.Mock()
@@ -132,7 +135,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
     def test_power_off(self):
         """Test the power_off method. Ensure that the proper
            calls are made when the container is powered
-           off."""
+           off.
+        """
         instance = stubs._fake_instance()
         with test.nested(
             mock.patch.object(session.LXDAPISession, 'container_stop')
@@ -143,7 +147,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
 
     def test_power_on(self):
         """test the power_on method. Ensure that the proper
-           calls are made when the container is powered on."""
+           calls are made when the container is powered on.
+        """
         instance = stubs._fake_instance()
         network_info = mock.Mock()
         context = mock.Mock()
@@ -159,7 +164,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
 
     def test_pause_container(self):
         """Test the pause container method. Ensure that that
-           the proper calls are made when pausing the container."""
+           the proper calls are made when pausing the container.
+        """
         instance = stubs._fake_instance()
         with test.nested(
             mock.patch.object(session.LXDAPISession, 'container_pause')
@@ -170,7 +176,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
 
     def test_unpause_container(self):
         """Test the unapuse continaer. Ensure that the proper
-           calls are made when unpausing a container."""
+           calls are made when unpausing a container.
+        """
         instance = stubs._fake_instance()
         with test.nested(
             mock.patch.object(session.LXDAPISession, 'container_unpause')
