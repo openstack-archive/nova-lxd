@@ -344,19 +344,19 @@ class LXDTestDriver(test.NoDBTestCase):
         value = self.connection.get_available_resource(None)
         value['cpu_info'] = json.loads(value['cpu_info'])
         value['supported_instances'] = [[arch.I686, hv_type.LXD,
-                                             vm_mode.EXE],
+                                         vm_mode.EXE],
                                         [arch.X86_64, hv_type.LXD,
-                                             vm_mode.EXE],
+                                         vm_mode.EXE],
                                         [arch.I686, hv_type.LXC,
-                                             vm_mode.EXE],
+                                         vm_mode.EXE],
                                         [arch.X86_64, hv_type.LXC,
-                                             vm_mode.EXE]]
+                                         vm_mode.EXE]]
         expected = {'cpu_info': {u'arch': platform.uname()[5],
                                  u'features': u'fake flag goes here',
                                  u'model': u'Fake CPU',
                                  u'topology': {u'cores': u'5',
-                                              u'sockets': u'10',
-                                              u'threads': u'4'},
+                                               u'sockets': u'10',
+                                               u'threads': u'4'},
                                  u'vendor': u'FakeVendor'},
                     'hypervisor_hostname': 'fake_hostname',
                     'hypervisor_type': 'lxd',
