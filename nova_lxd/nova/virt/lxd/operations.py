@@ -112,8 +112,6 @@ class LXDContainerOperations(object):
             raise exception.InstanceExists(name=instance.name)
 
         try:
-            LOG.debug('!!! %s' % image_meta.id)
-
             # Step 1 - Fetch the image from glance
             self._fetch_image(context, instance, image_meta)
 

@@ -35,23 +35,19 @@ class LXDContainerDirectories(object):
 
     def get_container_rootfs_image(self, image_meta):
         return os.path.join(self.base_dir,
-                            '%s-rootfs.tar.gz' %
-                            image_meta.id)
+                            '%s-rootfs.tar.gz' % image_meta.get('id'))
 
     def get_container_manifest_image(self, image_meta):
         return os.path.join(self.base_dir,
-                            '%s-manifest.tar' %
-                            image_meta.id)
+                            '%s-manifest.tar' % image_meta.get('id'))
 
     def get_container_metadata(self, image_meta):
         return os.path.join(self.base_dir,
-                            '%s-lxd.tar.xz'
-                            % image_meta.id)
+                            '%s-lxd.tar.xz' % image_meta.get('id'))
 
     def get_container_rootfsImg(self, image_meta):
         return os.path.join(self.base_dir,
-                            '%s-root.tar.gz' %
-                            image_meta.id)
+                            '%s-root.tar.gz' % image_meta.get('id'))
 
     def get_container_configdrive(self, instance):
         return os.path.join(CONF.instances_path,
@@ -92,7 +88,7 @@ class LXDContainerDirectories(object):
     def is_lvm(self, instance):
         try:
             if os.path.exists(os.readlink(
-                    self.get_container_lvm(instance))):
+                self.get_container_lvm(instance))):
                 return True
         except Exception:
             return False
