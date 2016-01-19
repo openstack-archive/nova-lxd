@@ -1,7 +1,7 @@
 [run]
 branch = True
 source = nova_lxd
+omit = nova_lxd/tests/*
 
 [report]
-ignore-errors = True
-omit = nova_lxd/tests/*
+ignore_errors = True
