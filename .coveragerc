@@ -5,3 +5,4 @@ omit = nova_lxd/tests/*
 
 [report]
 ignore_errors = True
+precision = 2
