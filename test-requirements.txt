@@ -15,5 +15,6 @@ testrepository>=0.0.18
 testscenarios>=0.4
 testtools>=1.4.0
 os-testr>=0.4.1
+nosexcover
 -e git+https://github.com/lxc/pylxd#egg=pylxd
 -e git+https://github.com/openstack/nova#egg=nova
