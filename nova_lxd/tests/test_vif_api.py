@@ -64,6 +64,22 @@ class LXDTestNetworkDriver(test.NoDBTestCase):
             self.vif_driver.plug,
             instance, vif_data)
 
+    def test_get_config_ovs(self):
+        instance = stubs._fake_instance()
+        vif_data = copy.deepcopy(self.vif_data)
+
+        vif_type = self.vif_driver.get_config(instance, vif_data)
+        self.assertEqual(vif_type, {'bridge': 'qbr0123456789a',
+                                    'mac_address': '00:11:22:33:44:55'})
+
+    def test_get_config_bridge(self):
+        instance = stubs._fake_instance()
+        vif_data = copy.deepcopy(self.vif_data)
+
+        vif_type = self.vif_driver.get_config(instance, vif_data)
+        self.assertEqual(vif_type, {'bridge': 'qbr0123456789a',
+                                    'mac_address': '00:11:22:33:44:55'})
+
     @stubs.annotated_data(
         ('id', {}, [True, True]),
         ('ovs-id', {'ovs_interfaceid': '123456789abcdef0'}, [True, True]),

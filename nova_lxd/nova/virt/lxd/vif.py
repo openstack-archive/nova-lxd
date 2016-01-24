@@ -218,3 +218,6 @@ class LXDGenericDriver(object):
 
     def unplug_ovs_bridge(self, instance, vif):
         pass
+
+    def unplug_bridge(self, instance, vif):
+        pass
