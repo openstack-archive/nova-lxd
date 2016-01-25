@@ -236,14 +236,14 @@ class LXDContainerOperations(object):
                                                      extra_md=extra_md)
         # Create the ISO image so we can inject the contents of the ISO
         # into the container
-        iso_path =  os.path.join(self.instance_dir, 'configdirve.iso')
+        iso_path = os.path.join(self.instance_dir, 'configdirve.iso')
         with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
             try:
                 cdb.make_drive(iso_path)
             except Exception as e:
                 with excutils.save_and_reraise_exception():
-                    LOG.error(_LE('Creating config drive failed with error: %s'),
-                              e, instance=instance)
+                    LOG.error(_LE('Creating config drive failed with error: '
+                                  '%s'), e, instance=instance)
 
         # Copy the metadata info from the ISO into the container
         configdrive_dir = \
@@ -254,9 +254,9 @@ class LXDContainerOperations(object):
                 _, err = utils.execute('mount',
                                        '-o',
                                        'loop,uid=%d,gid=%d' % (os.getuid(),
-                                                              os.getgid()),
-                                        iso_path, tmpdir,
-                                        run_as_root=True)
+                                                               os.getgid()),
+                                       iso_path, tmpdir,
+                                       run_as_root=True)
                 mounted = True
 
                 # Copy and adjust the files from the ISO so that we
@@ -267,7 +267,7 @@ class LXDContainerOperations(object):
                     shutil.copytree(os.path.join(tmpdir, ent),
                                     os.path.join(configdrive_dir, ent))
                 utils.execute('chmod', '-R', '775', configdrive_dir,
-                               run_as_root=True)
+                              run_as_root=True)
             finally:
                 if mounted:
                     utils.execute('umount', tmpdir, run_as_root=True)

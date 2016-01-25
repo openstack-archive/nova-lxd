@@ -21,10 +21,12 @@ from nova import image
 
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import excutils
 
 from nova_lxd.nova.virt.lxd.session import session
 
 _ = i18n._
+_LE = i18n._LE
 
 CONF = cfg.CONF
 LOG = logging.getLogger(__name__)
@@ -38,60 +40,106 @@ class LXDSnapshot(object):
         self.session = session.LXDAPISession()
 
     def snapshot(self, context, instance, image_id, update_task_state):
-        LOG.debug('in snapshot')
-        update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
+        """Create a LXD snapshot  of the instance
 
-        snapshot = IMAGE_API.get(context, image_id)
+           Steps involved in creating an LXD Snapshot:
 
-        ''' Create a snapshot of the running contianer'''
-        self.create_container_snapshot(snapshot, instance)
+           1. Ensure the container exists
+           2. Stop the LXD container: LXD requires a container
+              to be stopped in or
+           3. Publish the container: Run the API equivalent to
+              'lxd publish container --alias <image_name>' to create
+              a snapshot and upload it to the local LXD image store.
+           4. Create an alias for the image: Create an alias so that
+              nova-lxd can re-use the image that was created.
+           5. Upload the image to glance so that it can bed on other
+              compute hosts.
 
-        ''' Publish the image to LXD '''
-        self.session.container_stop(instance.name, instance.host, instance)
-        fingerprint = self.create_lxd_image(snapshot, instance)
-        self.create_glance_image(
-            context, image_id, snapshot, fingerprint, instance)
+          :param context: nova security context
+          :param instance: nova instance object
+          :param image_id: glance image id
+        """
+        LOG.debug('snapshot called for instance', isntance=instance)
 
-        update_task_state(task_state=task_states.IMAGE_UPLOADING,
-                          expected_state=task_states.IMAGE_PENDING_UPLOAD)
+        try:
+            if not self.session.container_defined(instance.name, instance):
+                raise exception.InstanceNotFound(instance_id=instance.name)
 
-        self.session.container_start(instance)
+            update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
 
-    def create_container_snapshot(self, snapshot, instance):
-        LOG.debug('Creating container snapshot')
-        csnapshot = {'name': snapshot['name'],
-                     'stateful': False}
-        self.session.container_snapshot(csnapshot, instance)
+            # We have to stop the container before we can publish the
+            # image to the local store
+            self.session.container_stop(instance.name, instance.host, instance)
+            fingerprint = self._save_lxd_image(instance, image_id)
+            self.session.container_start(instance.name, instance)
 
-    def create_lxd_image(self, snapshot, instance):
-        LOG.debug('Uploading image to LXD image store.')
-        image = {
-            'source': {
-                'name': '%s/%s' % (instance.name,
-                                   snapshot['name']),
-                'type': 'snapshot'
+            update_task_state(task_state=task_states.IMAGE_UPLOADING,
+                              expected_state=task_states.IMAGE_PENDING_UPLOAD)
+            self._save_glance_image(context, instance, image_id, fingerprint)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to create snapshot for %(instance)s: '
+                              '%(ex)s'), {'instance': instance.name, 'ex': ex},
+                          instance=instance)
+
+    def _save_lxd_image(self, instance, image_id):
+        """Creates an LXD image from the LXD continaer
+
+        """
+        LOG.debug('_save_lxd_image called for instance', instance=instance)
+
+        try:
+            # Publish the snapshot to the local LXD image store
+            container_snapshot = {
+                "properties": {},
+                "public": False,
+                "source": {
+                    "name": instance.name,
+                    "type": "container"
+                }
             }
-        }
-        LOG.debug(image)
-        (state, data) = self.session.container_publish(image, instance)
+            (state, data) = self.session.container_publish(container_snapshot,
+                                                           instance)
+            event_id = data.get('operation')
+            self.session.wait_for_snapshot(event_id, instance)
 
-        LOG.debug('Creating LXD alias')
-        fingerprint = str(data['metadata']['fingerprint'])
-        snapshot_alias = {'name': snapshot['id'],
-                          'target': fingerprint}
-        LOG.debug(snapshot_alias)
-        self.session.create_alias(snapshot_alias, instance)
+            # Image has been create but the fingerprint is buried deep
+            # in the metadata when the snapshot is complete
+            (state, data) = self.session.operation_info(event_id, instance)
+            fingerprint = data['metadata']['metadata']['fingerprint']
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to publish snapshot for %(instance)s: '
+                              '%(ex)s'), {'instance': instance.name,
+                                          'ex': ex}, instance=instance)
+
+        try:
+            # Set the alias for the LXD image
+            alias_config = {
+                'name': image_id,
+                'target': fingerprint
+            }
+            self.session.create_alias(alias_config, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to create alias for %(instance)s: '
+                              '%(ex)s'), {'instance': instance.name,
+                                          'ex': ex}, instance=instance)
+
         return fingerprint
 
-    def create_glance_image(self, context, image_id, snapshot, fingerprint,
-                            instance):
-        LOG.debug('Uploading image to glance')
-        image_metadata = {'name': snapshot['name'],
-                          "disk_format": "raw",
-                          "container_format": "bare"}
+    def _save_glance_image(self, context, instance, image_id, fingerprint):
+        LOG.debug('_save_glance_image called for instance', instnace=instance)
+
         try:
+            snapshot = IMAGE_API.get(context, image_id)
             data = self.session.container_export(fingerprint, instance)
-            IMAGE_API.update(context, image_id, image_metadata, data)
+            image_meta = {'name': snapshot['name'],
+                          'disk_format': 'raw'}
+            IMAGE_API.update(context, image_id, image_meta, data)
         except Exception as ex:
-            msg = _("Failed: %s") % ex
-            raise exception.NovaException(msg)
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to upload image to glance for '
+                              '%(instance)s:  %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
