@@ -25,6 +25,7 @@ import shutil
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
+from oslo_utils import fileutils
 from oslo_utils import units
 
 from nova import exception
@@ -64,6 +65,7 @@ class LXDContainerOperations(object):
         self.session = session.LXDAPISession()
 
         self.vif_driver = vif.LXDGenericDriver()
+        self.instance_dir = None
 
     def list_instances(self):
         return self.session.container_list()
@@ -109,6 +111,13 @@ class LXDContainerOperations(object):
             raise exception.InstanceExists(name=instance.name)
 
         try:
+
+            # Ensure that the instance directory exists
+            self.instance_dir = \
+                self.container_dir.get_instance_dir(instance_name)
+            if not os.path.exists(self.instance_dir):
+                fileutils.ensure_tree(self.instance_dir)
+
             # Step 1 - Fetch the image from glance
             self._fetch_image(context, instance, image_meta)
 
@@ -225,17 +234,43 @@ class LXDContainerOperations(object):
         inst_md = instance_metadata.InstanceMetadata(instance,
                                                      content=injected_files,
                                                      extra_md=extra_md)
-        name = instance.name
-        try:
-            with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
-                container_configdrive = (
-                    self.container_dir.get_container_configdrive(name)
-                )
-                cdb.make_drive(container_configdrive)
-        except Exception as e:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Creating config drive failed with error: %s'),
-                          e, instance=instance)
+        # Create the ISO image so we can inject the contents of the ISO
+        # into the container
+        iso_path =  os.path.join(self.instance_dir, 'configdirve.iso')
+        with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
+            try:
+                cdb.make_drive(iso_path)
+            except Exception as e:
+                with excutils.save_and_reraise_exception():
+                    LOG.error(_LE('Creating config drive failed with error: %s'),
+                              e, instance=instance)
+
+        # Copy the metadata info from the ISO into the container
+        configdrive_dir = \
+            self.container_dir.get_container_configdrive(instance.name)
+        with utils.tempdir() as tmpdir:
+            mounted = False
+            try:
+                _, err = utils.execute('mount',
+                                       '-o',
+                                       'loop,uid=%d,gid=%d' % (os.getuid(),
+                                                              os.getgid()),
+                                        iso_path, tmpdir,
+                                        run_as_root=True)
+                mounted = True
+
+                # Copy and adjust the files from the ISO so that we
+                # dont have the ISO mounted during the life cycle of the
+                # instance and the directory can be removed once the instance
+                # is terminated
+                for ent in os.listdir(tmpdir):
+                    shutil.copytree(os.path.join(tmpdir, ent),
+                                    os.path.join(configdrive_dir, ent))
+                utils.execute('chmod', '-R', '775', configdrive_dir,
+                               run_as_root=True)
+            finally:
+                if mounted:
+                    utils.execute('umount', tmpdir, run_as_root=True)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):

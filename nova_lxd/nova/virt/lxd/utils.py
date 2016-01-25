@@ -52,7 +52,7 @@ class LXDContainerDirectories(object):
     def get_container_configdrive(self, instance):
         return os.path.join(CONF.instances_path,
                             instance,
-                            'config-drive')
+                            'configdrive')
 
     def get_console_path(self, instance):
         return os.path.join(CONF.lxd.root_dir,

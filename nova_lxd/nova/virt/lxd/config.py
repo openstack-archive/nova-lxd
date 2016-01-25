@@ -73,7 +73,7 @@ class LXDContainerConfig(object):
                 config = self.configure_disk_path(configdrive_dir,
                                                   'var/lib/cloud',
                                                   'configdrive', instance)
-                container_config['devices'].upate(config)
+                container_config['devices'].update(config)
 
             if container_config is None:
                 msg = _('Failed to get container configuration for %s') \
