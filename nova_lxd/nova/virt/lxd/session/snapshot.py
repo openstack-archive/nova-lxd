@@ -168,7 +168,7 @@ class SnapshotMixin(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to create snapshot for %(instance)s: '
                               '%(ex)s'), {'instance': instance.name, 'ex': ex},
-                          isntance=instance)
+                          instance=instance)
 
     def _wait_for_snapshot(self, event_id, instance):
         """Check the status code of the opeation id.

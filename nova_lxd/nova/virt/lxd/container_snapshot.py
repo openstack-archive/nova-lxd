@@ -59,7 +59,7 @@ class LXDSnapshot(object):
           :param instance: nova instance object
           :param image_id: glance image id
         """
-        LOG.debug('snapshot called for instance', isntance=instance)
+        LOG.debug('snapshot called for instance', instance=instance)
 
         try:
             if not self.session.container_defined(instance.name, instance):

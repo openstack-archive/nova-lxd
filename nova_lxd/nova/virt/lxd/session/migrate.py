@@ -42,7 +42,7 @@ class MigrateMixin(object):
         :return: dictionary of the container keys
 
         """
-        LOG.debug('container_migrate called for instance', isntance=instance)
+        LOG.debug('container_migrate called for instance', instance=instance)
         try:
             LOG.info(_LI('Migrating instance %(instance)s with'
                          '%(image)s'), {'instance': instance_name,

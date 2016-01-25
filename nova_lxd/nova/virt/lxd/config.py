@@ -71,7 +71,7 @@ class LXDContainerConfig(object):
                     self.container_dir.get_container_configdrive(
                         instance.name)
                 config = self.configure_disk_path(configdrive_dir,
-                                                  'var/lib/cloud',
+                                                  'var/lib/cloud/data',
                                                   'configdrive', instance)
                 container_config['devices'].update(config)
 

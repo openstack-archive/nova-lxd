@@ -430,7 +430,7 @@ class LXDContainerOperations(object):
         :param nova.objects.instance.Instance instance:
             The instance which should be paused.
         """
-        LOG.debug('suspend called for instance', isntance=instance)
+        LOG.debug('suspend called for instance', instance=instance)
         try:
             self.session.container_pause(instance.name, instance)
         except Exception as ex:
