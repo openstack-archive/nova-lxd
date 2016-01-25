@@ -32,37 +32,6 @@ LOG = logging.getLogger(__name__)
 
 class SnapshotMixin(object):
 
-    def container_copy(self, config, instance):
-        """Copy a LXD container
-
-        :param config: LXD container configuration
-        :param instance: nova instance object
-
-        """
-        LOG.debug('container_copy called for instance', instance=instance)
-        try:
-            LOG.info(_LI('Copying container %(instance)s with'
-                         '%(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
-
-            client = self.get_session(instance.host)
-            (state, data) = client.contianer_local_copy(config)
-            self.operation_wait(data.get('operation'), instance)
-            LOG.info(_LI('Successfully copied container %(instance)s with'
-                         '%(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
-        except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD API %(instance)s:'
-                    ' %(reason)s') % {'instance': instance.name,
-                                      'reason': ex}
-            raise exception.NovaException(msg)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(
-                    _LE('Failed to copy container %(instance)s: %(reason)s'),
-                    {'instance': instance.name,
-                     'reason': ex})
-
     def container_move(self, old_name, config, instance):
         """Move a container from one host to another
 

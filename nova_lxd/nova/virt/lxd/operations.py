@@ -57,7 +57,7 @@ class LXDContainerOperations(object):
     def __init__(self, virtapi):
         self.virtapi = virtapi
 
-        self.container_config = container_config.LXDContainerConfig()
+        self.config = container_config.LXDContainerConfig()
         self.container_dir = container_dir.LXDContainerDirectories()
         self.image = image.LXDContainerImage()
         self.firewall_driver = container_firewall.LXDContainerFirewall()
@@ -69,8 +69,7 @@ class LXDContainerOperations(object):
         return self.session.container_list()
 
     def spawn(self, context, instance, image_meta, injected_files,
-              admin_password=None, network_info=None, block_device_info=None,
-              rescue=False):
+              admin_password=None, network_info=None, block_device_info=None):
         """Start the LXD container
 
         Once this successfully completes, the instance should be
@@ -105,8 +104,6 @@ class LXDContainerOperations(object):
         LOG.debug(msg, instance=instance)
 
         instance_name = instance.name
-        if rescue:
-            instance_name = '%s-rescue' % instance.name
 
         if self.session.container_defined(instance_name, instance):
             raise exception.InstanceExists(name=instance.name)
@@ -119,14 +116,14 @@ class LXDContainerOperations(object):
             self._setup_network(instance_name, instance, network_info)
 
             # Step 3 - Create the container profile
-            self._setup_profile(instance_name, instance, network_info, rescue)
+            self._setup_profile(instance_name, instance, network_info)
 
             # Step 4 - Create a config drive (optional)
             if configdrive.required_by(instance):
                 self._add_configdrive(instance, injected_files)
 
             # Step 5 - Configure and start the container
-            self._setup_container(instance_name, instance, rescue)
+            self._setup_container(instance_name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Faild to start container '
@@ -172,20 +169,20 @@ class LXDContainerOperations(object):
                           {'instance': instance_name, 'ex': ex},
                           instance=instance)
 
-    def _setup_profile(self, instance_name, instance, network_info, rescue):
+    def _setup_profile(self, instance_name, instance, network_info):
         """Create an LXD container profile for the nova intsance
 
         :param instance_name: nova instance name
         :param instance: nova instance object
         :param network_info: nova instance netowkr configuration
-        :param rescue: boolean rescue instance if True needed to create
         """
         LOG.debug('_setup_profile called for instance', instance=instance)
         try:
             # Setup the container profile based on the nova
             # instance object and network objects
-            self.container_config.create_profile(instance, network_info,
-                                                 rescue)
+            container_profile = self.config.create_profile(instance,
+                                                           network_info)
+            self.session.profile_create(container_profile, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to create a profile for'
@@ -193,19 +190,19 @@ class LXDContainerOperations(object):
                           {'instance': instance_name,
                            'ex': ex}, instance=instance)
 
-    def _setup_container(self, instance_name, instance, rescue):
+    def _setup_container(self, instance_name, instance):
         """Create and start the LXD container.
 
         :param instance_name: nova instjace name
         :param instance: nova instance object
-        :param rescue: boolean rescue container
         """
         LOG.debug('_setup_container called for instance', instance=instance)
         try:
             # Create the container
             container_config = \
-                self.container_config.create_container(instance, rescue)
-            self.session.container_init(container_config, instance, rescue)
+                self.config.create_container(instance)
+            self.session.container_init(
+                container_config, instance, instance.host)
 
             # Start the container
             self.session.container_start(instance_name, instance)
@@ -442,51 +439,33 @@ class LXDContainerOperations(object):
                 msg = _('Unable to find instance')
                 raise exception.NovaException(msg)
 
-            self.session.container_stop(instance.name, instance.host)
-            self._container_local_copy(instance)
-            self.session.container_destroy(instance.name, instance.host,
-                                           instance)
+            # Step 1 - Stop the old container
+            self.session.container_stop(instance.name, instance.host, instance)
 
-            self.spawn(context, instance, image_meta, injected_files=None,
-                       admin_password=None, network_info=network_info,
-                       block_device_info=None,
-                       rescue=True)
+            # Step 2 - Rename the broken contianer to be rescued
+            self.session.container_move(instance.name,
+                                        {'name': '%s-backup' % instance.name},
+                                        instance)
+
+            # Step 3 - Re use the old instance object and confiugre
+            #          the disk mount point and create a new container.
+            container_config = self.config.create_container(instance)
+            rescue_dir = self.container_dir.get_container_rescue(
+                instance.name + '-backup')
+            config = self.config.configure_disk_path(rescue_dir,
+                                                     'mnt', 'rescue', instance)
+            container_config['devices'].update(config)
+            self.session.container_init(container_config, instance,
+                                        instance.host)
+
+            # Step 4 - Start the rescue instance
+            self.session.container_start(instance.name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container rescue failed for '
                                   '%(instance)s: %(ex)s'),
                               {'instance': instance.name,
                                'ex': ex}, instance=instance)
-
-    def _container_local_copy(self, instance):
-        """Copy a local container
-
-        :param instance: nova instance object
-        """
-        LOG.debug('_container_local_copy called for instance',
-                  instance=instance)
-        try:
-            container_snapshot = {
-                'name': 'snap',
-                'stateful': False
-            }
-            self.session.container_snapshot(container_snapshot, instance)
-
-            # Creating container copy
-            container_copy = {
-                "config": None,
-                "name": "%s-backup" % instance.name,
-                "profiles": None,
-                "source": {
-                    "source": "%s/snap" % instance.name,
-                    "type": "copy"}}
-            self.session.container_copy(container_copy, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to copy container'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
 
     def unrescue(self, instance, network_info):
         """Unrescue a LXD host
@@ -496,16 +475,23 @@ class LXDContainerOperations(object):
         """
         LOG.debug('unrescue called for instance', instance=instance)
         try:
-            old_name = '%s-backup' % instance.name
-            container_config = {
-                'name': '%s' % instance.name
-            }
+            if not self.session.container_defined(instance.name, instance):
+                msg = _('Unable to find instance')
+                raise exception.NovaException(msg)
 
-            self.session.container_move(old_name, container_config,
-                                        instance)
+            # Step 1 - Destory the rescue instance.
             self.session.container_destroy(instance.name,
                                            instance.host,
                                            instance)
+
+            # Step 2 - Rename the backup container that
+            #          the user was working on.
+            self.session.container_move(instance.name + '-backup',
+                                        {'name': instance.name},
+                                        instance)
+
+            # Step 3 - Start the old contianer
+            self.session.container_start(instance.name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Container unrescue failed for '
@@ -599,8 +585,8 @@ class LXDContainerOperations(object):
             self.vif_driver.plug(instance, vif)
             self.firewall_driver.setup_basic_filtering(instance, vif)
             container_config = (
-                self.container_config.configure_container_net_device(instance,
-                                                                     vif))
+                self.config.configure_container_net_device(instance,
+                                                           vif))
             self.session.container_update(container_config, instance)
         except exception.NovaException:
             self.vif_driver.unplug(instance, vif)
