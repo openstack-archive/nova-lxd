@@ -125,7 +125,9 @@ class LXDContainerConfig(object):
             if mem >= 0:
                 config['limits.memory'] = '%sMB' % mem
 
-            config['raw.lxc'] = 'lxc.console.logfile=%s\n' \
+            config['raw.lxc'] = 'lxc.console=\n' \
+                                'lxc.cgroup.devices.deny=c 5:1 rwm\n' \
+                                'lxc.console.logfile=%s\n' \
                 % self.container_dir.get_console_path(instance_name)
 
             return config
