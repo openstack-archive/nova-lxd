@@ -619,12 +619,19 @@ class LXDContainerOperations(object):
         try:
             self.vif_driver.plug(instance, vif)
             self.firewall_driver.setup_basic_filtering(instance, vif)
-            container_config = (
-                self.config.configure_container_net_device(instance,
-                                                           vif))
+
+            container_config = self.config.create_container(instance)
+            container_network = self.config.create_container_net_device(instance,
+                                                                        vif)
+            container_config['devices'].update(container_network)
             self.session.container_update(container_config, instance)
-        except exception.NovaException:
-            self.vif_driver.unplug(instance, vif)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                self.vif_driver.unplug(instance, vif)
+                LOG.error(_LE('Failed to configure network'
+                              ' for %(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def container_detach_interface(self, instance, vif):
         LOG.debug('container_defatch_interface called for instance',

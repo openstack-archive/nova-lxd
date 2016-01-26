@@ -150,6 +150,9 @@ class LXDContainerConfig(object):
         try:
             network_devices = {}
 
+            if not network_info:
+                return
+
             for vifaddr in network_info:
                 cfg = self.vif_driver.get_config(instance, vifaddr)
                 network_devices[str(cfg['bridge'])] = \
@@ -215,3 +218,49 @@ class LXDContainerConfig(object):
                               '%(instance)s: %(ex)s'),
                           {'instance': instance.name, 'ex': ex},
                           instance=instance)
+
+    def create_container_net_device(self, instance, vif):
+        """Translate nova network object into a LXD interface
+
+        :param instance: nova instance object
+        :param vif: network instaance object
+        """
+        LOG.debug('create_container_net_device called for instance',
+                  insance=instance)
+        try:
+            network_config = self.vif_driver.get_config(instance, vif)
+
+            config = {}
+            config[self._get_network_device(instance)] = {
+                'nictype': 'bridged',
+                'hwaddr': str(vif['address']),
+                'parent': str(network_config['bridge']),
+                'type': 'nic'}
+
+            return config
+        except Exception as ex:
+            LOG.error(_LE('Failed to configure network for '
+                          '%(instance)s: %(ex)s'),
+                      {'instance': instance.name, 'ex': ex},
+                      instance=instance)
+
+    def _get_network_device(self, instance):
+        """Try to detect which network interfaces are available in a contianer
+
+        :param instnace: nova instance object
+        """
+        LOG.debug('_get_network_device called for instance', instance=instance)
+        data = self.session.container_info(instance)
+        lines = open('/proc/%s/net/dev' % data['init']).readlines()
+        interfaces = []
+        for line in lines[2:]:
+            if line.find(':') < 0:
+                continue
+            face, _ = line.split(':')
+            if 'eth' in face:
+                interfaces.append(face.strip())
+
+        if len(interfaces) == 1:
+            return 'eth1'
+        else:
+            return 'eth%s' % int(len(interfaces) - 1)
