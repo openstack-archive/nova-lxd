@@ -132,13 +132,13 @@ class LXDGenericDriver(object):
                 linux_net.LinuxBridgeInterfaceDriver.ensure_vlan_bridge(
                     network.get_meta('vlan'),
                     self.get_bridge_name(vif), iface)
-        else:
-            iface = (CONF.flat_interface or
-                     network.get_meta('bridge_interface'))
-            LOG.debug("Ensuring bridge %s",
-                      self.get_bridge_name(vif), instance=instance)
-            linux_net.LinuxBridgeInterfaceDriver.ensure_bridge(
-                self.get_bridge_name(vif), iface)
+            else:
+                iface = (CONF.flat_interface or
+                         network.get_meta('bridge_interface'))
+                LOG.debug("Ensuring bridge %s",
+                          self.get_bridge_name(vif), instance=instance)
+                linux_net.LinuxBridgeInterfaceDriver.ensure_bridge(
+                    self.get_bridge_name(vif), iface)
 
     def plug_ovs(self, instance, vif):
         if self.get_firewall_required(vif) or vif.is_hybrid_plug_enabled():
