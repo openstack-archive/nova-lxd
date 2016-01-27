@@ -14,11 +14,14 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.from oslo_config import cfg
 
+import os
+
 from nova.compute import task_states
 from nova import exception
 from nova import i18n
 from nova import image
 
+from oslo_concurrency import lockutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -38,6 +41,7 @@ class LXDSnapshot(object):
 
     def __init__(self):
         self.session = session.LXDAPISession()
+        self.lock_path = str(os.path.join(CONF.instances_path, 'locks'))
 
     def snapshot(self, context, instance, image_id, update_task_state):
         """Create a LXD snapshot  of the instance
@@ -65,17 +69,25 @@ class LXDSnapshot(object):
             if not self.session.container_defined(instance.name, instance):
                 raise exception.InstanceNotFound(instance_id=instance.name)
 
-            update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
+            with lockutils.lock(self.lock_path,
+                                lock_file_prefix=('lxd-snapshot-%s' %
+                                                  instance.name),
+                                external=True):
 
-            # We have to stop the container before we can publish the
-            # image to the local store
-            self.session.container_stop(instance.name, instance.host, instance)
-            fingerprint = self._save_lxd_image(instance, image_id)
-            self.session.container_start(instance.name, instance)
+                update_task_state(task_state=\
+                                  task_states.IMAGE_PENDING_UPLOAD)
 
-            update_task_state(task_state=task_states.IMAGE_UPLOADING,
-                              expected_state=task_states.IMAGE_PENDING_UPLOAD)
-            self._save_glance_image(context, instance, image_id, fingerprint)
+                # We have to stop the container before we can publish the
+                # image to the local store
+                self.session.container_stop(instance.name, 
+                            instance.host, instance)
+                fingerprint = self._save_lxd_image(instance, 
+                                                   image_id)
+                self.session.container_start(instance.name, instance)
+
+                update_task_state(task_state=task_states.IMAGE_UPLOADING,
+                                  expected_state=task_states.IMAGE_PENDING_UPLOAD)
+                self._save_glance_image(context, instance, image_id, fingerprint)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to create snapshot for %(instance)s: '
