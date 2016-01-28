@@ -77,5 +77,5 @@ class SessionSnapshotTest(test.NoDBTestCase):
         self.assertTrue(
             self.session.container_publish(image, instance))
         calls = [
-            mock.call.image_export(image)]
+            mock.call.container_publish(image)]
         self.assertEqual(calls, self.ml.method_calls)

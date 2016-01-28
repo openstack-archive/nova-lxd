@@ -41,7 +41,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
             container_ops.LXDContainerOperations(fake.FakeVirtAPI()))
         self.mc = mock.MagicMock()
         config_patcher = mock.patch.object(self.operations,
-                                           'container_config',
+                                           'config',
                                            self.mc)
         config_patcher.start()
         self.addCleanup(config_patcher.stop)
@@ -92,7 +92,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
                                                    injected_files,
                                                    admin_password,
                                                    network_info,
-                                                   block_device_info, rescue))
+                                                   block_device_info))
 
     def test_reboot_container(self):
         """Test the reboot method. Ensure that the proper
@@ -207,52 +207,3 @@ class LXDTestContainerOps(test.NoDBTestCase):
                              self.operations.resume(context, instance,
                                                     network_info))
             self.assertTrue(mock_container_resume)
-
-    def test_container_rescue(self):
-        context = mock.Mock()
-        instance = stubs._fake_instance()
-        network_info = mock.Mock()
-        image_meta = mock.Mock()
-        rescue_password = mock.Mock()
-
-        with test.nested(
-            mock.patch.object(session.LXDAPISession, 'container_defined'),
-            mock.patch.object(session.LXDAPISession, 'container_stop'),
-            mock.patch.object(container_ops.LXDContainerOperations,
-                              '_container_local_copy'),
-            mock.patch.object(session.LXDAPISession, 'container_destroy'),
-            mock.patch.object(container_ops.LXDContainerOperations,
-                              'spawn'),
-        ) as (
-            mock_container_defined,
-            mock_container_stop,
-            mock_container_copy,
-            mock_container_destroy,
-            mock_spawn
-        ):
-            self.assertEqual(None,
-                             self.operations.rescue(context, instance,
-                                                    network_info, image_meta,
-                                                    rescue_password))
-            mock_container_defined.assert_called_once_with(instance.name,
-                                                           instance)
-
-    def test_container_unrescue(self):
-        instance = stubs._fake_instance()
-        network_info = mock.Mock()
-
-        with test.nested(
-            mock.patch.object(session.LXDAPISession, 'container_move'),
-            mock.patch.object(session.LXDAPISession, 'container_destroy')
-        ) as (
-            mock_container_move,
-            mock_container_destroy
-        ):
-            self.assertEqual(None,
-                             self.operations.unrescue(instance, network_info))
-            mock_container_move.assert_called_once_with(
-                'instance-00000001-backup', {'name': 'instance-00000001'},
-                instance)
-            mock_container_destroy.assert_called_once_with(instance.name,
-                                                           instance.host,
-                                                           instance)

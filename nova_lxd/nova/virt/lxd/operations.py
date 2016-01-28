@@ -621,8 +621,8 @@ class LXDContainerOperations(object):
             self.firewall_driver.setup_basic_filtering(instance, vif)
 
             container_config = self.config.create_container(instance)
-            container_network = self.config.create_container_net_device(instance,
-                                                                        vif)
+            container_network = self.config.create_container_net_device(
+                instance, vif)
             container_config['devices'].update(container_network)
             self.session.container_update(container_config, instance)
         except Exception as ex:

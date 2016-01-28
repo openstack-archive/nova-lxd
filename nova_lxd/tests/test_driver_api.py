@@ -269,51 +269,6 @@ class LXDTestDriver(test.NoDBTestCase):
         mi.return_value = return_value
         self.assertEqual('1.2.3.4', self.connection.get_host_ip_addr())
 
-    def test_rescue(self):
-        context = mock.Mock()
-        instance = stubs.MockInstance()
-        image_meta = mock.Mock()
-        network_info = mock.Mock()
-        self.ml.container_defined.return_value = True
-        with test.nested(
-                mock.patch.object(session.LXDAPISession,
-                                  'container_stop'),
-                mock.patch.object(self.connection.container_ops,
-                                  '_container_local_copy'),
-                mock.patch.object(session.LXDAPISession,
-                                  'container_destroy'),
-                mock.patch.object(self.connection.container_ops,
-                                  'spawn')
-
-        ) as (
-                container_stop,
-                container_local_copy,
-                container_destroy,
-                spawn
-        ):
-            self.connection.rescue(context, instance, network_info,
-                                   image_meta, 'secret')
-            self.assertTrue(container_stop)
-            self.assertTrue(container_local_copy)
-            self.assertTrue(container_destroy)
-            self.assertTrue(spawn)
-
-    def test_container_unrescue(self):
-        instance = stubs.MockInstance()
-        network_info = mock.Mock()
-        with test.nested(
-                mock.patch.object(session.LXDAPISession,
-                                  'container_move'),
-                mock.patch.object(session.LXDAPISession,
-                                  'container_destroy')
-        ) as (
-                container_move,
-                container_destroy
-        ):
-            self.connection.unrescue(instance, network_info)
-            self.assertTrue(container_move)
-            self.assertTrue(container_destroy)
-
     @mock.patch('socket.gethostname', mock.Mock(return_value='fake_hostname'))
     @mock.patch('os.statvfs', return_value=mock.Mock(f_blocks=131072000,
                                                      f_bsize=8192,

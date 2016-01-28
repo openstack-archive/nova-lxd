@@ -48,73 +48,8 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         """
         instance = stubs._fake_instance()
         rescue = False
-        container_config = self.config.create_container(instance,
-                                                        rescue)
+        container_config = self.config.create_container(instance)
         self.assertEqual(container_config[key], expected)
-
-    @stubs.annotated_data(
-        ('test_name', 'name', 'instance-00000001'),
-        ('test_source', 'source', {'type': 'image',
-                                   'alias': 'fake_image'}),
-        ('test_profile', 'profiles', ['instance-00000001']),
-        ('test_devices', 'devices', {})
-    )
-    def test_get_container_config(self, tag, key, expected):
-        """Test the get_container_config method. Ensure that the
-           correct dicitonary keys and data is returned correctly.
-        """
-        instance = stubs._fake_instance()
-        rescue = False
-        container_config = self.config.get_container_config(
-            instance, rescue)
-        self.assertEqual(container_config[key], expected)
-
-    @stubs.annotated_data(
-        ('test_name', 'name', 'instance-00000001-rescue'),
-        ('test_source', 'source', {'type': 'image',
-                                   'alias': 'fake_image'}),
-        ('test_devices', 'devices',
-            {'rescue': {'path': '/fake/lxd/root/containers/'
-                                'instance-00000001-rescue/rootfs',
-                        'source': 'mnt',
-                        'type': 'disk'}})
-    )
-    def test_get_container_config_rescue(self, tag, key, expected):
-        """Test the get_container_config method. Ensure the right
-           correct dictionary is created when using a rescue container.
-        """
-        instance = stubs._fake_instance()
-        rescue = True
-        container_config = self.config.get_container_config(
-            instance, rescue)
-        self.assertEqual(container_config[key], expected)
-
-    def test_create_profile(self):
-        """Test the create_profile method, Ensure that the correct
-           method calls are preformed when creating a container
-           profile.
-        """
-        instance = stubs._fake_instance()
-        rescue = False
-        network_info = test_utils.get_test_network_info()
-        config = mock.Mock()
-        with test.nested(
-            mock.patch.object(config.LXDContainerConfig,
-                              '_create_config'),
-            mock.patch.object(config.LXDContainerConfig,
-                              '_create_network'),
-            mock.patch.object(session.LXDAPISession,
-                              'profile_create')
-
-        ) as (
-            mock_create_config,
-            mock_create_network,
-            mock_profile_create
-        ):
-            (self.assertEqual(None,
-                              self.config.create_profile(instance,
-                                                         network_info,
-                                                         rescue)))
 
     @stubs.annotated_data(
         ('test_memmoy', 'limits.memory', '512MB')
