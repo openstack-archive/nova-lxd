@@ -14,12 +14,11 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.from oslo_config import cfg
 
-import os
-
 from nova.compute import task_states
 from nova import exception
 from nova import i18n
 from nova import image
+import os
 
 from oslo_concurrency import lockutils
 from oslo_config import cfg
@@ -74,20 +73,20 @@ class LXDSnapshot(object):
                                                   instance.name),
                                 external=True):
 
-                update_task_state(task_state=\
-                                  task_states.IMAGE_PENDING_UPLOAD)
+                update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
 
                 # We have to stop the container before we can publish the
                 # image to the local store
-                self.session.container_stop(instance.name, 
-                            instance.host, instance)
-                fingerprint = self._save_lxd_image(instance, 
+                self.session.container_stop(instance.name,
+                                            instance.host, instance)
+                fingerprint = self._save_lxd_image(instance,
                                                    image_id)
                 self.session.container_start(instance.name, instance)
 
                 update_task_state(task_state=task_states.IMAGE_UPLOADING,
-                                  expected_state=task_states.IMAGE_PENDING_UPLOAD)
-                self._save_glance_image(context, instance, image_id, fingerprint)
+                                  expected_state=task_states.IMAGE_PENDING_UPLOAD)  # noqa
+                self._save_glance_image(context, instance, image_id,
+                                        fingerprint)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to create snapshot for %(instance)s: '

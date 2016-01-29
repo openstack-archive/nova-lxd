@@ -16,11 +16,11 @@
 import ddt
 import mock
 
+from nova import exception
 from nova import test
-from nova.tests.unit import utils as test_utils
+from nova.tests.unit import fake_network
 
 from nova_lxd.nova.virt.lxd import config
-from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.tests import stubs
 
@@ -47,7 +47,6 @@ class LXDTestContainerConfig(test.NoDBTestCase):
            instance.
         """
         instance = stubs._fake_instance()
-        rescue = False
         container_config = self.config.create_container(instance)
         self.assertEqual(container_config[key], expected)
 
@@ -55,19 +54,40 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         ('test_memmoy', 'limits.memory', '512MB')
     )
     def test_create_config(self, tag, key, expected):
-        """Test the create_config method. Ensure that
-            the container is created with a 512MB memory
-            limit.
-        """
         instance = stubs._fake_instance()
         instance_name = 'fake_instance'
         config = self.config._create_config(instance_name, instance)
         self.assertEqual(config[key], expected)
 
+    def test_create_network(self):
+        instance = stubs._fake_instance()
+        instance_name = 'fake_instance'
+        network_info = fake_network.fake_get_instance_nw_info(self)
+        config = self.config._create_network(instance_name, instance,
+                                             network_info)
+        self.assertEqual({'fake_br1': {'hwaddr': 'DE:AD:BE:EF:00:01',
+                                       'nictype': 'bridged',
+                                       'parent': 'fake_br1',
+                                       'type': 'nic'}}, config)
+
+    @mock.patch('os.path.exists', mock.Mock(return_value=True))
+    def test_create_disk_path(self):
+        instance = stubs._fake_instance()
+        config = self.config.configure_disk_path('/fake/src_path',
+                                                 '/fake/dest_path',
+                                                 'fake_disk', instance)
+        self.assertEqual({'fake_disk': {'path': '/fake/dest_path',
+                                        'source': '/fake/src_path',
+                                        'type': 'disk'}}, config)
+
+    @mock.patch('os.path.exists', mock.Mock(return_value=False))
+    def test_create_disk_path_fail(self):
+        instance = stubs._fake_instance()
+        self.assertRaises(exception.NovaException,
+                          self.config.configure_disk_path, 'fake_source',
+                          'fake_dir', 'fake_type', instance)
+
     def test_create_container_source(self):
-        """Test the create_config mehtod. Ensure that
-           the right image is used when creating a container.
-        """
         instance = stubs._fake_instance()
         config = self.config._get_container_source(instance)
         self.assertEqual(config, {'type': 'image', 'alias': 'fake_image'})

@@ -168,7 +168,7 @@ class LXDContainerOperations(object):
         :param instance: nova instance object
         :param network_info: instance network configuration
         """
-        LOG.debug('_setup_netwokr called for instance', instance=instance)
+        LOG.debug('_setup_network called for instance', instance=instance)
         try:
             self.plug_vifs(instance, network_info)
         except Exception as ex:

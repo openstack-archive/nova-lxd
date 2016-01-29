@@ -19,6 +19,8 @@ import mock
 from nova import test
 from nova.virt import fake
 
+from nova_lxd.nova.virt.lxd import config
+from nova_lxd.nova.virt.lxd import image
 from nova_lxd.nova.virt.lxd import operations as container_ops
 from nova_lxd.nova.virt.lxd.session import session
 from nova_lxd.tests import stubs
@@ -39,12 +41,6 @@ class LXDTestContainerOps(test.NoDBTestCase):
 
         self.operations = (
             container_ops.LXDContainerOperations(fake.FakeVirtAPI()))
-        self.mc = mock.MagicMock()
-        config_patcher = mock.patch.object(self.operations,
-                                           'config',
-                                           self.mc)
-        config_patcher.start()
-        self.addCleanup(config_patcher.stop)
         self.mv = mock.MagicMock()
         vif_patcher = mock.patch.object(self.operations,
                                         'vif_driver',
@@ -63,7 +59,6 @@ class LXDTestContainerOps(test.NoDBTestCase):
         admin_password = mock.Mock()
         network_info = mock.Mock()
         block_device_info = mock.Mock()
-        rescue = False
 
         with test.nested(
             mock.patch.object(session.LXDAPISession, 'container_defined'),
@@ -207,3 +202,40 @@ class LXDTestContainerOps(test.NoDBTestCase):
                              self.operations.resume(context, instance,
                                                     network_info))
             self.assertTrue(mock_container_resume)
+
+    @mock.patch.object(image.LXDContainerImage, 'setup_image')
+    def test_fetch_image(self, mock_fetch_image):
+        instance = stubs._fake_instance()
+        context = mock.Mock()
+        self.operations._fetch_image(context, instance, {})
+        mock_fetch_image.assert_called_once_with(context, instance, {})
+
+    @mock.patch.object(container_ops.LXDContainerOperations, 'plug_vifs')
+    def test_setup_network(self, mock_plug_vifs):
+        instance = stubs._fake_instance()
+
+        self.operations._setup_network(instance.name, [], instance)
+        mock_plug_vifs.assert_called_once_with([], instance)
+
+    @mock.patch.object(session.LXDAPISession, 'profile_create')
+    @mock.patch.object(config.LXDContainerConfig, 'create_profile')
+    def test_setup_profile(self, mock_profile_create, mock_create_profile):
+        instance = stubs._fake_instance()
+        network_info = mock.Mock()
+        container_profile = mock.Mock()
+        self.operations._setup_profile(instance.name, instance, network_info)
+        mock_profile_create.assert_has_calls(
+            [mock.call(instance, network_info)])
+        container_profile = mock_profile_create.return_value
+        mock_create_profile.assert_has_calls(
+            [mock.call(container_profile, instance)])
+
+    @mock.patch.object(config.LXDContainerConfig, 'create_container')
+    @mock.patch.object(session.LXDAPISession, 'container_init')
+    @mock.patch.object(session.LXDAPISession, 'container_start')
+    def test_setup_container(self, mock_create_container, mock_container_init,
+                             mock_container_start):
+        instance = stubs._fake_instance()
+        self.assertEqual(None,
+                         self.operations._setup_container(instance.name,
+                                                          instance))
