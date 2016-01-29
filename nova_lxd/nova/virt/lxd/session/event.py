@@ -62,7 +62,7 @@ class EventMixin(object):
             client = self.get_session(instance.host)
             return client.operation_info(operation_id)
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD API %(isntance)s:'
+            msg = _('Failed to communicate with LXD API %(instance)s:'
                     '%(reason)s') % {'instance': instance.image_ref,
                                      'reason': ex}
             LOG.error(msg)
