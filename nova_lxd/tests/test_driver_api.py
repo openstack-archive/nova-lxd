@@ -36,7 +36,7 @@ from nova.virt import hardware
 from nova_lxd.nova.virt.lxd import driver
 from nova_lxd.nova.virt.lxd import host
 from nova_lxd.nova.virt.lxd import operations as container_ops
-from nova_lxd.nova.virt.lxd.session import session
+from nova_lxd.nova.virt.lxd import session
 from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.tests import stubs
 

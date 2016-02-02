@@ -34,7 +34,7 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import fileutils
 
-from nova_lxd.nova.virt.lxd.session import session
+from nova_lxd.nova.virt.lxd import session
 from nova_lxd.nova.virt.lxd import utils as container_dir
 
 _ = i18n._

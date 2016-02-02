@@ -19,7 +19,7 @@ from nova import test
 from nova.virt import fake
 
 from nova_lxd.nova.virt.lxd import container_migrate
-from nova_lxd.nova.virt.lxd.session import session
+from nova_lxd.nova.virt.lxd import session
 from nova_lxd.tests import stubs
 
 
