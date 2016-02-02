@@ -21,14 +21,13 @@ from nova import rpc
 from nova import utils
 from nova.compute import power_state
 from oslo_concurrency import processutils
-from pylxd import api
-from pylxd import exceptions as lxd_exceptions
-import six
-
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_service import loopingcall
 from oslo_utils import excutils
+from pylxd import api
+from pylxd import exceptions as lxd_exceptions
+import six
 
 from nova_lxd.nova.virt.lxd import constants
 
