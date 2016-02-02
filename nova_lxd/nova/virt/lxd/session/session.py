@@ -27,7 +27,6 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from nova_lxd.nova.virt.lxd import constants
-from nova_lxd.nova.virt.lxd.session import migrate
 from nova_lxd.nova.virt.lxd.session import snapshot
 
 _ = i18n._
@@ -39,8 +38,7 @@ CONF.import_opt('host', 'nova.netconf')
 LOG = logging.getLogger(__name__)
 
 
-class LXDAPISession(migrate.MigrateMixin,
-                    snapshot.SnapshotMixin):
+class LXDAPISession(snapshot.SnapshotMixin):
     """The session to invoke the LXD API session."""
 
     def __init__(self):
@@ -751,3 +749,41 @@ class LXDAPISession(migrate.MigrateMixin,
                 LOG.error(
                     _LE('Failed to delete profile %(instance)s: %(reason)s'),
                     {'instance': instance.name, 'reason': ex})
+
+    #
+    # Migrate methods
+    #
+    def container_migrate(self, instance_name, host, instance):
+        """Initialize a container migration for LXD
+
+        :param instance_name: container name
+        :param host: host to move container from
+        :param instance: nova instance object
+        :return: dictionary of the container keys
+
+        """
+        LOG.debug('container_migrate called for instance', instance=instance)
+        try:
+            LOG.info(_LI('Migrating instance %(instance)s with'
+                         '%(image)s'), {'instance': instance_name,
+                                        'image': instance.image_ref})
+
+            client = self.get_session(host)
+            (state, data) = client.container_migrate(instance_name)
+
+            LOG.info(_LI('Successfully initialized migration for instance '
+                         '%(instance)s with %(image)s'),
+                     {'instance': instance.name,
+                      'image': instance.image_ref})
+            return (state, data)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to communicate with LXD API %(instance)s:'
+                    ' %(reason)s') % {'instance': instance.name,
+                                      'reason': ex}
+            raise exception.NovaException(msg)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(
+                    _LE('Failed to migrate container %(instance)s: %('
+                        'reason)s'), {'instance': instance.name,
+                                      'reason': ex}, instance=instance)
