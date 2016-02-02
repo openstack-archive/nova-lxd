@@ -19,13 +19,14 @@ from nova import exception
 from nova import i18n
 from nova import rpc
 from pylxd import api
+from pylxd import exceptions as lxd_exceptions
 
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import excutils
 
 from nova_lxd.nova.virt.lxd.session import container
 from nova_lxd.nova.virt.lxd.session import event
-from nova_lxd.nova.virt.lxd.session import image
 from nova_lxd.nova.virt.lxd.session import migrate
 from nova_lxd.nova.virt.lxd.session import profile
 from nova_lxd.nova.virt.lxd.session import snapshot
@@ -40,7 +41,6 @@ LOG = logging.getLogger(__name__)
 
 class LXDAPISession(container.ContainerMixin,
                     event.EventMixin,
-                    image.ImageMixin,
                     migrate.MigrateMixin,
                     profile.ProfileMixin,
                     snapshot.SnapshotMixin):
@@ -78,3 +78,89 @@ class LXDAPISession(container.ContainerMixin,
             raise exception.HypervisorUnavailable(host=CONF.host)
 
         return conn
+
+    #
+    # Image related API methods.
+    #
+
+    def image_defined(self, instance):
+        """Checks existence of an image on the local LXD image store
+
+        :param instance: The nova instance
+
+        Returns True if supplied image exists on the host, False otherwise
+        """
+        LOG.debug('image_defined called for instance', instance=instance)
+        try:
+            client = self.get_session(instance.host)
+            return client.alias_defined(instance.image_ref)
+        except lxd_exceptions.APIError as ex:
+            if ex.status_code == 404:
+                return False
+            else:
+                msg = _('Failed to communicate with LXD API %(instance)s:'
+                        ' %(reason)s') % {'instance': instance.image_ref,
+                                          'reason': ex}
+                LOG.error(msg)
+                raise exception.NovaException(msg)
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Error from LXD during image_defined '
+                              '%(instance)s: %(reason)s'),
+                          {'instance': instance.image_ref, 'reason': e},
+                          instance=instance)
+
+    def create_alias(self, alias, instance):
+        """Creates an alias for a given image
+
+        :param alias: The alias to be crerated
+        :param instance: The nove instnace
+        :return: true if alias is created, false otherwise
+
+        """
+        LOG.debug('create_alias called for instance', instance=instance)
+        try:
+            client = self.get_session(instance.host)
+            return client.alias_create(alias)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to communicate with LXD API %(instance)s:'
+                    ' %(reason)s') % {'instance': instance.image_ref,
+                                      'reason': ex}
+            LOG.error(msg)
+            raise exception.NovaException(msg)
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Error from LXD during create alias'
+                              '%(instance)s: %(reason)s'),
+                          {'instance': instance.image_ref, 'reason': e},
+                          instance=instance)
+
+    def image_upload(self, data, headers, instance):
+        """Upload an image to the local LXD image store
+
+        :param data: image data
+        :param headers: image headers
+        :param intance: The nova instance
+
+        """
+        LOG.debug('upload_image called for instnace', instance=instance)
+        try:
+            client = self.get_session(instance.host)
+            (state, data) = client.image_upload(data=data,
+                                                headers=headers)
+            # XXX - zulcss (Dec 8, 2015) - Work around for older
+            # versions of LXD.
+            if 'operation' in data:
+                self.operation_wait(data.get('operation'), instance)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to communicate with LXD API %(instance)s:'
+                    '%(reason)s') % {'instance': instance.image_ref,
+                                     'reason': ex}
+            LOG.error(msg)
+            raise exception.NovaException(msg)
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Error from LXD during image upload'
+                              '%(instance)s: %(reason)s'),
+                          {'instance': instance.image_ref, 'reason': e},
+                          instance=instance)
