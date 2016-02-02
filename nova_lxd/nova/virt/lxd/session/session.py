@@ -27,7 +27,6 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 
 from nova_lxd.nova.virt.lxd import constants
-from nova_lxd.nova.virt.lxd.session import event
 from nova_lxd.nova.virt.lxd.session import migrate
 from nova_lxd.nova.virt.lxd.session import profile
 from nova_lxd.nova.virt.lxd.session import snapshot
@@ -41,8 +40,7 @@ CONF.import_opt('host', 'nova.netconf')
 LOG = logging.getLogger(__name__)
 
 
-class LXDAPISession(event.EventMixin,
-                    migrate.MigrateMixin,
+class LXDAPISession(migrate.MigrateMixin,
                     profile.ProfileMixin,
                     snapshot.SnapshotMixin):
     """The session to invoke the LXD API session."""
@@ -613,6 +611,52 @@ class LXDAPISession(event.EventMixin,
         except Exception as e:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Error from LXD during image upload'
+                              '%(instance)s: %(reason)s'),
+                          {'instance': instance.image_ref, 'reason': e},
+                          instance=instance)
+
+    #
+    # Operation methods
+    #
+
+    def operation_wait(self, operation_id, instance):
+        """Waits for an operation to return 200 (Success)
+
+        :param operation_id: The operation to wait for.
+        """
+        LOG.debug('wait_for_contianer for instance', instance=instance)
+        try:
+            client = self.get_session(instance.host)
+            if not client.wait_container_operation(operation_id, 200, -1):
+                msg = _('Container creation timed out')
+                raise exception.NovaException(msg)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to communicate with LXD API %(instance)s:'
+                    '%(reason)s') % {'instance': instance.image_ref,
+                                     'reason': ex}
+            LOG.error(msg)
+            raise exception.NovaException(msg)
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Error from LXD during operation wait'
+                              '%(instance)s: %(reason)s'),
+                          {'instance': instance.image_ref, 'reason': e},
+                          instance=instance)
+
+    def operation_info(self, operation_id, instance):
+        LOG.debug('operation_info called for instance', instance=instance)
+        try:
+            client = self.get_session(instance.host)
+            return client.operation_info(operation_id)
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to communicate with LXD API %(instance)s:'
+                    '%(reason)s') % {'instance': instance.image_ref,
+                                     'reason': ex}
+            LOG.error(msg)
+            raise exception.NovaException(msg)
+        except Exception as e:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Error from LXD during operation_info '
                               '%(instance)s: %(reason)s'),
                           {'instance': instance.image_ref, 'reason': e},
                           instance=instance)
