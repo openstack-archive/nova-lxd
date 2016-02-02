@@ -18,9 +18,12 @@ from nova import context as nova_context
 from nova import exception
 from nova import i18n
 from nova import rpc
+from nova import utils
 from nova.compute import power_state
+from oslo_concurrency import processutils
 from pylxd import api
 from pylxd import exceptions as lxd_exceptions
+import six
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -36,6 +39,25 @@ _LI = i18n._LI
 CONF = cfg.CONF
 CONF.import_opt('host', 'nova.netconf')
 LOG = logging.getLogger(__name__)
+
+
+def mount_filesystem(self, dev_path, dir_path):
+    try:
+        _out, err = utils.execute('mount',
+                                  '-t', 'ext4',
+                                  dev_path, dir_path, run_as_root=True)
+    except processutils.ProcessExecutionError as e:
+        err = six.text_type(e)
+    return err
+
+
+def umount_filesystem(self, dir_path):
+    try:
+        _out, err = utils.execute('umount',
+                                  dir_path, run_as_root=True)
+    except processutils.ProcessExecutionError as e:
+        err = six.text_type(e)
+    return err
 
 
 class LXDAPISession(object):
