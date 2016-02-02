@@ -28,7 +28,7 @@ from oslo_config import fixture as config_fixture
 
 
 from nova_lxd.nova.virt.lxd import image
-from nova_lxd.nova.virt.lxd.session import session
+from nova_lxd.nova.virt.lxd import session
 from nova_lxd.tests import stubs
 
 

@@ -20,7 +20,7 @@ from oslo_log import log as logging
 
 from nova_lxd.nova.virt.lxd import config
 from nova_lxd.nova.virt.lxd import operations
-from nova_lxd.nova.virt.lxd.session import session
+from nova_lxd.nova.virt.lxd import session
 
 
 _ = i18n._
