@@ -82,3 +82,11 @@ class LXDContainerMigrate(object):
                          network_info, image_meta, resize_instance=False,
                          block_device_info=None, power_on=True):
         LOG.debug("finish_migration called", instance=instance)
+
+    def finish_revert_migration(self, context, instance, network_info,
+                                 block_device_info=None, power_on=True):
+        LOG.debug('finish_revert_migration called for instance',
+                    instance=instance)
+        if self.session.container_defined(instance.name, instance):
+            self.session.container_start(instance.name, instance)
+
