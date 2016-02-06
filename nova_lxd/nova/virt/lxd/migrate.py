@@ -13,15 +13,21 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import os
+import pprint
+import shutil
+
 from nova import exception
 from nova import i18n
 
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
+from oslo_utils import fileutils
 
 from nova_lxd.nova.virt.lxd import config
 from nova_lxd.nova.virt.lxd import operations
+from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.nova.virt.lxd import session
 
 
@@ -39,8 +45,9 @@ class LXDContainerMigrate(object):
     def __init__(self, virtapi):
         self.virtapi = virtapi
         self.config = config.LXDContainerConfig()
+        self.container_dir = container_dir.LXDContainerDirectories()
         self.session = session.LXDAPISession()
-        self.container_ops = \
+        self.operations = \
             operations.LXDContainerOperations(
                 self.virtapi)
 
@@ -66,6 +73,8 @@ class LXDContainerMigrate(object):
                 container_profile = self.config.create_profile(instance,
                                                                network_info)
                 self.session.profile_update(container_profile, instance)
+            else:
+                self.session.container_stop(instance.name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('failed to resize container '
@@ -79,10 +88,64 @@ class LXDContainerMigrate(object):
     def confirm_migration(self, migration, instance, network_info):
         LOG.debug("confirm_migration called", instance=instance)
 
+        if not self.session.container_defined(instance.name, instance):
+            msg = _('Failed to find container %s' % instance.name)
+            raise exception.NovaException(msg)
+
+        try:
+            self.session.profile_delete(instance)
+            self.session.container_destroy(instance.name,
+                                           instance)
+            self.operations.unplug_vifs(instance, network_info)
+            container_dir = self.container_dir.get_instance_dir(instance.name)
+            if os.path.exists(container_dir):
+                shutil.rmtree(container_dir)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Confirm migration failed for %(instnace)s: '
+                                  '%(ex)s'), {'instance': instance.name,
+                                    'ex': ex}, instance=instance)
+
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance=False,
                          block_device_info=None, power_on=True):
         LOG.debug("finish_migration called", instance=instance)
+
+        if self.session.container_defined(instance.name, instance):
+            msg = _('Failed to find container %s' % instance.name)
+            raise exception.NovaException(msg)
+
+        try:
+            # Ensure that the instance directory exists
+            instance_dir = \
+                self.container_dir.get_instance_dir(instance.name)
+            if not os.path.exists(instance_dir):
+                fileutils.ensure_tree(instance_dir)
+
+            # Step 1 - Setup the profile on the dest host
+            container_profile = self.config.create_profile(instance,
+                                        network_info)
+            self.session.profile_create(container_profile, instance)
+
+            # Step 2 - Open a websocket on the srct and and
+            #          generate the container config
+            (state, data) = self.session.container_migrate(instance.name,
+                                    migration['source_compute'], instance)
+            container_config = self.config.create_container(instance)
+            container_config['source'] = \
+                self.config.get_container_migrate(data, migration, instance)
+            LOG.debug(pprint.pprint(container_config))
+            self.session.container_init(container_config, instance)
+
+            # Step 3 - Start the network and contianer
+            self.operations.plug_vifs(instance, network_info)
+            self.session.container_start(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Migration failed for %(instnace)s: '
+                                  '%(ex)s'),
+                                  {'instance': instance.name,
+                                   'ex': ex}, instance=instance)
 
     def finish_revert_migration(self, context, instance, network_info,
                                  block_device_info=None, power_on=True):

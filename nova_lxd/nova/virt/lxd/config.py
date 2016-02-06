@@ -243,6 +243,39 @@ class LXDContainerConfig(object):
                     {'instance': instance.name, 'ex': ex},
                     instance=instance)
 
+    def get_container_migrate(self, container_migrate, migration, instance):
+        LOG.debug('get_container_migrate called for instance',
+                  instnace=instance)
+        try:
+            # Generate the container config
+            container_metadata =container_migrate['metadata']
+            container_control = container_metadata['metadata']['control']
+            container_fs = container_metadata['metadata']['fs']
+
+            container_url = ('wss://%s:8443%s/websocket'
+                             % (migration['source_compute'],
+                                container_migrate.get('operation')))
+
+            container_migrate = {
+                    'base_iamge': '',
+                    'mode': 'pull',
+                    'operation': str(container_url),
+                    'secrets': {
+                        'control': str(container_control),
+                        'fs': str(container_fs)
+                    },
+                    'type': 'migration'
+            }
+
+            LOG.debug(pprint.pprint(container_migrate))
+            return container_migrate
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to configure migation source '
+                              '%(instance)s: %(ex)s'),
+                             {'instance': instance.name, 'ex': ex},
+                             instance=instance)
+
     def configure_disk_path(self, src_path, dest_path, vfs_type, instance):
         """Configure the host mount point for the LXD container
 
@@ -255,10 +288,6 @@ class LXDContainerConfig(object):
         LOG.debug('configure_disk_path called for instance',
                   instance=instance)
         try:
-            if not os.path.exists(src_path):
-                msg = _('Source path does not exist')
-                raise exception.NovaException(msg)
-
             config = {}
             config[vfs_type] = {'path': dest_path,
                                 'source': src_path,
