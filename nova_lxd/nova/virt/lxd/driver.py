@@ -26,9 +26,9 @@ from oslo_log import log as logging
 
 
 from nova_lxd.nova.virt.lxd import container_firewall
-from nova_lxd.nova.virt.lxd import container_migrate
 from nova_lxd.nova.virt.lxd import container_snapshot
 from nova_lxd.nova.virt.lxd import host
+from nova_lxd.nova.virt.lxd import migrate
 from nova_lxd.nova.virt.lxd import operations as container_ops
 from nova_lxd.nova.virt.lxd import vif as lxd_vif
 
@@ -70,7 +70,7 @@ class LXDDriver(driver.ComputeDriver):
         self.container_ops = container_ops.LXDContainerOperations(virtapi)
         self.container_snapshot = container_snapshot.LXDSnapshot()
         self.container_firewall = container_firewall.LXDContainerFirewall()
-        self.container_migrate = container_migrate.LXDContainerMigrate(virtapi)
+        self.container_migrate = migrate.LXDContainerMigrate(virtapi)
         self.host = host.LXDHost()
 
     def init_host(self, host):

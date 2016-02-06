@@ -18,21 +18,21 @@ import mock
 from nova import test
 from nova.virt import fake
 
-from nova_lxd.nova.virt.lxd import container_migrate
+from nova_lxd.nova.virt.lxd import migrate
 from nova_lxd.nova.virt.lxd import session
 from nova_lxd.tests import stubs
 
 
-@mock.patch.object(container_migrate, 'CONF', stubs.MockConf())
+@mock.patch.object(migrate, 'CONF', stubs.MockConf())
 @mock.patch.object(session, 'CONF', stubs.MockConf())
 class LXDTestContainerMigrate(test.NoDBTestCase):
 
-    @mock.patch.object(container_migrate, 'CONF', stubs.MockConf())
+    @mock.patch.object(migrate, 'CONF', stubs.MockConf())
     @mock.patch.object(session, 'CONF', stubs.MockConf())
     def setUp(self):
         super(LXDTestContainerMigrate, self).setUp()
 
-        self.migrate = container_migrate.LXDContainerMigrate(
+        self.migrate = migrate.LXDContainerMigrate(
             fake.FakeVirtAPI())
 
     @mock.patch.object(session.LXDAPISession, 'container_migrate')
