@@ -103,6 +103,11 @@ class LXDContainerConfig(object):
             config['config'] = self._create_config(instance_name, instance)
             config['devices'] = self._create_network(instance_name, instance,
                                                      network_info)
+
+            # Restrict the size of the "/" disk
+            config['devices'].update(
+                self.configure_container_root(instance))
+
             return config
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -121,10 +126,21 @@ class LXDContainerConfig(object):
         try:
             config = {}
 
+            # Update continaer options
+            config.update(self._config_instance_options(config, instance))
+
+            # Set the instance memory limit
             mem = instance.memory_mb
             if mem >= 0:
                 config['limits.memory'] = '%sMB' % mem
 
+
+            # Set the instnace vcpu limit
+            vcpus = instance.flavor.vcpus
+            if vcpus >= 0:
+                config['limits.cpu'] = str(vcpus)
+
+            # Configure the console for the instance
             config['raw.lxc'] = 'lxc.console=\n' \
                                 'lxc.cgroup.devices.deny=c 5:1 rwm\n' \
                                 'lxc.console.logfile=%s\n' \
@@ -137,6 +153,42 @@ class LXDContainerConfig(object):
                     _LE('Failed to set container resources %(instance)s: '
                         '%(ex)s'), {'instance': instance_name, 'ex': ex},
                     instance=instance)
+
+    def _config_instance_options(self, config, instance):
+        LOG.debug('_config_instance_options called for instance', instance=instance)
+
+        # Set the container to autostart when the host reboots
+        config['boot.autostart'] = 'True'
+
+        # Determine if we require a nested container
+        flavor = instance.flavor
+        lxd_nested_allowed = flavor.extra_specs.get('lxd_nested_allowed', False)
+        if lxd_nested_allowed:
+            config['security.nesting'] = 'True'
+
+        # Determine if we require a privileged container
+        lxd_privileged_allowed = flavor.extra_specs.get('lxd_privileged_allowed', False)
+        if lxd_privileged_allowed:
+            config['security.privileged'] = 'True'
+
+        return config
+
+    def configure_container_root(self, instance):
+        LOG.debug('_configure_container_root called for instnace',
+                  instance=instance)
+        try:
+            config = {}
+            config['root'] = {'path': '/',
+                              'type': 'disk',
+                              'size': '%sGB' % str(instance.root_gb)
+                            }
+            return config
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to configure disk for '
+                              '%(instance)s: %(ex)s'),
+                              {'instance': instance.name, 'ex': ex},
+                              instance=instance)
 
     def _create_network(self, instance_name, instance, network_info):
         """Create the LXD container network on the host

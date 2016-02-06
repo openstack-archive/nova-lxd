@@ -17,6 +17,7 @@ from nova import i18n
 
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import excutils
 
 from nova_lxd.nova.virt.lxd import config
 from nova_lxd.nova.virt.lxd import operations
@@ -28,6 +29,7 @@ _LE = i18n._LE
 _LI = i18n._LI
 
 CONF = cfg.CONF
+CONF.import_opt('my_ip', 'nova.netconf')
 LOG = logging.getLogger(__name__)
 
 
@@ -47,11 +49,31 @@ class LXDContainerMigrate(object):
                                    retry_interval=0):
         LOG.debug("migrate_disk_and_power_off called", instance=instance)
 
-        LOG.info(_('No disk to migrate'))
+        same_host = False
+        if CONF.my_ip == dest:
+            same_host = True
+            LOG.debug('Migration target is the source host')
+        else:
+            LOG.debug('Migration target host: %s' % dest)
+
+        if not self.session.continer_defined(instance.name, instance):
+            msg = _('Instance is not found.')
+            raise exception.NovaException(msg)
+
+        try:
+            if same_host:
+                container_profile = self.container.create_profile(instnace, 
+                                                                  network_info)
+                self.session.profile_update(container_profile, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('failed to resize container '
+                              '%(instance)s: %(ex)s'),
+                              {'instance': instance.name, 'ex': ex},
+                              instance=instance)
 
         # disk_info is not used
-        disk_info = {}
-        return disk_info
+        return ""
 
     def confirm_migration(self, migration, instance, network_info):
         LOG.debug("confirm_migration called", instance=instance)
