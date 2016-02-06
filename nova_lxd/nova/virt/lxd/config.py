@@ -122,7 +122,7 @@ class LXDContainerConfig(object):
         :param instance: nova instance object
         :return: LXD resources dictionary
         """
-        LOG.debug('_create_config called for instance', instance=instance)
+        LOG.debug('create_config called for instance', instance=instance)
         try:
             config = {}
 
@@ -135,7 +135,7 @@ class LXDContainerConfig(object):
                 config['limits.memory'] = '%sMB' % mem
 
 
-            # Set the instnace vcpu limit
+            # Set the instance vcpu limit
             vcpus = instance.flavor.vcpus
             if vcpus >= 0:
                 config['limits.cpu'] = str(vcpus)
@@ -155,7 +155,7 @@ class LXDContainerConfig(object):
                     instance=instance)
 
     def config_instance_options(self, config, instance):
-        LOG.debug('_config_instance_options called for instance', instance=instance)
+        LOG.debug('config_instance_options called for instance', instance=instance)
 
         # Set the container to autostart when the host reboots
         config['boot.autostart'] = 'True'
@@ -174,7 +174,7 @@ class LXDContainerConfig(object):
         return config
 
     def configure_container_root(self, instance):
-        LOG.debug('_configure_container_root called for instnace',
+        LOG.debug('configure_container_root called for instance',
                   instance=instance)
         try:
             config = {}
@@ -190,7 +190,7 @@ class LXDContainerConfig(object):
                               {'instance': instance.name, 'ex': ex},
                               instance=instance)
 
-    def _create_network(self, instance_name, instance, network_info):
+    def create_network(self, instance_name, instance, network_info):
         """Create the LXD container network on the host
 
         :param instance_name: nova instance name
@@ -198,7 +198,7 @@ class LXDContainerConfig(object):
         :param network_info: instance network configuration object
         :return:network configuration dictionary
         """
-        LOG.debug('_create_network called for instance', instance=instance)
+        LOG.debug('create_network called for instance', instance=instance)
         try:
             network_devices = {}
 
@@ -225,7 +225,7 @@ class LXDContainerConfig(object):
         :param instance: nova instance object
         :return: the container source
         """
-        LOG.debug('_get_container_source called for instance',
+        LOG.debug('get_container_source called for instance',
                   instance=instance)
         try:
             container_source = {'type': 'image',
@@ -245,7 +245,7 @@ class LXDContainerConfig(object):
 
     def get_container_migrate(self, container_migrate, migration, instance):
         LOG.debug('get_container_migrate called for instance',
-                  instnace=instance)
+                  instance=instance)
         try:
             # Generate the container config
             container_metadata =container_migrate['metadata']
@@ -267,7 +267,6 @@ class LXDContainerConfig(object):
                     'type': 'migration'
             }
 
-            LOG.debug(pprint.pprint(container_migrate))
             return container_migrate
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -328,9 +327,9 @@ class LXDContainerConfig(object):
     def get_network_device(self, instance):
         """Try to detect which network interfaces are available in a contianer
 
-        :param instnace: nova instance object
+        :param instance: nova instance object
         """
-        LOG.debug('_get_network_device called for instance', instance=instance)
+        LOG.debug('get_network_device called for instance', instance=instance)
         data = self.session.container_info(instance)
         lines = open('/proc/%s/net/dev' % data['init']).readlines()
         interfaces = []

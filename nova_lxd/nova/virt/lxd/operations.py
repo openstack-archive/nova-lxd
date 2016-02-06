@@ -298,7 +298,7 @@ class LXDContainerOperations(object):
         """Setup the container network on the host
 
          :param instance: nova instance object
-         :param network_info: instnace network configuration
+         :param network_info: instance network configuration
          """
         LOG.debug('plug_vifs called for instance', instance=instance)
         try:
@@ -586,7 +586,7 @@ class LXDContainerOperations(object):
         :param context: security context
         :param instance: nova.objects.instance.Instance
         """
-        LOG.debug('get_console_output called for instnace', instance=instance)
+        LOG.debug('get_console_output called for instance', instance=instance)
         try:
             console_log = self.container_dir.get_console_path(instance.name)
             if not os.path.exists(console_log):

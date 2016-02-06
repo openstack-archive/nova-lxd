@@ -574,7 +574,7 @@ class LXDAPISession(object):
         """Creates an alias for a given image
 
         :param alias: The alias to be crerated
-        :param instance: The nove instnace
+        :param instance: The nove instance
         :return: true if alias is created, false otherwise
 
         """
@@ -600,10 +600,10 @@ class LXDAPISession(object):
 
         :param data: image data
         :param headers: image headers
-        :param intance: The nova instance
+        :param instance: The nova instance
 
         """
-        LOG.debug('upload_image called for instnace', instance=instance)
+        LOG.debug('upload_image called for instance', instance=instance)
         try:
             client = self.get_session()
             (state, data) = client.image_upload(data=data,
@@ -633,6 +633,7 @@ class LXDAPISession(object):
         """Waits for an operation to return 200 (Success)
 
         :param operation_id: The operation to wait for.
+        :param instance: nova instace object
         """
         LOG.debug('wait_for_contianer for instance', instance=instance)
         try:
@@ -683,7 +684,7 @@ class LXDAPISession(object):
             msg = _('Failed to communicate with LXD API: %(reason)s') \
                      % {'reason': ex}
             LOG.error(msg)
-            raise excpetion.NovaException(msg)
+            raise exception.NovaException(msg)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Error from LXD during profile_list: '
@@ -722,7 +723,7 @@ class LXDAPISession(object):
         """Create an LXD container profile
 
         :param config: profile dictionary
-        :param instnace: nova instance object
+        :param instance: nova instance object
         """
         LOG.debug('profile_create called for instance',
                   instance=instance)
@@ -844,7 +845,7 @@ class LXDAPISession(object):
         :return:
 
         """
-        LOG.debug('container_move called for instance', instnace=instance)
+        LOG.debug('container_move called for instance', instance=instance)
         try:
             LOG.info(_LI('Moving container %(instance)s with '
                          '%(image)s'), {'instance': instance.name,
@@ -958,7 +959,7 @@ class LXDAPISession(object):
         """Poll snapshot operation for the snapshot to be ready.
 
         :param event_id: operation id
-        :param instnace: nova instance object
+        :param instance: nova instance object
         """
         LOG.debug('wait_for_snapshot called for instance', instance=instance)
 
@@ -978,12 +979,18 @@ class LXDAPISession(object):
         :param event_id: operation id
         :param instance: nova instance object
         """
-        client = self.get_session()
-        (state, data) = client.operation_info(event_id)
-        status_code = data['metadata']['status_code']
+        try:
+            client = self.get_session()
+            (state, data) = client.operation_info(event_id)
+            status_code = data['metadata']['status_code']
 
-        if status_code == 200:
-            raise loopingcall.LoopingCallDone()
-        elif status_code == 400:
-            msg = _('Snapshot failed')
-            raise exception.NovaException(msg)
+            if status_code == 200:
+                raise loopingcall.LoopingCallDone()
+            elif status_code == 400:
+                msg = _('Snapshot failed')
+                raise exception.NovaException(msg)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to wait for snapshot for %(instance)s: '
+                             '%(ex)s'), {'instance': instance.name, 'ex': ex},
+                              instance=instance)

@@ -102,7 +102,7 @@ class LXDContainerMigrate(object):
                 shutil.rmtree(container_dir)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Confirm migration failed for %(instnace)s: '
+                LOG.exception(_LE('Confirm migration failed for %(instance)s: '
                                   '%(ex)s'), {'instance': instance.name,
                                     'ex': ex}, instance=instance)
 
@@ -142,7 +142,7 @@ class LXDContainerMigrate(object):
             self.session.container_start(instance.name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Migration failed for %(instnace)s: '
+                LOG.exception(_LE('Migration failed for %(instance)s: '
                                   '%(ex)s'),
                                   {'instance': instance.name,
                                    'ex': ex}, instance=instance)

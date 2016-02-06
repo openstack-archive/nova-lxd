@@ -99,6 +99,7 @@ class LXDSnapshot(object):
         """
         LOG.debug('_save_lxd_image called for instance', instance=instance)
 
+        fingerprint = None
         try:
             # Publish the snapshot to the local LXD image store
             container_snapshot = {
@@ -140,7 +141,7 @@ class LXDSnapshot(object):
         return fingerprint
 
     def _save_glance_image(self, context, instance, image_id, fingerprint):
-        LOG.debug('_save_glance_image called for instance', instnace=instance)
+        LOG.debug('_save_glance_image called for instance', instance=instance)
 
         try:
             snapshot = IMAGE_API.get(context, image_id)
