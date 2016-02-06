@@ -60,7 +60,7 @@ class LXDContainerConfig(object):
             container_config = {
                 'name': instance_name,
                 'profiles': [str(instance.name)],
-                'source': self._get_container_source(instance),
+                'source': self.get_container_source(instance),
                 'devices': {}
             }
 
@@ -100,8 +100,8 @@ class LXDContainerConfig(object):
         try:
             config = {}
             config['name'] = str(instance_name)
-            config['config'] = self._create_config(instance_name, instance)
-            config['devices'] = self._create_network(instance_name, instance,
+            config['config'] = self.create_config(instance_name, instance)
+            config['devices'] = self.create_network(instance_name, instance,
                                                      network_info)
 
             # Restrict the size of the "/" disk
@@ -115,7 +115,7 @@ class LXDContainerConfig(object):
                     _LE('Failed to create profile %(instance)s: %(ex)s'),
                     {'instance': instance_name, 'ex': ex}, instance=instance)
 
-    def _create_config(self, instance_name, instance):
+    def create_config(self, instance_name, instance):
         """Create the LXD container resources
 
         :param instance_name: instance name
@@ -127,7 +127,7 @@ class LXDContainerConfig(object):
             config = {}
 
             # Update continaer options
-            config.update(self._config_instance_options(config, instance))
+            config.update(self.config_instance_options(config, instance))
 
             # Set the instance memory limit
             mem = instance.memory_mb
@@ -154,7 +154,7 @@ class LXDContainerConfig(object):
                         '%(ex)s'), {'instance': instance_name, 'ex': ex},
                     instance=instance)
 
-    def _config_instance_options(self, config, instance):
+    def config_instance_options(self, config, instance):
         LOG.debug('_config_instance_options called for instance', instance=instance)
 
         # Set the container to autostart when the host reboots
@@ -219,7 +219,7 @@ class LXDContainerConfig(object):
                     _LE('Fail to configure network for %(instance)s: %(ex)s'),
                     {'instance': instance_name, 'ex': ex}, instance=instance)
 
-    def _get_container_source(self, instance):
+    def get_container_source(self, instance):
         """Set the LXD container image for the instance.
 
         :param instance: nova instance object
@@ -283,7 +283,7 @@ class LXDContainerConfig(object):
             network_config = self.vif_driver.get_config(instance, vif)
 
             config = {}
-            config[self._get_network_device(instance)] = {
+            config[self.get_network_device(instance)] = {
                 'nictype': 'bridged',
                 'hwaddr': str(vif['address']),
                 'parent': str(network_config['bridge']),
@@ -296,7 +296,7 @@ class LXDContainerConfig(object):
                       {'instance': instance.name, 'ex': ex},
                       instance=instance)
 
-    def _get_network_device(self, instance):
+    def get_network_device(self, instance):
         """Try to detect which network interfaces are available in a contianer
 
         :param instnace: nova instance object
