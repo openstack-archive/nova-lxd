@@ -79,8 +79,8 @@ class LXDContainerMigrate(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('failed to resize container '
                               '%(instance)s: %(ex)s'),
-                              {'instance': instance.name, 'ex': ex},
-                              instance=instance)
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
         # disk_info is not used
         return ""
@@ -89,7 +89,8 @@ class LXDContainerMigrate(object):
         LOG.debug("confirm_migration called", instance=instance)
 
         if not self.session.container_defined(instance.name, instance):
-            msg = _('Failed to find container %s' % instance.name)
+            msg = _('Failed to find container %(instance)s') % \
+                {'instnace': instance.name}
             raise exception.NovaException(msg)
 
         try:
@@ -104,7 +105,7 @@ class LXDContainerMigrate(object):
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Confirm migration failed for %(instance)s: '
                                   '%(ex)s'), {'instance': instance.name,
-                                    'ex': ex}, instance=instance)
+                                              'ex': ex}, instance=instance)
 
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance=False,
@@ -112,7 +113,8 @@ class LXDContainerMigrate(object):
         LOG.debug("finish_migration called", instance=instance)
 
         if self.session.container_defined(instance.name, instance):
-            msg = _('Failed to find container %s' % instance.name)
+            msg = _('Failed to find container %(instance)s') % \
+                {'instance': instance.name}
             raise exception.NovaException(msg)
 
         try:
@@ -124,13 +126,15 @@ class LXDContainerMigrate(object):
 
             # Step 1 - Setup the profile on the dest host
             container_profile = self.config.create_profile(instance,
-                                        network_info)
+                                                           network_info)
             self.session.profile_create(container_profile, instance)
 
             # Step 2 - Open a websocket on the srct and and
             #          generate the container config
-            (state, data) = self.session.container_migrate(instance.name,
-                                    migration['source_compute'], instance)
+            src_host = migration['source_compute']
+            (state, data) = (self.session.container_migrate(instance.name,
+                                                            src_host,
+                                                            instance))
             container_config = self.config.create_container(instance)
             container_config['source'] = \
                 self.config.get_container_migrate(data, migration, instance)
@@ -144,13 +148,12 @@ class LXDContainerMigrate(object):
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Migration failed for %(instance)s: '
                                   '%(ex)s'),
-                                  {'instance': instance.name,
-                                   'ex': ex}, instance=instance)
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def finish_revert_migration(self, context, instance, network_info,
-                                 block_device_info=None, power_on=True):
+                                block_device_info=None, power_on=True):
         LOG.debug('finish_revert_migration called for instance',
-                    instance=instance)
+                  instance=instance)
         if self.session.container_defined(instance.name, instance):
             self.session.container_start(instance.name, instance)
-

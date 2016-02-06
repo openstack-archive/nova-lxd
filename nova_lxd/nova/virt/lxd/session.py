@@ -303,7 +303,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Successfully started instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.name,
@@ -331,7 +331,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Stopping instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
             # Stop the container
             client = self.get_session()
             (state, data) = client.container_stop(instance_name,
@@ -340,7 +340,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Successfully stopped instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.name,
@@ -367,7 +367,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Rebooting instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
 
             # Container reboot
             client = self.get_session()
@@ -377,7 +377,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Successfully rebooted instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.name,
@@ -404,7 +404,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Destroying instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
 
             # Destroying container
             self.container_stop(instance_name, instance)
@@ -415,7 +415,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Successfully destroyed instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.name,
@@ -442,7 +442,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Pausing instance %(instance)s with'
                          ' %(image)s'), {'instance': instance_name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
 
             client = self.get_session()
             (state, data) = client.container_suspend(instance_name,
@@ -451,7 +451,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Successfully paused instance %(instance)s with'
                          ' %(image)s'), {'instance': instance_name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance_name,
@@ -480,7 +480,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Unpausing instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
 
             client = self.get_session()
             (state, data) = client.container_resume(instance_name,
@@ -489,7 +489,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Successfully unpaused instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.name,
@@ -513,7 +513,7 @@ class LXDAPISession(object):
         try:
             LOG.info(_LI('Creating container %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
 
             client = self.get_session()
             (state, data) = client.container_init(config)
@@ -526,7 +526,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Successfully created container %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.name,
@@ -662,7 +662,7 @@ class LXDAPISession(object):
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.image_ref,
-                                     'reason': ex}
+                                      'reason': ex}
             LOG.error(msg)
             raise exception.NovaException(msg)
         except Exception as e:
@@ -682,14 +682,13 @@ class LXDAPISession(object):
             return client.profile_list()
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API: %(reason)s') \
-                     % {'reason': ex}
+                % {'reason': ex}
             LOG.error(msg)
             raise exception.NovaException(msg)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Error from LXD during profile_list: '
-                          '%(reason)s') % {'reason': ex})
-
+                              '%(reason)s') % {'reason': ex})
 
     def profile_defined(self, instance_name, instance):
         """Validate if the profile is available on the LXD
@@ -729,7 +728,8 @@ class LXDAPISession(object):
                   instance=instance)
         try:
             if self.profile_defined(instance.name, instance):
-                msg = _('Profile already exists %s' % instance.name)
+                msg = _('Profile already exists %(instnce)s') % \
+                    {'instnace': instance.name}
                 raise exception.NovaException(msg)
 
             client = self.get_session()
@@ -754,7 +754,8 @@ class LXDAPISession(object):
         LOG.debug('profile_udpate called for instance', instance=instance)
         try:
             if not self.profile_defined(instance.name, instance):
-                msg  = _('Profile not found %s' % instance.name)
+                msg = _('Profile not found %(instnace)s') % \
+                    {'instance': instance.name}
                 raise exception.NovaException(msg)
 
             client = self.get_session()
@@ -893,7 +894,7 @@ class LXDAPISession(object):
 
             LOG.info(_LI('Successfully snapshotted container %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
-                                        'image': instance.image_ref})
+                                         'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.name,
@@ -979,18 +980,12 @@ class LXDAPISession(object):
         :param event_id: operation id
         :param instance: nova instance object
         """
-        try:
-            client = self.get_session()
-            (state, data) = client.operation_info(event_id)
-            status_code = data['metadata']['status_code']
+        client = self.get_session()
+        (state, data) = client.operation_info(event_id)
+        status_code = data['metadata']['status_code']
 
-            if status_code == 200:
-                raise loopingcall.LoopingCallDone()
-            elif status_code == 400:
-                msg = _('Snapshot failed')
-                raise exception.NovaException(msg)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to wait for snapshot for %(instance)s: '
-                             '%(ex)s'), {'instance': instance.name, 'ex': ex},
-                              instance=instance)
+        if status_code == 200:
+            raise loopingcall.LoopingCallDone()
+        elif status_code == 400:
+            msg = _('Snapshot failed')
+            raise exception.NovaException(msg)

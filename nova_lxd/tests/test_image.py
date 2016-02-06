@@ -74,11 +74,9 @@ class LXDTestContainerImage(test.NoDBTestCase):
     @mock.patch.object(image.IMAGE_API, 'download')
     def test_fetch_image(self, mock_download):
         context = mock.Mock()
-        image_meta = mock.Mock()
         instance = stubs._fake_instance()
         self.assertEqual(None,
-                         self.image._fetch_image(context, image_meta,
-                                                 instance))
+                         self.image._fetch_image(context, instance))
 
     @mock.patch.object(os, 'stat')
     @mock.patch.object(json, 'dumps')

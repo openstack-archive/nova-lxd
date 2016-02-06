@@ -17,7 +17,6 @@
 from nova import exception
 from nova import i18n
 from nova.virt import configdrive
-import os
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -102,7 +101,7 @@ class LXDContainerConfig(object):
             config['name'] = str(instance_name)
             config['config'] = self.create_config(instance_name, instance)
             config['devices'] = self.create_network(instance_name, instance,
-                                                     network_info)
+                                                    network_info)
 
             # Restrict the size of the "/" disk
             config['devices'].update(
@@ -134,7 +133,6 @@ class LXDContainerConfig(object):
             if mem >= 0:
                 config['limits.memory'] = '%sMB' % mem
 
-
             # Set the instance vcpu limit
             vcpus = instance.flavor.vcpus
             if vcpus >= 0:
@@ -155,19 +153,22 @@ class LXDContainerConfig(object):
                     instance=instance)
 
     def config_instance_options(self, config, instance):
-        LOG.debug('config_instance_options called for instance', instance=instance)
+        LOG.debug('config_instance_options called for instance',
+                  instance=instance)
 
         # Set the container to autostart when the host reboots
         config['boot.autostart'] = 'True'
 
         # Determine if we require a nested container
         flavor = instance.flavor
-        lxd_nested_allowed = flavor.extra_specs.get('lxd_nested_allowed', False)
+        lxd_nested_allowed = flavor.extra_specs.get(
+            'lxd_nested_allowed', False)
         if lxd_nested_allowed:
             config['security.nesting'] = 'True'
 
         # Determine if we require a privileged container
-        lxd_privileged_allowed = flavor.extra_specs.get('lxd_privileged_allowed', False)
+        lxd_privileged_allowed = flavor.extra_specs.get(
+            'lxd_privileged_allowed', False)
         if lxd_privileged_allowed:
             config['security.privileged'] = 'True'
 
@@ -181,14 +182,14 @@ class LXDContainerConfig(object):
             config['root'] = {'path': '/',
                               'type': 'disk',
                               'size': '%sGB' % str(instance.root_gb)
-                            }
+                              }
             return config
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to configure disk for '
                               '%(instance)s: %(ex)s'),
-                              {'instance': instance.name, 'ex': ex},
-                              instance=instance)
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def create_network(self, instance_name, instance, network_info):
         """Create the LXD container network on the host
@@ -248,7 +249,7 @@ class LXDContainerConfig(object):
                   instance=instance)
         try:
             # Generate the container config
-            container_metadata =container_migrate['metadata']
+            container_metadata = container_migrate['metadata']
             container_control = container_metadata['metadata']['control']
             container_fs = container_metadata['metadata']['fs']
 
@@ -257,14 +258,14 @@ class LXDContainerConfig(object):
                                 container_migrate.get('operation')))
 
             container_migrate = {
-                    'base_iamge': '',
-                    'mode': 'pull',
-                    'operation': str(container_url),
-                    'secrets': {
+                'base_iamge': '',
+                'mode': 'pull',
+                'operation': str(container_url),
+                'secrets': {
                         'control': str(container_control),
                         'fs': str(container_fs)
-                    },
-                    'type': 'migration'
+                },
+                'type': 'migration'
             }
 
             return container_migrate
@@ -272,8 +273,8 @@ class LXDContainerConfig(object):
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to configure migation source '
                               '%(instance)s: %(ex)s'),
-                             {'instance': instance.name, 'ex': ex},
-                             instance=instance)
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def configure_disk_path(self, src_path, dest_path, vfs_type, instance):
         """Configure the host mount point for the LXD container

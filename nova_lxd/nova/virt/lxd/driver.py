@@ -195,10 +195,10 @@ class LXDDriver(driver.ComputeDriver):
                                                         network_info)
 
     def finish_revert_migration(self, context, instance, network_info,
-                               block_device_info=None, power_on=True):
-        return self.container_migrate.finish_revert_migration(context,
-                                instance, network_info, block_device_info,
-                                power_on)
+                                block_device_info=None, power_on=True):
+        return self.container_migrate.finish_revert_migration(
+            context, instance, network_info, block_device_info,
+            power_on)
 
     def pause(self, instance):
         self.container_ops.pause(instance)
