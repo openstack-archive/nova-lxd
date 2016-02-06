@@ -232,31 +232,22 @@ class LXDDriver(driver.ComputeDriver):
 
     def pre_live_migration(self, context, instance, block_device_info,
                            network_info, disk_info, migrate_data=None):
-        return self.container_migrate.pre_live_migration(
-            context, instance, block_device_info,
-            network_info)
+        raise NotImplementedError()
 
     def live_migration(self, context, instance, dest,
                        post_method, recover_method, block_migration=False,
                        migrate_data=None):
-        return self.container_migrate.live_migration(context, instance, dest,
-                                                     post_method,
-                                                     recover_method,
-                                                     block_migration,
-                                                     migrate_data)
+        raise NotImplementedError()
 
     def post_live_migration(self, context, instance, block_device_info,
                             migrate_data=None):
-        return self.container_migrate.post_live_migration(context, instance,
-                                                          block_device_info)
+        raise NotImplementedError()
 
     def post_live_migration_at_destination(self, context, instance,
                                            network_info,
                                            block_migration=False,
                                            block_device_info=None):
-        return self.container_migrate.post_live_migration_at_destination(
-            context, instance, network_info, block_migration,
-            block_device_info)
+        raise NotImplementedError()
 
     def check_instance_shared_storage_local(self, context, instance):
         raise NotImplementedError()
