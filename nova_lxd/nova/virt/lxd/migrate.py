@@ -13,6 +13,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from nova import exception
 from nova import i18n
 
 from oslo_config import cfg
@@ -56,14 +57,14 @@ class LXDContainerMigrate(object):
         else:
             LOG.debug('Migration target host: %s' % dest)
 
-        if not self.session.continer_defined(instance.name, instance):
+        if not self.session.container_defined(instance.name, instance):
             msg = _('Instance is not found.')
             raise exception.NovaException(msg)
 
         try:
             if same_host:
-                container_profile = self.container.create_profile(instnace, 
-                                                                  network_info)
+                container_profile = self.config.create_profile(instance,
+                                                               network_info)
                 self.session.profile_update(container_profile, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
