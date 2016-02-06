@@ -78,7 +78,7 @@ class LXDSnapshot(object):
                 # We have to stop the container before we can publish the
                 # image to the local store
                 self.session.container_stop(instance.name,
-                                            instance.host, instance)
+                                            instance)
                 fingerprint = self._save_lxd_image(instance,
                                                    image_id)
                 self.session.container_start(instance.name, instance)

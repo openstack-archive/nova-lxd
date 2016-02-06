@@ -75,12 +75,10 @@ class LXDAPISession(object):
         :return: pylxd object
         """
         try:
-            if host is None:
-                conn = api.API()
-            elif host == CONF.host:
-                conn = api.API()
+            if host:
+                return api.API(host=host)
             else:
-                conn = api.API(host=host)
+                return api.API()
         except Exception as ex:
             # notify the compute host that the connection failed
             # via an rpc call
@@ -92,8 +90,6 @@ class LXDAPISession(object):
                                               'compute.nova_lxd.error',
                                               payload)
             raise exception.HypervisorUnavailable(host=CONF.host)
-
-        return conn
 
     #
     # Container related API methods
@@ -129,7 +125,7 @@ class LXDAPISession(object):
         """
         LOG.debug('container_update called fo instance', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             if not self.container_defined(instance.name, instance):
                 msg = _('Instance is not found..: %s') % instance.name
                 raise exception.InstanceNotFound(msg)
@@ -157,7 +153,7 @@ class LXDAPISession(object):
         """
         LOG.debug('container_running for instance', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             return client.container_running(instance.name)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
@@ -180,7 +176,7 @@ class LXDAPISession(object):
         """
         LOG.debug('container_state called for instance', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             if not self.container_defined(instance.name, instance):
                 return power_state.NOSTATE
 
@@ -214,7 +210,7 @@ class LXDAPISession(object):
                 msg = _('Instance is not found.. %s') % instance.name
                 raise exception.InstanceNotFound(msg)
 
-            client = self.get_session(instance.host)
+            client = self.get_session()
             return client.get_container_config(instance.name)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
@@ -241,7 +237,7 @@ class LXDAPISession(object):
                 msg = _('Instance is not found.. %s') % instance.name
                 raise exception.InstanceNotFound(msg)
 
-            client = self.get_session(instance.host)
+            client = self.get_session()
             return client.container_info(instance.name)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
@@ -265,7 +261,7 @@ class LXDAPISession(object):
         """
         LOG.debug('container_defined for instance', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             return client.container_defined(instance_name)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
@@ -293,7 +289,7 @@ class LXDAPISession(object):
                          '%(image)s'), {'instance': instance.name,
                                         'image': instance.image_ref})
             # Start the container
-            client = self.get_session(instance.host)
+            client = self.get_session()
 
             # (chuck): Something wicked could happen between
             # container
@@ -320,11 +316,10 @@ class LXDAPISession(object):
                     {'instance': instance_name, 'reason': ex},
                     instance=instance)
 
-    def container_stop(self, instance_name, host, instance):
+    def container_stop(self, instance_name, instance):
         """Stops an LXD container
 
         :param instance_name: instance name
-        :param host:  host where the container is running
         :param instance: nova instance object
 
         """
@@ -338,7 +333,7 @@ class LXDAPISession(object):
                          '%(image)s'), {'instance': instance.name,
                                         'image': instance.image_ref})
             # Stop the container
-            client = self.get_session(host)
+            client = self.get_session()
             (state, data) = client.container_stop(instance_name,
                                                   CONF.lxd.timeout)
             self.operation_wait(data.get('operation'), instance)
@@ -375,7 +370,7 @@ class LXDAPISession(object):
                                         'image': instance.image_ref})
 
             # Container reboot
-            client = self.get_session(instance.host)
+            client = self.get_session()
             (state, data) = client.container_reboot(instance.name,
                                                     CONF.lxd.timeout)
             self.operation_wait(data.get('operation'), instance)
@@ -395,11 +390,10 @@ class LXDAPISession(object):
                         '%(reason)s'), {'instance': instance.name,
                                         'reason': ex}, instance=instance)
 
-    def container_destroy(self, instance_name, host, instance):
+    def container_destroy(self, instance_name, instance):
         """Destroy a LXD container
 
         :param instance_name: container name
-        :param host: container host
         :param instance: nova instance object
 
         """
@@ -413,9 +407,9 @@ class LXDAPISession(object):
                                         'image': instance.image_ref})
 
             # Destroying container
-            self.container_stop(instance_name, host, instance)
+            self.container_stop(instance_name, instance)
 
-            client = self.get_session(host)
+            client = self.get_session()
             (state, data) = client.container_destroy(instance_name)
             self.operation_wait(data.get('operation'), instance)
 
@@ -450,7 +444,7 @@ class LXDAPISession(object):
                          '%(image)s'), {'instance': instance_name,
                                         'image': instance.image_ref})
 
-            client = self.get_session(instance.host)
+            client = self.get_session()
             (state, data) = client.container_suspend(instance_name,
                                                      CONF.lxd.timeout)
             self.operation_wait(data.get('operation'), instance)
@@ -488,7 +482,7 @@ class LXDAPISession(object):
                          '%(image)s'), {'instance': instance.name,
                                         'image': instance.image_ref})
 
-            client = self.get_session(instance.host)
+            client = self.get_session()
             (state, data) = client.container_resume(instance_name,
                                                     CONF.lxd.timeout)
             self.operation_wait(data.get('operation'), instance)
@@ -508,12 +502,11 @@ class LXDAPISession(object):
                         '%(reason)s'), {'instance': instance_name,
                                         'reason': ex})
 
-    def container_init(self, config, instance, host):
+    def container_init(self, config, instance):
         """Create a LXD container
 
         :param config: LXD container config as a dict
         :param instance: nova instance object
-        :param host: host to create the container on
 
         """
         LOG.debug('container_init called for instance', instance=instance)
@@ -522,7 +515,7 @@ class LXDAPISession(object):
                          '%(image)s'), {'instance': instance.name,
                                         'image': instance.image_ref})
 
-            client = self.get_session(host)
+            client = self.get_session()
             (state, data) = client.container_init(config)
             operation = data.get('operation')
             self.operation_wait(operation, instance)
@@ -559,7 +552,7 @@ class LXDAPISession(object):
         """
         LOG.debug('image_defined called for instance', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             return client.alias_defined(instance.image_ref)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
@@ -587,7 +580,7 @@ class LXDAPISession(object):
         """
         LOG.debug('create_alias called for instance', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             return client.alias_create(alias)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
@@ -612,7 +605,7 @@ class LXDAPISession(object):
         """
         LOG.debug('upload_image called for instnace', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             (state, data) = client.image_upload(data=data,
                                                 headers=headers)
             # XXX - zulcss (Dec 8, 2015) - Work around for older
@@ -643,7 +636,7 @@ class LXDAPISession(object):
         """
         LOG.debug('wait_for_contianer for instance', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             if not client.wait_container_operation(operation_id, 200, -1):
                 msg = _('Container creation timed out')
                 raise exception.NovaException(msg)
@@ -663,7 +656,7 @@ class LXDAPISession(object):
     def operation_info(self, operation_id, instance):
         LOG.debug('operation_info called for instance', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             return client.operation_info(operation_id)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
@@ -690,7 +683,7 @@ class LXDAPISession(object):
         LOG.debug('profile_defined called for instance',
                   instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             client.profile_defined(instance.name)
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
@@ -716,7 +709,7 @@ class LXDAPISession(object):
         LOG.debug('profile_create called for instance',
                   instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             client.profile_create(config)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
@@ -737,7 +730,7 @@ class LXDAPISession(object):
         """
         LOG.debug('profile_udpate called for instance', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             client.profile_update(instance.name, config)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
@@ -758,7 +751,7 @@ class LXDAPISession(object):
         """
         LOG.debug('profile_delete called for instance', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             client.profile_delete(instance.name)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
@@ -829,7 +822,7 @@ class LXDAPISession(object):
                                         'image': instance.image_ref})
 
             # Container move
-            client = self.get_session(instance.host)
+            client = self.get_session()
             (state, data) = client.container_local_move(old_name, config)
             self.operation_wait(data.get('operation'), instance)
 
@@ -863,7 +856,7 @@ class LXDAPISession(object):
                                         'image': instance.image_ref})
 
             # Container snapshot
-            client = self.get_session(instance.host)
+            client = self.get_session()
             (state, data) = client.container_snapshot_create(
                 instance.name, snapshot)
             self.operation_wait(data.get('operation'), instance)
@@ -894,7 +887,7 @@ class LXDAPISession(object):
         """
         LOG.debug('container_publish called for instance', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             return client.container_publish(image)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
@@ -919,7 +912,7 @@ class LXDAPISession(object):
         """
         LOG.debug('container_export called for instance', instance=instance)
         try:
-            client = self.get_session(instance.host)
+            client = self.get_session()
             return client.image_export(image)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to export image: %s') % ex
@@ -956,7 +949,7 @@ class LXDAPISession(object):
         :param event_id: operation id
         :param instance: nova instance object
         """
-        client = self.get_session(instance.host)
+        client = self.get_session()
         (state, data) = client.operation_info(event_id)
         status_code = data['metadata']['status_code']
 
