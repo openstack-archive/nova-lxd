@@ -674,7 +674,23 @@ class LXDAPISession(object):
     #
     # Profile methods
     #
-    def profile_defined(self, instance):
+    def profile_list(self):
+        LOG.debug('profile_list called for instance')
+        try:
+            client = self.get_session()
+            return client.profile_list()
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to communicate with LXD API: %(reason)s') \
+                     % {'reason': ex}
+            LOG.error(msg)
+            raise excpetion.NovaException(msg)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Error from LXD during profile_list: '
+                          '%(reason)s') % {'reason': ex})
+
+
+    def profile_defined(self, instance_name, instance):
         """Validate if the profile is available on the LXD
            host
 
@@ -683,8 +699,10 @@ class LXDAPISession(object):
         LOG.debug('profile_defined called for instance',
                   instance=instance)
         try:
-            client = self.get_session()
-            client.profile_defined(instance.name)
+            found = False
+            if instance_name in self.profile_list():
+                found = True
+            return found
         except lxd_exceptions.APIError as ex:
             if ex.status_code == 404:
                 return False
@@ -709,8 +727,12 @@ class LXDAPISession(object):
         LOG.debug('profile_create called for instance',
                   instance=instance)
         try:
+            if self.profile_defined(instance.name, instance):
+                msg = _('Profile already exists %s' % instance.name)
+                raise exception.NovaException(msg)
+
             client = self.get_session()
-            client.profile_create(config)
+            return client.profile_create(config)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.name,
@@ -730,8 +752,12 @@ class LXDAPISession(object):
         """
         LOG.debug('profile_udpate called for instance', instance=instance)
         try:
+            if not self.profile_defined(instance.name, instance):
+                msg  = _('Profile not found %s' % instance.name)
+                raise exception.NovaException(msg)
+
             client = self.get_session()
-            client.profile_update(instance.name, config)
+            return client.profile_update(instance.name, config)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.name,
@@ -751,8 +777,11 @@ class LXDAPISession(object):
         """
         LOG.debug('profile_delete called for instance', instance=instance)
         try:
+            if not self.profile_defined(instance.name, instance):
+                return
+
             client = self.get_session()
-            client.profile_delete(instance.name)
+            return client.profile_delete(instance.name)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.name,
