@@ -754,7 +754,7 @@ class LXDAPISession(object):
         LOG.debug('profile_udpate called for instance', instance=instance)
         try:
             if not self.profile_defined(instance.name, instance):
-                msg = _('Profile not found %(instnace)s') % \
+                msg = _('Profile not found %(instance)s') % \
                     {'instance': instance.name}
                 raise exception.NovaException(msg)
 

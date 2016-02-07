@@ -16,6 +16,7 @@
 import ddt
 import mock
 
+from nova import objects
 from nova import test
 from nova.tests.unit import fake_network
 
@@ -78,6 +79,14 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         self.assertEqual({'fake_disk': {'path': '/fake/dest_path',
                                         'source': '/fake/src_path',
                                         'type': 'disk'}}, config)
+
+    def test_config_instance_options(self):
+        instance = stubs._fake_instance()
+        config = {}
+        container_config = self.config.config_instance_options(config,
+                                instance)
+        self.assertEqual({'boot.autostart': 'True'}, container_config)
+
 
     def test_create_container_source(self):
         instance = stubs._fake_instance()
