@@ -15,7 +15,6 @@
 
 import os
 import pprint
-import shutil
 
 from nova import exception
 from nova import i18n

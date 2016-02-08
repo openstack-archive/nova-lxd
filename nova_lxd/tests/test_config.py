@@ -16,14 +16,12 @@
 import ddt
 import mock
 
-from nova import objects
 from nova import test
 from nova.tests.unit import fake_network
 
 from nova_lxd.nova.virt.lxd import config
 from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.tests import stubs
-from nova_lxd.tests import fake_api
 
 
 @ddt.ddt
@@ -85,9 +83,8 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         instance = stubs._fake_instance()
         config = {}
         container_config = self.config.config_instance_options(config,
-                                instance)
+                                                               instance)
         self.assertEqual({'boot.autostart': 'True'}, container_config)
-
 
     def test_create_container_source(self):
         instance = stubs._fake_instance()

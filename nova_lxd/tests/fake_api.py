@@ -157,13 +157,13 @@ def fake_container_migrate():
             "resources": {
                 "containers": [
                     "/1.0/containers/instance-00000010"
-                    ]
+                ]
             },
             "metadata": {
-                "control": "5ffecc8e6cf95e01f4bae7dcef6e87711e7c119e42ed7538e3da583ed91927da",
-                "fs": "21f09995fed96a8abae91802de4b794a35789d2a813735c9874decfe591134c4"
+                "control": "fake_control",
+                "fs": "fake_fs"
             },
-            "may_cancel": false,
+            "may_cancel": 'false',
             "err": ""
         },
         "operation": "/1.0/operations/dbd9f22c-6da5-4066-8fca-c02f09f76738"
@@ -394,9 +394,4 @@ def fake_container_info():
                      'protocol': "INET",
                      'address': "172.16.15.30",
                      'host_veth': "vethGMDIY9"}]},
-    }
-
-def fake_container_migrate():
-    return {
-
     }

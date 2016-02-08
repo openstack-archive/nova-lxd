@@ -17,7 +17,6 @@
 import ddt
 import mock
 
-from nova.compute import power_state
 from nova import exception
 from nova import test
 from pylxd import exceptions as lxd_exceptions
@@ -73,10 +72,8 @@ class SessionProfileTest(test.NoDBTestCase):
 
     def test_profile_delete(self):
         instance = stubs._fake_instance()
-        config = mock.Mock()
         self.ml.profile_defined.return_value = True
         self.ml.profile_delete.return_value = \
             (200, fake_api.fake_standard_return())
         self.assertEqual(None,
                          self.session.profile_delete(instance))
-
