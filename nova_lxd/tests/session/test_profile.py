@@ -80,4 +80,3 @@ class SessionProfileTest(test.NoDBTestCase):
         self.assertEqual(None,
                          self.session.profile_delete(instance))
 
-    

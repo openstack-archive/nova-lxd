@@ -98,9 +98,6 @@ class LXDContainerMigrate(object):
             self.session.container_destroy(instance.name,
                                            instance)
             self.operations.unplug_vifs(instance, network_info)
-            container_dir = self.container_dir.get_instance_dir(instance.name)
-            if os.path.exists(container_dir):
-                shutil.rmtree(container_dir)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Confirm migration failed for %(instance)s: '

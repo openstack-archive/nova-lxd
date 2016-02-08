@@ -108,3 +108,5 @@ def _fake_instance():
     }
     return fake_instance.fake_instance_obj(
         ctxt, **_instance_values)
+
+
