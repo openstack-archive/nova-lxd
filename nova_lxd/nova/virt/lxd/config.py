@@ -258,7 +258,7 @@ class LXDContainerConfig(object):
                                 container_migrate.get('operation')))
 
             container_migrate = {
-                'base_iamge': '',
+                'base_image': '',
                 'mode': 'pull',
                 'operation': str(container_url),
                 'secrets': {
