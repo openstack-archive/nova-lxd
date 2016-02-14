@@ -100,12 +100,14 @@ class LXDContainerConfig(object):
             config = {}
             config['name'] = str(instance_name)
             config['config'] = self.create_config(instance_name, instance)
-            config['devices'] = self.create_network(instance_name, instance,
-                                                    network_info)
 
             # Restrict the size of the "/" disk
-            config['devices'].update(
-                self.configure_container_root(instance))
+            config['devices'] = self.configure_container_root(instance)
+
+            if network_info:
+                config['devices'] = update(self.create_network(instance_name,
+                                                       instance,
+                                                       network_info))
 
             return config
         except Exception as ex:
