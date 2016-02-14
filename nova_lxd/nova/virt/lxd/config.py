@@ -105,9 +105,9 @@ class LXDContainerConfig(object):
             config['devices'] = self.configure_container_root(instance)
 
             if network_info:
-                config['devices'] = update(self.create_network(instance_name,
-                                                       instance,
-                                                       network_info))
+                config['devices'].update(self.create_network(instance_name,
+                                                             instance,
+                                                             network_info))
 
             return config
         except Exception as ex:
