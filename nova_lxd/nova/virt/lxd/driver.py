@@ -26,9 +26,9 @@ from oslo_log import log as logging
 
 
 from nova_lxd.nova.virt.lxd import container_firewall
-from nova_lxd.nova.virt.lxd import container_migrate
 from nova_lxd.nova.virt.lxd import container_snapshot
 from nova_lxd.nova.virt.lxd import host
+from nova_lxd.nova.virt.lxd import migrate
 from nova_lxd.nova.virt.lxd import operations as container_ops
 from nova_lxd.nova.virt.lxd import vif as lxd_vif
 
@@ -70,7 +70,7 @@ class LXDDriver(driver.ComputeDriver):
         self.container_ops = container_ops.LXDContainerOperations(virtapi)
         self.container_snapshot = container_snapshot.LXDSnapshot()
         self.container_firewall = container_firewall.LXDContainerFirewall()
-        self.container_migrate = container_migrate.LXDContainerMigrate(virtapi)
+        self.container_migrate = migrate.LXDContainerMigrate(virtapi)
         self.host = host.LXDHost()
 
     def init_host(self, host):
@@ -194,6 +194,12 @@ class LXDDriver(driver.ComputeDriver):
                                                         instance,
                                                         network_info)
 
+    def finish_revert_migration(self, context, instance, network_info,
+                                block_device_info=None, power_on=True):
+        return self.container_migrate.finish_revert_migration(
+            context, instance, network_info, block_device_info,
+            power_on)
+
     def pause(self, instance):
         self.container_ops.pause(instance)
 
@@ -232,31 +238,22 @@ class LXDDriver(driver.ComputeDriver):
 
     def pre_live_migration(self, context, instance, block_device_info,
                            network_info, disk_info, migrate_data=None):
-        return self.container_migrate.pre_live_migration(
-            context, instance, block_device_info,
-            network_info)
+        raise NotImplementedError()
 
     def live_migration(self, context, instance, dest,
                        post_method, recover_method, block_migration=False,
                        migrate_data=None):
-        return self.container_migrate.live_migration(context, instance, dest,
-                                                     post_method,
-                                                     recover_method,
-                                                     block_migration,
-                                                     migrate_data)
+        raise NotImplementedError()
 
     def post_live_migration(self, context, instance, block_device_info,
                             migrate_data=None):
-        return self.container_migrate.post_live_migration(context, instance,
-                                                          block_device_info)
+        raise NotImplementedError()
 
     def post_live_migration_at_destination(self, context, instance,
                                            network_info,
                                            block_migration=False,
                                            block_device_info=None):
-        return self.container_migrate.post_live_migration_at_destination(
-            context, instance, network_info, block_migration,
-            block_device_info)
+        raise NotImplementedError()
 
     def check_instance_shared_storage_local(self, context, instance):
         raise NotImplementedError()

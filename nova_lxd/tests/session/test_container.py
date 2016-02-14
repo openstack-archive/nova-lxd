@@ -327,7 +327,7 @@ class SessionContainerTest(test.NoDBTestCase):
         self.ml.container_stop.return_value = side_effect
         self.assertEqual(None,
                          self.session.container_stop(instance.name,
-                                                     instance.host, instance))
+                                                     instance))
         calls = [mock.call.container_defined(instance.name),
                  mock.call.container_stop(instance.name, -1),
                  mock.call.wait_container_operation(
@@ -348,7 +348,7 @@ class SessionContainerTest(test.NoDBTestCase):
         self.ml.container_stop.side_effect = side_effect
         self.assertRaises(expected,
                           self.session.container_stop, instance.name,
-                          instance.host, instance)
+                          instance)
 
     @stubs.annotated_data(
         ('1,', (200, fake_api.fake_operation_info_ok()))
@@ -399,7 +399,6 @@ class SessionContainerTest(test.NoDBTestCase):
             self.ml.container_destroy.return_value = side_effect
             self.assertEqual(None,
                              self.session.container_destroy(instance.name,
-                                                            instance.host,
                                                             instance))
             calls = [mock.call.container_defined(instance.name),
                      mock.call.container_defined(instance.name),
@@ -414,7 +413,6 @@ class SessionContainerTest(test.NoDBTestCase):
             self.ml.container_defined.return_value = container_defined
             self.assertEqual(None,
                              self.session.container_destroy(instance.name,
-                                                            instance.host,
                                                             instance))
             calls = [mock.call.container_defined(instance.name)]
             self.assertEqual(calls, self.ml.method_calls)
@@ -438,7 +436,7 @@ class SessionContainerTest(test.NoDBTestCase):
             self.ml.container_stop.side_effect = side_effect
             self.assertRaises(expected,
                               self.session.container_destroy, instance.name,
-                              instance.host, instance)
+                              instance)
         if test_type == 'fail_destroy':
             self.ml.container_defined.return_value = container_defined
             self.ml.container_stop.return_value = \
@@ -446,7 +444,7 @@ class SessionContainerTest(test.NoDBTestCase):
             self.ml.container_destroy.side_effect = side_effect
             self.assertRaises(expected,
                               self.session.container_destroy, instance.name,
-                              instance.host, instance)
+                              instance)
 
     @stubs.annotated_data(
         ('1', (200, fake_api.fake_operation_info_ok()))
@@ -536,8 +534,7 @@ class SessionContainerTest(test.NoDBTestCase):
         self.ml.operation_info.return_value = \
             (200, fake_api.fake_container_state(200))
         self.assertEqual(None,
-                         self.session.container_init(config, instance,
-                                                     instance.host))
+                         self.session.container_init(config, instance))
         calls = [mock.call.container_init(config),
                  mock.call.wait_container_operation(
                      '/1.0/operation/1234', 200, -1),
@@ -559,4 +556,4 @@ class SessionContainerTest(test.NoDBTestCase):
         self.ml.container_init.side_effect = side_effect
         self.assertRaises(expected,
                           self.session.container_init, config,
-                          instance, instance.host)
+                          instance)

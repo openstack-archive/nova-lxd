@@ -87,7 +87,7 @@ class LXDContainerImage(object):
                 self._verify_image(context, instance)
 
                 # Fetch the image from glance
-                self._fetch_image(context, image_meta, instance)
+                self._fetch_image(context, instance)
 
                 # Generate the LXD manifest for the image
                 self._get_lxd_manifest(instance, image_meta)
@@ -99,7 +99,7 @@ class LXDContainerImage(object):
                 self._setup_alias(instance)
 
                 # Remove image and manifest when done.
-                self._cleanup_image(image_meta, instance)
+                self._cleanup_image(instance)
 
             except Exception as ex:
                 with excutils.save_and_reraise_exception():
@@ -107,7 +107,7 @@ class LXDContainerImage(object):
                                   '%(reason)s'),
                               {'image': instance.image_ref,
                                'reason': ex}, instance=instance)
-                    self._cleanup_image(image_meta, instance)
+                    self._cleanup_image(instance)
 
     def _verify_image(self, context, instance):
         """Inspect image to verify the correct disk format.
@@ -142,11 +142,10 @@ class LXDContainerImage(object):
             raise exception.ImageUnacceptable(image_id=instance.image_ref,
                                               reason=reason)
 
-    def _fetch_image(self, context, image_meta, instance):
+    def _fetch_image(self, context, instance):
         """Fetch an image from glance
 
         :param context: nova security object
-        :param image_meta: glance image dict
         :param instance: the nova instance object
 
         """
@@ -164,6 +163,7 @@ class LXDContainerImage(object):
         """
         LOG.debug('_get_lxd_manifest called for instance', instance=instance)
 
+        metadata_yaml = None
         try:
             # Create a basic LXD manifest from the image properties
             image_arch = image_meta.properties.get('hw_architecture')
@@ -217,8 +217,6 @@ class LXDContainerImage(object):
         We create the LXD manifest on the fly since glance does
         not understand how to talk to Glance.
 
-        :param path: path to the glance image
-        :param filenmae: name of the file
         :param instance: nova instance
 
         """
@@ -260,7 +258,6 @@ class LXDContainerImage(object):
     def _setup_alias(self, instance):
         """Creates the LXD alias for the image
 
-        :param path: fileystem path of the glance image
         :param instance: nova instance
         """
         LOG.debug('_setup_alias called for instance', instance=instance)
@@ -281,7 +278,7 @@ class LXDContainerImage(object):
                               ' %(ex)s'), {'image': instance.image_ref,
                                            'ex': ex}, instance=instance)
 
-    def _cleanup_image(self, image_meta, instance):
+    def _cleanup_image(self, instance):
         """Cleanup the remaning bits of the glance/lxd interaction
 
         :params image_meta: image_meta dictionary

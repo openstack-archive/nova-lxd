@@ -16,7 +16,6 @@
 import ddt
 import mock
 
-from nova import exception
 from nova import test
 from nova.tests.unit import fake_network
 
@@ -56,15 +55,15 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     def test_create_config(self, tag, key, expected):
         instance = stubs._fake_instance()
         instance_name = 'fake_instance'
-        config = self.config._create_config(instance_name, instance)
+        config = self.config.create_config(instance_name, instance)
         self.assertEqual(config[key], expected)
 
     def test_create_network(self):
         instance = stubs._fake_instance()
         instance_name = 'fake_instance'
         network_info = fake_network.fake_get_instance_nw_info(self)
-        config = self.config._create_network(instance_name, instance,
-                                             network_info)
+        config = self.config.create_network(instance_name, instance,
+                                            network_info)
         self.assertEqual({'fake_br1': {'hwaddr': 'DE:AD:BE:EF:00:01',
                                        'nictype': 'bridged',
                                        'parent': 'fake_br1',
@@ -80,14 +79,35 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                                         'source': '/fake/src_path',
                                         'type': 'disk'}}, config)
 
-    @mock.patch('os.path.exists', mock.Mock(return_value=False))
-    def test_create_disk_path_fail(self):
+    def test_config_instance_options(self):
         instance = stubs._fake_instance()
-        self.assertRaises(exception.NovaException,
-                          self.config.configure_disk_path, 'fake_source',
-                          'fake_dir', 'fake_type', instance)
+        config = {}
+        container_config = self.config.config_instance_options(config,
+                                                               instance)
+        self.assertEqual({'boot.autostart': 'True'}, container_config)
 
     def test_create_container_source(self):
         instance = stubs._fake_instance()
-        config = self.config._get_container_source(instance)
+        config = self.config.get_container_source(instance)
         self.assertEqual(config, {'type': 'image', 'alias': 'fake_image'})
+
+    def test_container_root(self):
+        instance = stubs._fake_instance()
+        config = self.config.configure_container_root(instance)
+        self.assertEqual({'root': {'path': '/',
+                                   'type': 'disk',
+                                   'size': '10GB'}}, config)
+
+    def test_container_nested_container(self):
+        instance = stubs._fake_instance()
+        instance.flavor.extra_specs = {'lxd_nested_allowed': True}
+        config = self.config.config_instance_options({}, instance)
+        self.assertEqual({'security.nesting': 'True',
+                          'boot.autostart': 'True'}, config)
+
+    def test_container_privileged_container(self):
+        instance = stubs._fake_instance()
+        instance.flavor.extra_specs = {'lxd_privileged_allowed': True}
+        config = self.config.config_instance_options({}, instance)
+        self.assertEqual({'security.privileged': 'True',
+                          'boot.autostart': 'True'}, config)

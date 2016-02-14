@@ -211,7 +211,7 @@ class LXDContainerOperations(object):
             container_config = \
                 self.config.create_container(instance)
             self.session.container_init(
-                container_config, instance, instance.host)
+                container_config, instance)
 
             # Start the container
             self.session.container_start(instance_name, instance)
@@ -298,7 +298,7 @@ class LXDContainerOperations(object):
         """Setup the container network on the host
 
          :param instance: nova instance object
-         :param network_info: instnace network configuration
+         :param network_info: instance network configuration
          """
         LOG.debug('plug_vifs called for instance', instance=instance)
         try:
@@ -345,7 +345,7 @@ class LXDContainerOperations(object):
         LOG.debug('destroy called for instance', instance=instance)
         try:
             self.session.profile_delete(instance)
-            self.session.container_destroy(instance.name, instance.host,
+            self.session.container_destroy(instance.name,
                                            instance)
             self.cleanup(context, instance, network_info, block_device_info)
         except Exception as ex:
@@ -366,7 +366,6 @@ class LXDContainerOperations(object):
         LOG.debug('power_off called for instance', instance=instance)
         try:
             self.session.container_stop(instance.name,
-                                        instance.host,
                                         instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -475,7 +474,7 @@ class LXDContainerOperations(object):
                 raise exception.NovaException(msg)
 
             # Step 1 - Stop the old container
-            self.session.container_stop(instance.name, instance.host, instance)
+            self.session.container_stop(instance.name, instance)
 
             # Step 2 - Rename the broken contianer to be rescued
             self.session.container_move(instance.name,
@@ -490,8 +489,7 @@ class LXDContainerOperations(object):
             config = self.config.configure_disk_path(rescue_dir,
                                                      'mnt', 'rescue', instance)
             container_config['devices'].update(config)
-            self.session.container_init(container_config, instance,
-                                        instance.host)
+            self.session.container_init(container_config, instance)
 
             # Step 4 - Start the rescue instance
             self.session.container_start(instance.name, instance)
@@ -516,7 +514,6 @@ class LXDContainerOperations(object):
 
             # Step 1 - Destory the rescue instance.
             self.session.container_destroy(instance.name,
-                                           instance.host,
                                            instance)
 
             # Step 2 - Rename the backup container that
@@ -589,7 +586,7 @@ class LXDContainerOperations(object):
         :param context: security context
         :param instance: nova.objects.instance.Instance
         """
-        LOG.debug('get_console_output called for instnace', instance=instance)
+        LOG.debug('get_console_output called for instance', instance=instance)
         try:
             console_log = self.container_dir.get_console_path(instance.name)
             if not os.path.exists(console_log):

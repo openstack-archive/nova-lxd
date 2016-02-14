@@ -78,7 +78,7 @@ class LXDSnapshot(object):
                 # We have to stop the container before we can publish the
                 # image to the local store
                 self.session.container_stop(instance.name,
-                                            instance.host, instance)
+                                            instance)
                 fingerprint = self._save_lxd_image(instance,
                                                    image_id)
                 self.session.container_start(instance.name, instance)
@@ -99,6 +99,7 @@ class LXDSnapshot(object):
         """
         LOG.debug('_save_lxd_image called for instance', instance=instance)
 
+        fingerprint = None
         try:
             # Publish the snapshot to the local LXD image store
             container_snapshot = {
@@ -140,7 +141,7 @@ class LXDSnapshot(object):
         return fingerprint
 
     def _save_glance_image(self, context, instance, image_id, fingerprint):
-        LOG.debug('_save_glance_image called for instance', instnace=instance)
+        LOG.debug('_save_glance_image called for instance', instance=instance)
 
         try:
             snapshot = IMAGE_API.get(context, image_id)

@@ -144,15 +144,29 @@ def fake_container_log():
 
 def fake_container_migrate():
     return {
-        "type": "sync",
-        "status": "Success",
-        "status_code": 200,
-        "operation": "/1.0/operations/1234",
+        "type": "async",
+        "status": "Operation created",
+        "status_code": 100,
         "metadata": {
-            "control": "fake_control",
-            "criu": "fake_criu",
-            "fs": "fake_fs",
-        }
+            "id": "dbd9f22c-6da5-4066-8fca-c02f09f76738",
+            "class": "websocket",
+            "created_at": "2016-02-07T09:20:53.127321875-05:00",
+            "updated_at": "2016-02-07T09:20:53.127321875-05:00",
+            "status": "Running",
+            "status_code": 103,
+            "resources": {
+                "containers": [
+                    "/1.0/containers/instance-00000010"
+                ]
+            },
+            "metadata": {
+                "control": "fake_control",
+                "fs": "fake_fs"
+            },
+            "may_cancel": 'false',
+            "err": ""
+        },
+        "operation": "/1.0/operations/dbd9f22c-6da5-4066-8fca-c02f09f76738"
     }
 
 

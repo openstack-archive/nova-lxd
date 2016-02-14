@@ -17,7 +17,6 @@
 from nova import exception
 from nova import i18n
 from nova.virt import configdrive
-import os
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -60,7 +59,7 @@ class LXDContainerConfig(object):
             container_config = {
                 'name': instance_name,
                 'profiles': [str(instance.name)],
-                'source': self._get_container_source(instance),
+                'source': self.get_container_source(instance),
                 'devices': {}
             }
 
@@ -100,9 +99,16 @@ class LXDContainerConfig(object):
         try:
             config = {}
             config['name'] = str(instance_name)
-            config['config'] = self._create_config(instance_name, instance)
-            config['devices'] = self._create_network(instance_name, instance,
-                                                     network_info)
+            config['config'] = self.create_config(instance_name, instance)
+
+            # Restrict the size of the "/" disk
+            config['devices'] = self.configure_container_root(instance)
+
+            if network_info:
+                config['devices'].update(self.create_network(instance_name,
+                                                             instance,
+                                                             network_info))
+
             return config
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -110,21 +116,31 @@ class LXDContainerConfig(object):
                     _LE('Failed to create profile %(instance)s: %(ex)s'),
                     {'instance': instance_name, 'ex': ex}, instance=instance)
 
-    def _create_config(self, instance_name, instance):
+    def create_config(self, instance_name, instance):
         """Create the LXD container resources
 
         :param instance_name: instance name
         :param instance: nova instance object
         :return: LXD resources dictionary
         """
-        LOG.debug('_create_config called for instance', instance=instance)
+        LOG.debug('create_config called for instance', instance=instance)
         try:
             config = {}
 
+            # Update continaer options
+            config.update(self.config_instance_options(config, instance))
+
+            # Set the instance memory limit
             mem = instance.memory_mb
             if mem >= 0:
                 config['limits.memory'] = '%sMB' % mem
 
+            # Set the instance vcpu limit
+            vcpus = instance.flavor.vcpus
+            if vcpus >= 0:
+                config['limits.cpu'] = str(vcpus)
+
+            # Configure the console for the instance
             config['raw.lxc'] = 'lxc.console=\n' \
                                 'lxc.cgroup.devices.deny=c 5:1 rwm\n' \
                                 'lxc.console.logfile=%s\n' \
@@ -138,7 +154,46 @@ class LXDContainerConfig(object):
                         '%(ex)s'), {'instance': instance_name, 'ex': ex},
                     instance=instance)
 
-    def _create_network(self, instance_name, instance, network_info):
+    def config_instance_options(self, config, instance):
+        LOG.debug('config_instance_options called for instance',
+                  instance=instance)
+
+        # Set the container to autostart when the host reboots
+        config['boot.autostart'] = 'True'
+
+        # Determine if we require a nested container
+        flavor = instance.flavor
+        lxd_nested_allowed = flavor.extra_specs.get(
+            'lxd_nested_allowed', False)
+        if lxd_nested_allowed:
+            config['security.nesting'] = 'True'
+
+        # Determine if we require a privileged container
+        lxd_privileged_allowed = flavor.extra_specs.get(
+            'lxd_privileged_allowed', False)
+        if lxd_privileged_allowed:
+            config['security.privileged'] = 'True'
+
+        return config
+
+    def configure_container_root(self, instance):
+        LOG.debug('configure_container_root called for instance',
+                  instance=instance)
+        try:
+            config = {}
+            config['root'] = {'path': '/',
+                              'type': 'disk',
+                              'size': '%sGB' % str(instance.root_gb)
+                              }
+            return config
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to configure disk for '
+                              '%(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
+
+    def create_network(self, instance_name, instance, network_info):
         """Create the LXD container network on the host
 
         :param instance_name: nova instance name
@@ -146,7 +201,7 @@ class LXDContainerConfig(object):
         :param network_info: instance network configuration object
         :return:network configuration dictionary
         """
-        LOG.debug('_create_network called for instance', instance=instance)
+        LOG.debug('create_network called for instance', instance=instance)
         try:
             network_devices = {}
 
@@ -167,13 +222,13 @@ class LXDContainerConfig(object):
                     _LE('Fail to configure network for %(instance)s: %(ex)s'),
                     {'instance': instance_name, 'ex': ex}, instance=instance)
 
-    def _get_container_source(self, instance):
+    def get_container_source(self, instance):
         """Set the LXD container image for the instance.
 
         :param instance: nova instance object
         :return: the container source
         """
-        LOG.debug('_get_container_source called for instance',
+        LOG.debug('get_container_source called for instance',
                   instance=instance)
         try:
             container_source = {'type': 'image',
@@ -191,6 +246,38 @@ class LXDContainerConfig(object):
                     {'instance': instance.name, 'ex': ex},
                     instance=instance)
 
+    def get_container_migrate(self, container_migrate, migration, instance):
+        LOG.debug('get_container_migrate called for instance',
+                  instance=instance)
+        try:
+            # Generate the container config
+            container_metadata = container_migrate['metadata']
+            container_control = container_metadata['metadata']['control']
+            container_fs = container_metadata['metadata']['fs']
+
+            container_url = ('wss://%s:8443%s/websocket'
+                             % (migration['source_compute'],
+                                container_migrate.get('operation')))
+
+            container_migrate = {
+                'base_image': '',
+                'mode': 'pull',
+                'operation': str(container_url),
+                'secrets': {
+                        'control': str(container_control),
+                        'fs': str(container_fs)
+                },
+                'type': 'migration'
+            }
+
+            return container_migrate
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to configure migation source '
+                              '%(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
+
     def configure_disk_path(self, src_path, dest_path, vfs_type, instance):
         """Configure the host mount point for the LXD container
 
@@ -203,10 +290,6 @@ class LXDContainerConfig(object):
         LOG.debug('configure_disk_path called for instance',
                   instance=instance)
         try:
-            if not os.path.exists(src_path):
-                msg = _('Source path does not exist')
-                raise exception.NovaException(msg)
-
             config = {}
             config[vfs_type] = {'path': dest_path,
                                 'source': src_path,
@@ -231,7 +314,7 @@ class LXDContainerConfig(object):
             network_config = self.vif_driver.get_config(instance, vif)
 
             config = {}
-            config[self._get_network_device(instance)] = {
+            config[self.get_network_device(instance)] = {
                 'nictype': 'bridged',
                 'hwaddr': str(vif['address']),
                 'parent': str(network_config['bridge']),
@@ -244,12 +327,12 @@ class LXDContainerConfig(object):
                       {'instance': instance.name, 'ex': ex},
                       instance=instance)
 
-    def _get_network_device(self, instance):
+    def get_network_device(self, instance):
         """Try to detect which network interfaces are available in a contianer
 
-        :param instnace: nova instance object
+        :param instance: nova instance object
         """
-        LOG.debug('_get_network_device called for instance', instance=instance)
+        LOG.debug('get_network_device called for instance', instance=instance)
         data = self.session.container_info(instance)
         lines = open('/proc/%s/net/dev' % data['init']).readlines()
         interfaces = []
