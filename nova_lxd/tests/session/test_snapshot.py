@@ -18,7 +18,7 @@ import mock
 
 from nova import exception
 from nova import test
-from pylxd import exceptions as lxd_exceptions
+from pylxd.deprecated import exceptions as lxd_exceptions
 
 from nova_lxd.nova.virt.lxd import session
 from nova_lxd.tests import fake_api

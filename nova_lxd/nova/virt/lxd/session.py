@@ -27,8 +27,8 @@ from oslo_log import log as logging
 from oslo_service import loopingcall
 from oslo_utils import excutils
 
-from pylxd import api
-from pylxd import exceptions as lxd_exceptions
+from pylxd.deprecated import api
+from pylxd.deprecated import exceptions as lxd_exceptions
 import six
 
 from nova_lxd.nova.virt.lxd import constants

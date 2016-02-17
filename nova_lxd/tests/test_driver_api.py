@@ -17,7 +17,7 @@ import inspect
 import json
 import os
 import platform
-from pylxd import exceptions as lxd_exceptions
+from pylxd.deprecated import exceptions as lxd_exceptions
 
 import ddt
 import mock
