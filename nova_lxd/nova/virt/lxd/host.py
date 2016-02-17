@@ -27,8 +27,8 @@ from nova import i18n
 from nova import utils
 import os
 import platform
-from pylxd import api
-from pylxd import exceptions as lxd_exceptions
+from pylxd.deprecated import api
+from pylxd.deprecated import exceptions as lxd_exceptions
 import socket
 
 from oslo_config import cfg
