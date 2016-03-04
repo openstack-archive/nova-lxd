@@ -15,9 +15,11 @@
 
 import os
 import pprint
+import socket
 
 from nova import exception
 from nova import i18n
+from nova import utils
 
 from oslo_config import cfg
 from oslo_log import log as logging
@@ -127,14 +129,15 @@ class LXDContainerMigrate(object):
 
             # Step 2 - Open a websocket on the srct and and
             #          generate the container config
-            src_host = migration['source_compute']
+            src_host = self._get_hostname(migration['source_compute'], instance)
             (state, data) = (self.session.container_migrate(instance.name,
                                                             src_host,
                                                             instance))
             container_config = self.config.create_container(instance)
             container_config['source'] = \
-                self.config.get_container_migrate(data, migration, instance)
-            LOG.debug(pprint.pprint(container_config))
+                self.config.get_container_migrate(data, migration, src_host, instance)
+            LOG.debug('chuck')
+            LOG.debug('CHUCK %s' % container_config)
             self.session.container_init(container_config, instance)
 
             # Step 3 - Start the network and contianer
@@ -153,3 +156,11 @@ class LXDContainerMigrate(object):
                   instance=instance)
         if self.session.container_defined(instance.name, instance):
             self.session.container_start(instance.name, instance)
+
+    def _get_hostname(self, host, instance):
+        LOG.debug('_get_hostname called for instance', instance=instance)
+        out, err = utils.execute('env', 'LANG=C', 'dnsdomainname')
+        if out != '':
+            return '%s.%s' % (host, out.rstrip('\n'))
+        else:
+            return host

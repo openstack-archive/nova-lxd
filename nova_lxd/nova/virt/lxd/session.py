@@ -796,6 +796,18 @@ class LXDAPISession(object):
                 LOG.error(
                     _LE('Failed to delete profile %(instance)s: %(reason)s'),
                     {'instance': instance.name, 'reason': ex})
+    #
+    # Host Methods
+    #
+    def host_certificate(self, instance, host):
+        LOG.debug('host_certificate called for instance', instance=instance)
+        try:
+            client = self.get_session(host)
+            return client.get_host_certificate()
+        except lxd_exceptions.APIError as ex:
+            msg = _('Failed to communicate with LXD %(instance)s:'
+                    ' %(reason)s') % {'instance': instance.name,
+                                      'ex': reason}
 
     #
     # Migrate methods
