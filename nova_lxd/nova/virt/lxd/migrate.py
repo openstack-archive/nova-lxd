@@ -136,8 +136,6 @@ class LXDContainerMigrate(object):
             container_config = self.config.create_container(instance)
             container_config['source'] = \
                 self.config.get_container_migrate(data, migration, src_host, instance)
-            LOG.debug('chuck')
-            LOG.debug('CHUCK %s' % container_config)
             self.session.container_init(container_config, instance)
 
             # Step 3 - Start the network and contianer
