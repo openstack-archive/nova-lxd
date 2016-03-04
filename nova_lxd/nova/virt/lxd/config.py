@@ -14,6 +14,8 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import socket
+
 from nova import exception
 from nova import i18n
 from nova.virt import configdrive
@@ -246,22 +248,25 @@ class LXDContainerConfig(object):
                     {'instance': instance.name, 'ex': ex},
                     instance=instance)
 
-    def get_container_migrate(self, container_migrate, migration, instance):
+    def get_container_migrate(self, container_migrate, migration,
+                              host, instance):
         LOG.debug('get_container_migrate called for instance',
                   instance=instance)
         try:
             # Generate the container config
+            host = socket.gethostbyname(host)
             container_metadata = container_migrate['metadata']
             container_control = container_metadata['metadata']['control']
             container_fs = container_metadata['metadata']['fs']
 
-            container_url = ('wss://%s:8443%s/websocket'
-                             % (migration['source_compute'],
-                                container_migrate.get('operation')))
+            container_url = 'https://%s:8443%s' \
+                % (host, container_migrate.get('operation'))
 
             container_migrate = {
                 'base_image': '',
                 'mode': 'pull',
+                'certificate': str(self.session.host_certificate(instance,
+                                                                 host)),
                 'operation': str(container_url),
                 'secrets': {
                         'control': str(container_control),
