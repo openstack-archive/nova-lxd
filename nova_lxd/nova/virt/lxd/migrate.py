@@ -14,8 +14,6 @@
 #    under the License.
 
 import os
-import pprint
-import socket
 
 from nova import exception
 from nova import i18n
@@ -129,13 +127,15 @@ class LXDContainerMigrate(object):
 
             # Step 2 - Open a websocket on the srct and and
             #          generate the container config
-            src_host = self._get_hostname(migration['source_compute'], instance)
+            src_host = self._get_hostname(
+                migration['source_compute'], instance)
             (state, data) = (self.session.container_migrate(instance.name,
                                                             src_host,
                                                             instance))
             container_config = self.config.create_container(instance)
             container_config['source'] = \
-                self.config.get_container_migrate(data, migration, src_host, instance)
+                self.config.get_container_migrate(
+                    data, migration, src_host, instance)
             self.session.container_init(container_config, instance)
 
             # Step 3 - Start the network and contianer

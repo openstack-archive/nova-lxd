@@ -796,6 +796,7 @@ class LXDAPISession(object):
                 LOG.error(
                     _LE('Failed to delete profile %(instance)s: %(reason)s'),
                     {'instance': instance.name, 'reason': ex})
+
     #
     # Host Methods
     #
@@ -807,7 +808,8 @@ class LXDAPISession(object):
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD %(instance)s:'
                     ' %(reason)s') % {'instance': instance.name,
-                                      'ex': reason}
+                                      'ex': ex}
+            LOG.error(msg)
 
     #
     # Migrate methods

@@ -248,7 +248,8 @@ class LXDContainerConfig(object):
                     {'instance': instance.name, 'ex': ex},
                     instance=instance)
 
-    def get_container_migrate(self, container_migrate, migration, host, instance):
+    def get_container_migrate(self, container_migrate, migration,
+                              host, instance):
         LOG.debug('get_container_migrate called for instance',
                   instance=instance)
         try:
@@ -259,13 +260,13 @@ class LXDContainerConfig(object):
             container_fs = container_metadata['metadata']['fs']
 
             container_url = 'https://%s:8443%s' \
-                             % (host, container_migrate.get('operation'))
+                % (host, container_migrate.get('operation'))
 
             container_migrate = {
                 'base_image': '',
                 'mode': 'pull',
                 'certificate': str(self.session.host_certificate(instance,
-                                   host)),
+                                                                 host)),
                 'operation': str(container_url),
                 'secrets': {
                         'control': str(container_control),
