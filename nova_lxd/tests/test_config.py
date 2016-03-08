@@ -112,7 +112,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
 
     @mock.patch.object(session.LXDAPISession, 'get_host_config',
                        mock.Mock(return_value={'storage': 'lvm'}))
-    def test_container_root_zfs(self):
+    def test_container_root_lvm(self):
         instance = stubs._fake_instance()
         config = self.config.configure_container_root(instance)
         self.assertEqual({'root': {'path': '/',
