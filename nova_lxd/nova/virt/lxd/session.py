@@ -811,7 +811,7 @@ class LXDAPISession(object):
                                       'ex': ex}
             LOG.error(msg)
 
-    def host_config(self, instance):
+    def get_host_config(self, instance):
         LOG.debug('host_config called for instance', instance=instance)
         try:
             client = self.get_session()

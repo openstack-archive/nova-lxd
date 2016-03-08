@@ -104,7 +104,7 @@ class LXDContainerConfig(object):
             config['config'] = self.create_config(instance_name, instance)
 
             # Restrict the size of the "/" disk
-            lxd_config = self.session.host_config(instance)
+            lxd_config = self.session.get_host_config(instance)
             if str(lxd_config['storage']) in ['btrfs', 'zfs']:
                 config['devices'] = self.configure_container_root(instance)
             else:
