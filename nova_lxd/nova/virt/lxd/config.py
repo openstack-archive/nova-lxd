@@ -104,11 +104,7 @@ class LXDContainerConfig(object):
             config['config'] = self.create_config(instance_name, instance)
 
             # Restrict the size of the "/" disk
-            lxd_config = self.session.get_host_config(instance)
-            if str(lxd_config['storage']) in ['btrfs', 'zfs']:
-                config['devices'] = self.configure_container_root(instance)
-            else:
-                config['devices'] = {}
+            config['devices'] = self.configure_container_root(instance)
 
             if network_info:
                 config['devices'].update(self.create_network(instance_name,
@@ -187,10 +183,14 @@ class LXDContainerConfig(object):
                   instance=instance)
         try:
             config = {}
-            config['root'] = {'path': '/',
-                              'type': 'disk',
-                              'size': '%sGB' % str(instance.root_gb)
-                              }
+            lxd_config = self.session.get_host_config(instance)
+            if str(lxd_config['storage']) in ['btrfs', 'zfs']:
+                config['root'] = {'path': '/',
+                                  'type': 'disk',
+                                  'size': '%sGB' % str(instance.root_gb)}
+            else:
+                config['root'] = {'path': '/',
+                                  'type': 'disk'}
             return config
         except Exception as ex:
             with excutils.save_and_reraise_exception():

@@ -20,6 +20,7 @@ from nova import test
 from nova.tests.unit import fake_network
 
 from nova_lxd.nova.virt.lxd import config
+from nova_lxd.nova.virt.lxd import session
 from nova_lxd.nova.virt.lxd import utils as container_dir
 from nova_lxd.tests import stubs
 
@@ -91,12 +92,31 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         config = self.config.get_container_source(instance)
         self.assertEqual(config, {'type': 'image', 'alias': 'fake_image'})
 
-    def test_container_root(self):
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'btrfs'}))
+    def test_container_root_btrfs(self):
         instance = stubs._fake_instance()
         config = self.config.configure_container_root(instance)
         self.assertEqual({'root': {'path': '/',
                                    'type': 'disk',
                                    'size': '10GB'}}, config)
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    def test_container_root_zfs(self):
+        instance = stubs._fake_instance()
+        config = self.config.configure_container_root(instance)
+        self.assertEqual({'root': {'path': '/',
+                                   'type': 'disk',
+                                   'size': '10GB'}}, config)
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'lvm'}))
+    def test_container_root_zfs(self):
+        instance = stubs._fake_instance()
+        config = self.config.configure_container_root(instance)
+        self.assertEqual({'root': {'path': '/',
+                                   'type': 'disk'}}, config)
 
     def test_container_nested_container(self):
         instance = stubs._fake_instance()
