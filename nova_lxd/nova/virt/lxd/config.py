@@ -183,10 +183,14 @@ class LXDContainerConfig(object):
                   instance=instance)
         try:
             config = {}
-            config['root'] = {'path': '/',
-                              'type': 'disk',
-                              'size': '%sGB' % str(instance.root_gb)
-                              }
+            lxd_config = self.session.get_host_config(instance)
+            if str(lxd_config['storage']) in ['btrfs', 'zfs']:
+                config['root'] = {'path': '/',
+                                  'type': 'disk',
+                                  'size': '%sGB' % str(instance.root_gb)}
+            else:
+                config['root'] = {'path': '/',
+                                  'type': 'disk'}
             return config
         except Exception as ex:
             with excutils.save_and_reraise_exception():
