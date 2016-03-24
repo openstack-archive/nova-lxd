@@ -16,3 +16,5 @@ testscenarios>=0.4 # Apache-2.0/BSD
 testtools>=1.4.0 # MIT
 os-testr>=0.4.1 # Apache-2.0
 nosexcover # BSD
+-e git+https://github.com/lxc/pylxd#egg=pylxd
+-e git+https://github.com/openstack/nova#egg=nova
