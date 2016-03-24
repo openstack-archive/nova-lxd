@@ -155,6 +155,36 @@ class LXDContainerMigrate(object):
         if self.session.container_defined(instance.name, instance):
             self.session.container_start(instance.name, instance)
 
+    def live_migration(self, context, instance, dest,
+                       post_method, recover_method, block_migration=False,
+                       migrate_data=None):
+        LOG.debug('live_migration called for instance', instance=instance)
+
+    def pre_live_migration(self, context, instance, block_device_info,
+                           network_info):
+        LOG.debug('pre_live_migration for instance', instance=instance)
+
+    def post_live_migration(self, context, instance, block_device_info,
+                            migrate_data=None):
+        LOG.debug('post_live_migration called for instance', instance=instance)
+
+    def check_can_live_migrate_destination(self, context, instance,
+                                           src_compute_info, dst_compute_info,
+                                           block_migration=False,
+                                           disk_over_commit=False):
+        LOG.debug('check_can_live_migrate_destination called for instance',
+                   instance=instance)
+
+    def check_can_live_migrate_destination_cleanup(self, context,
+                                                   dest_check_data):
+        LOG.debug('check_can_live_migrate_destination_cleanup called for instance',
+                  instance=instance)
+
+     def check_can_live_migrate_source(self, context, instance,
+                                       dest_check_data, block_device_info=None):
+        LOG.debug('check_can_live_migrate_source called for instance', instance=instance)
+
+
     def _get_hostname(self, host, instance):
         LOG.debug('_get_hostname called for instance', instance=instance)
         out, err = utils.execute('env', 'LANG=C', 'dnsdomainname')

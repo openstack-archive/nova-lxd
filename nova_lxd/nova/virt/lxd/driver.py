@@ -243,17 +243,22 @@ class LXDDriver(driver.ComputeDriver):
     def live_migration(self, context, instance, dest,
                        post_method, recover_method, block_migration=False,
                        migrate_data=None):
-        raise NotImplementedError()
+        self.container_migrate.live_migration(context, instance, dest,
+                       post_method, recover_method, block_migration,
+                       migrate_data)
 
     def post_live_migration(self, context, instance, block_device_info,
                             migrate_data=None):
-        raise NotImplementedError()
+        self.container_migration.post_live_migration(context, instance,
+                            block_device_info)
 
     def post_live_migration_at_destination(self, context, instance,
                                            network_info,
                                            block_migration=False,
                                            block_device_info=None):
-        raise NotImplementedError()
+        self.container_migrate.post_live_migration_at_destination(
+                context, instance, network_info, block_migration,
+                block_device_info)
 
     def check_instance_shared_storage_local(self, context, instance):
         raise NotImplementedError()
@@ -268,15 +273,20 @@ class LXDDriver(driver.ComputeDriver):
                                            src_compute_info, dst_compute_info,
                                            block_migration=False,
                                            disk_over_commit=False):
-        raise NotImplementedError()
+        self.container_migrate.check_can_live_migrate_destination(context,
+                                 instance, src_compute_info,
+                                 dst_compute_info, block_migration,
+                                 disk_over_commit)
 
     def check_can_live_migrate_destination_cleanup(self, context,
                                                    dest_check_data):
-        raise NotImplementedError()
+        self.container_migrate.check_can_live_migrate_destination_cleanup(
+                    context, dest_check_data)
 
     def check_can_live_migrate_source(self, context, instance,
                                       dest_check_data, block_device_info=None):
-        raise NotImplementedError()
+        self.container_migrate.check_can_live_migrate_source(context, instance,
+                            dest_check_data, block_device_info)
 
     def get_instance_disk_info(self, instance,
                                block_device_info=None):
