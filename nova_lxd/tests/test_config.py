@@ -78,7 +78,8 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                                                  'fake_disk', instance)
         self.assertEqual({'fake_disk': {'path': '/fake/dest_path',
                                         'source': '/fake/src_path',
-                                        'type': 'disk'}}, config)
+                                        'type': 'disk',
+                                        'optional': True}}, config)
 
     def test_config_instance_options(self):
         instance = stubs._fake_instance()
