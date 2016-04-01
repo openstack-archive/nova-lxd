@@ -109,7 +109,7 @@ class LXDContainerMigrate(object):
         LOG.debug("finish_migration called", instance=instance)
 
         if self.session.container_defined(instance.name, instance):
-            return 
+            return
 
         try:
             # Ensure that the instance directory exists
