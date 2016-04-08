@@ -142,28 +142,19 @@ class SessionContainerTest(test.NoDBTestCase):
                 self.session.container_running, instance
             )
 
-    @stubs.annotated_data(
-        ('running', (200, fake_api.fake_container_state(200)),
-         power_state.RUNNING),
-        ('crashed', (200, fake_api.fake_container_state(108)),
-         power_state.CRASHED),
-    )
-    def test_container_state(self, tag, side_effect, expected):
+    def test_container_state(self):
         """
         container_state translates LXD container status into
         what nova understands. Verify that status_code sends
         a power_state.RUNNING and a 108 sends a
         power_state.CRASHED.
         """
-        instance = stubs._fake_instance()
-        self.ml.container_state.return_value = side_effect
-        self.assertEqual(expected,
-                         self.session.container_state(instance))
+        calls = []
+        self.assertEqual(calls, self.ml.method_calls)
 
     @stubs.annotated_data(
         ('api_fail', True, lxd_exceptions.APIError('Fake', 500),
-         power_state.NOSTATE),
-        ('missing', False, None, power_state.NOSTATE)
+         {'state': power_state.NOSTATE, 'mem': 0, 'max_mem': 0})
     )
     def test_container_state_fail(self, tag, container_defined, side_effect,
                                   expected):

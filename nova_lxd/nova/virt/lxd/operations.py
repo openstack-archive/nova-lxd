@@ -31,6 +31,7 @@ from oslo_utils import units
 from nova import exception
 from nova import i18n
 from nova import utils
+from nova.compute import power_state
 
 from nova_lxd.nova.virt.lxd import config as container_config
 from nova_lxd.nova.virt.lxd import container_firewall
@@ -568,11 +569,14 @@ class LXDContainerOperations(object):
         """
         LOG.debug('get_info called for instance', instance=instance)
         try:
+            if not self.session.container_defined(instance.name, instance):
+                return hardware.InstanceInfo(state=power_state.NOSTATE)
+
             container_state = self.session.container_state(instance)
-            return hardware.InstanceInfo(state=container_state,
-                                         max_mem_kb=0,
-                                         mem_kb=0,
-                                         num_cpu=2,
+            return hardware.InstanceInfo(state=container_state['state'],
+                                         max_mem_kb=container_state['max_mem'],
+                                         mem_kb=container_state['mem'],
+                                         num_cpu=instance.flavor.vcpus,
                                          cpu_time_ns=0)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
