@@ -143,9 +143,7 @@ class LXDContainerConfig(object):
                 config['limits.cpu'] = str(vcpus)
 
             # Configure the console for the instance
-            config['raw.lxc'] = 'lxc.console=\n' \
-                                'lxc.cgroup.devices.deny=c 5:1 rwm\n' \
-                                'lxc.console.logfile=%s\n' \
+            config['raw.lxc'] = 'lxc.console.logfile=%s\n' \
                 % self.container_dir.get_console_path(instance_name)
 
             return config
@@ -303,7 +301,7 @@ class LXDContainerConfig(object):
             config[vfs_type] = {'path': dest_path,
                                 'source': src_path,
                                 'type': 'disk',
-                                'optional': True}
+                                'optional': 'True'}
             return config
         except Exception as ex:
             with excutils.save_and_reraise_exception():

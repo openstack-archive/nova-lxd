@@ -102,11 +102,16 @@ class LXDTestDriver(test.NoDBTestCase):
         )
 
     @stubs.annotated_data(
-        ('running', 200, power_state.RUNNING),
-        ('shutdown', 102, power_state.SHUTDOWN),
-        ('crashed', 108, power_state.CRASHED),
-        ('suspend', 109, power_state.SUSPENDED),
-        ('no_state', 401, power_state.NOSTATE),
+        ('running', {'state': 200, 'mem': 0, 'max_mem': 0},
+         power_state.RUNNING),
+        ('shutdown', {'state': 102, 'mem': 0, 'max_mem': 0},
+         power_state.SHUTDOWN),
+        ('crashed', {'state': 108, 'mem': 0, 'max_mem': 0},
+         power_state.CRASHED),
+        ('suspend', {'state': 109, 'mem': 0, 'max_mem': 0},
+         power_state.SUSPENDED),
+        ('no_state', {'state': 401, 'mem': 0, 'max_mem': 0},
+         power_state.NOSTATE),
     )
     def test_get_info(self, tag, side_effect, expected):
         instance = stubs._fake_instance()
