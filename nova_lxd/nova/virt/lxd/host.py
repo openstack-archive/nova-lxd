@@ -180,12 +180,13 @@ class LXDHost(object):
         return '.'.join(str(v) for v in version)
 
     def get_host_cpu_stats(self):
+        cpuinfo = self._get_cpu_info()
         return {
             'kernel': int(psutil.cpu_times()[2]),
             'idle': int(psutil.cpu_times()[3]),
             'user': int(psutil.cpu_times()[0]),
             'iowait': int(psutil.cpu_times()[4]),
-            'frequency': self.host_cpu_info['hz_advertised']
+            'frequency': cpuinfo.get('cpu mhz', 0)
         }
 
     def init_host(self, host):
