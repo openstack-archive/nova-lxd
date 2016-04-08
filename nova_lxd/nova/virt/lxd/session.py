@@ -178,12 +178,20 @@ class LXDAPISession(object):
         """
         LOG.debug('container_state called for instance', instance=instance)
         try:
+            mem = 0
+            max_mem = 0
+
             client = self.get_session()
             if not self.container_defined(instance.name, instance):
-                return power_state.NOSTATE
+                return
 
             (state, data) = client.container_state(instance.name)
             state = constants.LXD_POWER_STATES[data['metadata']['status_code']]
+
+            container_state = self.container_info(instance)
+            mem = int(container_state['memory']['usage']) >> 10
+            max_mem = int(container_state['memory']['usage_peak']) >> 10
+
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     ' %(reason)s') % {'instance': instance.name,
@@ -197,7 +205,7 @@ class LXDAPISession(object):
                           {'instance': instance.name, 'reason': e},
                           instance=instance)
                 state = power_state.NOSTATE
-        return state
+        return {'state': state, 'mem': mem, 'max_mem': max_mem}
 
     def container_config(self, instance):
         """Fetches the configuration of a given LXD container
