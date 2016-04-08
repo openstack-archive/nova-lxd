@@ -89,7 +89,7 @@ class LXDContainerMigrate(object):
 
         if not self.session.container_defined(instance.name, instance):
             msg = _('Failed to find container %(instance)s') % \
-                {'instnace': instance.name}
+                {'instance': instance.name}
             raise exception.NovaException(msg)
 
         try:
