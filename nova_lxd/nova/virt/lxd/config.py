@@ -303,7 +303,7 @@ class LXDContainerConfig(object):
             config[vfs_type] = {'path': dest_path,
                                 'source': src_path,
                                 'type': 'disk',
-                                'optional': True}
+                                'optional': 'True'}
             return config
         except Exception as ex:
             with excutils.save_and_reraise_exception():
