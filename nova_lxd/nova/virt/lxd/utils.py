@@ -55,8 +55,7 @@ class LXDContainerDirectories(object):
                             'configdrive')
 
     def get_console_path(self, instance):
-        return os.path.join(CONF.lxd.root_dir,
-                            'containers',
+        return os.path.join('/var/log/lxd/',
                             instance,
                             'console.log')
 
