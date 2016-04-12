@@ -49,7 +49,8 @@ class LXDTestContainerImage(test.NoDBTestCase):
         self.image = image.LXDContainerImage()
 
     @stubs.annotated_data(
-        ('valid_image', True, {'disk_format': 'raw'}, None),
+        ('valid_image_raw', True, {'disk_format': 'raw'}, None),
+        ('valid_image_root-tar', True, {'disk_format': 'root-tar'}, None),
         ('qcow2_image', False, {'disk_format': 'qcow2'},
             exception.ImageUnacceptable),
         ('iso_image', False, {'disk_format': 'iso'},
