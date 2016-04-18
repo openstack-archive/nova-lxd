@@ -237,13 +237,13 @@ class LXDTestDriver(test.NoDBTestCase):
 
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('shutil.rmtree')
-    def test_cleanup(self, mr):
+    @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
+    @mock.patch.object(container_ops.utils, 'execute')
+    def test_cleanup(self, mr, mu):
         instance = stubs.MockInstance()
         self.assertEqual(
             None,
             self.connection.cleanup({}, instance, [], [], None, None, None))
-        mr.assert_called_once_with(
-            '/fake/instances/path/fake-uuid')
 
     @mock.patch('six.moves.builtins.open')
     @mock.patch.object(container_ops.utils, 'execute')
