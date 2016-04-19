@@ -3,8 +3,8 @@ python:
   - "3.4"
   - "2.7"
 install: pip install -U -r requirements.txt -r test-requirements.txt \
-         -egit+https://github.com/lxc/pylxd#egg=pylxd \
-         -git+https://github.com/openstack/nova#egg=nova
+         -e git+https://github.com/lxc/pylxd#egg=pylxd \
+         -e git+https://github.com/openstack/nova#egg=nova
 before_script: flake8 --ignore=E123,E125,H904,H405,H404,H305,H306,H307
 script: ostestr
 cache:
