@@ -121,14 +121,14 @@ class LXDTestContainerConfig(test.NoDBTestCase):
 
     def test_container_nested_container(self):
         instance = stubs._fake_instance()
-        instance.flavor.extra_specs = {'lxd_nested_allowed': True}
+        instance.flavor.extra_specs = {'lxd:nested_allowed': True}
         config = self.config.config_instance_options({}, instance)
         self.assertEqual({'security.nesting': 'True',
                           'boot.autostart': 'True'}, config)
 
     def test_container_privileged_container(self):
         instance = stubs._fake_instance()
-        instance.flavor.extra_specs = {'lxd_privileged_allowed': True}
+        instance.flavor.extra_specs = {'lxd:privileged_allowed': True}
         config = self.config.config_instance_options({}, instance)
         self.assertEqual({'security.privileged': 'True',
                           'boot.autostart': 'True'}, config)
