@@ -31,7 +31,7 @@ function install_nova-lxd() {
 
 function configure_nova-lxd() {
     # Configure the service.
-    iniset $NOVA_CONF DEFAULT compute_driver nova_lxd.nova.virt.lxd.LXDDriver
+    iniset $NOVA_CONF DEFAULT compute_driver lxd.LXDDriver
 }
 
 function init_nova-lxd() {
