@@ -15,6 +15,7 @@
 
 import os
 
+import nova.conf
 from nova import exception
 from nova import i18n
 from nova import utils
@@ -35,8 +36,7 @@ _ = i18n._
 _LE = i18n._LE
 _LI = i18n._LI
 
-CONF = cfg.CONF
-CONF.import_opt('my_ip', 'nova.netconf')
+CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
 

@@ -16,11 +16,11 @@
 
 import socket
 
+import nova.conf
 from nova import exception
 from nova import i18n
 from nova.virt import configdrive
 
-from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
@@ -32,8 +32,7 @@ _ = i18n._
 _LE = i18n._LE
 _LI = i18n._LI
 
-CONF = cfg.CONF
-CONF.import_opt('my_ip', 'nova.netconf')
+CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
 

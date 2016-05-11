@@ -14,6 +14,7 @@
 #    the License for the specific language governing permissions and
 #    limitations under the License.
 
+import nova.conf
 from nova import context as nova_context
 from nova import exception
 from nova import i18n
@@ -37,8 +38,7 @@ _ = i18n._
 _LE = i18n._LE
 _LI = i18n._LI
 
-CONF = cfg.CONF
-CONF.import_opt('host', 'nova.netconf')
+CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
 
