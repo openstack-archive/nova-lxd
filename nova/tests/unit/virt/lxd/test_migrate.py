@@ -27,6 +27,7 @@ import stubs
 
 CONF = nova.conf.CONF
 
+
 class LXDTestContainerMigrate(test.NoDBTestCase):
 
     def setUp(self):

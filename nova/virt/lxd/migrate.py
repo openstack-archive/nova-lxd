@@ -21,7 +21,6 @@ from nova import i18n
 from nova import utils
 from nova.virt import configdrive
 
-from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import fileutils
