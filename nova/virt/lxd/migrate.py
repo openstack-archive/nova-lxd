@@ -25,10 +25,10 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import fileutils
 
-from nova_lxd.nova.virt.lxd import config
-from nova_lxd.nova.virt.lxd import operations
-from nova_lxd.nova.virt.lxd import utils as container_dir
-from nova_lxd.nova.virt.lxd import session
+from nova.virt.lxd import config
+from nova.virt.lxd import operations
+from nova.virt.lxd import utils as container_dir
+from nova.virt.lxd import session
 
 
 _ = i18n._

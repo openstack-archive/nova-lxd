@@ -19,11 +19,11 @@ import mock
 from nova import test
 from nova.virt import fake
 
-from nova_lxd.nova.virt.lxd import config
-from nova_lxd.nova.virt.lxd import image
-from nova_lxd.nova.virt.lxd import operations as container_ops
-from nova_lxd.nova.virt.lxd import session
-from nova_lxd.tests import stubs
+from nova.virt.lxd import config
+from nova.virt.lxd import image
+from nova.virt.lxd import operations as container_ops
+from nova.virt.lxd import session
+import stubs
 
 
 @ddt.ddt

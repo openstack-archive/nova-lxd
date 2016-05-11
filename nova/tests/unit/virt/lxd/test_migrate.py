@@ -20,11 +20,11 @@ from nova.virt import fake
 
 from oslo_config import cfg
 
-from nova_lxd.nova.virt.lxd import config
-from nova_lxd.nova.virt.lxd import migrate
-from nova_lxd.nova.virt.lxd import operations
-from nova_lxd.nova.virt.lxd import session
-from nova_lxd.tests import stubs
+from nova.virt.lxd import config
+from nova.virt.lxd import migrate
+from nova.virt.lxd import operations
+from nova.virt.lxd import session
+import stubs
 
 CONF = cfg.CONF
 CONF.import_opt('my_ip', 'nova.netconf')

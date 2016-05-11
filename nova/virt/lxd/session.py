@@ -31,7 +31,7 @@ from pylxd.deprecated import api
 from pylxd.deprecated import exceptions as lxd_exceptions
 import six
 
-from nova_lxd.nova.virt.lxd import constants
+from nova.virt.lxd import constants
 
 _ = i18n._
 _LE = i18n._LE

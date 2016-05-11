@@ -19,10 +19,10 @@ import mock
 from nova import test
 from nova.tests.unit import fake_network
 
-from nova_lxd.nova.virt.lxd import config
-from nova_lxd.nova.virt.lxd import session
-from nova_lxd.nova.virt.lxd import utils as container_dir
-from nova_lxd.tests import stubs
+from nova.virt.lxd import config
+from nova.virt.lxd import session
+from nova.virt.lxd import utils as container_dir
+import stubs
 
 
 @ddt.ddt

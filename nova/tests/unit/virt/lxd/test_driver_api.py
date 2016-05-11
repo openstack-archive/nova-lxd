@@ -33,12 +33,12 @@ from nova import test
 from nova.virt import fake
 from nova.virt import hardware
 
-from nova_lxd.nova.virt.lxd import driver
-from nova_lxd.nova.virt.lxd import host
-from nova_lxd.nova.virt.lxd import operations as container_ops
-from nova_lxd.nova.virt.lxd import session
-from nova_lxd.nova.virt.lxd import utils as container_dir
-from nova_lxd.tests import stubs
+from nova.virt.lxd import driver
+from nova.virt.lxd import host
+from nova.virt.lxd import operations as container_ops
+from nova.virt.lxd import session
+from nova.virt.lxd import utils as container_dir
+import stubs
 
 
 class LXDTestConfig(test.NoDBTestCase):
