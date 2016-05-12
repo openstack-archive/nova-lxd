@@ -33,12 +33,12 @@ from nova import i18n
 from nova import utils
 from nova.compute import power_state
 
-from nova_lxd.nova.virt.lxd import config as container_config
-from nova_lxd.nova.virt.lxd import container_firewall
-from nova_lxd.nova.virt.lxd import image
-from nova_lxd.nova.virt.lxd import session
-from nova_lxd.nova.virt.lxd import utils as container_dir
-from nova_lxd.nova.virt.lxd import vif
+from nova.virt.lxd import config as container_config
+from nova.virt.lxd import container_firewall
+from nova.virt.lxd import image
+from nova.virt.lxd import session
+from nova.virt.lxd import utils as container_dir
+from nova.virt.lxd import vif
 
 _ = i18n._
 _LE = i18n._LE

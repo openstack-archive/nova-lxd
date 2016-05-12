@@ -15,28 +15,27 @@
 
 import os
 
+import nova.conf
 from nova import exception
 from nova import i18n
 from nova import utils
 from nova.virt import configdrive
 
-from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import fileutils
 
-from nova_lxd.nova.virt.lxd import config
-from nova_lxd.nova.virt.lxd import operations
-from nova_lxd.nova.virt.lxd import utils as container_dir
-from nova_lxd.nova.virt.lxd import session
+from nova.virt.lxd import config
+from nova.virt.lxd import operations
+from nova.virt.lxd import utils as container_dir
+from nova.virt.lxd import session
 
 
 _ = i18n._
 _LE = i18n._LE
 _LI = i18n._LI
 
-CONF = cfg.CONF
-CONF.import_opt('my_ip', 'nova.netconf')
+CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
 

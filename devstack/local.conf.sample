@@ -1,0 +1,24 @@
+[[local|localrc]]
+
+HOST_IP=10.5.18.185 # set this to your IP
+FLAT_INTERFACE=ens2 # change this to your eth0
+
+DATABASE_PASSWORD=password
+RABBIT_PASSWORD=password
+SERVICE_PASSWORD=password
+SERVICE_TOKEN=password
+ADMIN_PASSWORD=password
+
+# run the services you want to use
+ENABLED_SERVICES=rabbit,mysql,key
+ENABLED_SERVICES+=,g-api,g-reg
+ENABLED_SERVICES+=,n-cpu,n-api,n-crt,n-obj,n-cond,n-sch,n-novnc,n-cauth
+ENABLED_SERVICES+=,neutron,q-svc,q-agt,q-dhcp,q-meta
+ENABLED_SERVICES+=,cinder,c-sch,c-api,c-vol
+ENABLED_SERVICES+=,horizon
+
+# disabled services
+disable_service n-net
+
+# enable nova-lxd
+enable_plugin nova-lxd https://github.com/lxc/nova-lxd 

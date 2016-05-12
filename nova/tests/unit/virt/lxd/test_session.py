@@ -28,9 +28,9 @@ from nova import exception
 from nova import test
 from pylxd.deprecated import exceptions as lxd_exceptions
 
-from nova_lxd.nova.virt.lxd import session
-from nova_lxd.tests import fake_api
-from nova_lxd.tests import stubs
+from nova.virt.lxd import session
+import fake_api
+import stubs
 
 
 @ddt.ddt
@@ -548,3 +548,167 @@ class SessionContainerTest(test.NoDBTestCase):
         self.assertRaises(expected,
                           self.session.container_init, config,
                           instance)
+
+
+@ddt.ddt
+class SessionEventTest(test.NoDBTestCase):
+
+    def setUp(self):
+        super(SessionEventTest, self).setUp()
+
+        self.ml = stubs.lxd_mock()
+        lxd_patcher = mock.patch('pylxd.api.API',
+                                 mock.Mock(return_value=self.ml))
+        lxd_patcher.start()
+        self.addCleanup(lxd_patcher.stop)
+
+        self.session = session.LXDAPISession()
+
+    def test_container_wait(self):
+        instance = stubs._fake_instance()
+        operation_id = mock.Mock()
+        self.ml.wait_container_operation.return_value = True
+        self.assertEqual(None,
+                         self.session.operation_wait(operation_id, instance))
+        self.ml.wait_container_operation.assert_called_with(operation_id,
+                                                            200, -1)
+
+
+@ddt.ddt
+class SessionImageTest(test.NoDBTestCase):
+
+    def setUp(self):
+        super(SessionImageTest, self).setUp()
+
+        self.ml = stubs.lxd_mock()
+        lxd_patcher = mock.patch('pylxd.api.API',
+                                 mock.Mock(return_value=self.ml))
+        lxd_patcher.start()
+        self.addCleanup(lxd_patcher.stop)
+
+        self.session = session.LXDAPISession()
+
+    def test_image_defined(self):
+        """Test the image is defined in the LXD hypervisor."""
+        instance = stubs._fake_instance()
+        self.ml.alias_defined.return_value = True
+        self.assertTrue(self.session.image_defined(instance))
+        calls = [mock.call.alias_defined(instance.image_ref)]
+        self.assertEqual(calls, self.ml.method_calls)
+
+    def test_alias_create(self):
+        """Test the alias is created."""
+        instance = stubs._fake_instance()
+        alias = mock.Mock()
+        self.ml.alias_create.return_value = True
+        self.assertTrue(self.session.create_alias(alias, instance))
+        calls = [mock.call.alias_create(alias)]
+        self.assertEqual(calls, self.ml.method_calls)
+
+
+@ddt.ddt
+class SessionProfileTest(test.NoDBTestCase):
+
+    def setUp(self):
+        super(SessionProfileTest, self).setUp()
+
+        """This is so we can mock out pylxd API calls."""
+        self.ml = stubs.lxd_mock()
+        lxd_patcher = mock.patch('pylxd.api.API',
+                                 mock.Mock(return_value=self.ml))
+        lxd_patcher.start()
+        self.addCleanup(lxd_patcher.stop)
+
+        self.session = session.LXDAPISession()
+
+    @stubs.annotated_data(
+        ('empty', [], []),
+        ('valid', ['test'], ['test']),
+    )
+    def test_profile_list(self, tag, side_effect, expected):
+        self.ml.profile_list.return_value = side_effect
+        self.assertEqual(expected,
+                         self.session.profile_list())
+
+    def test_profile_list_fail(self):
+        self.ml.profile_list.side_effect = (
+            lxd_exceptions.APIError('Fake', 500))
+        self.assertRaises(
+            exception.NovaException,
+            self.session.profile_list)
+
+    def test_profile_create(self):
+        instance = stubs._fake_instance()
+        config = mock.Mock()
+        self.ml.profile_defined.return_value = True
+        self.ml.profile_create.return_value = \
+            (200, fake_api.fake_standard_return())
+        self.assertEqual((200, fake_api.fake_standard_return()),
+                         self.session.profile_create(config,
+                                                     instance))
+        calls = [mock.call.profile_list(),
+                 mock.call.profile_create(config)]
+        self.assertEqual(calls, self.ml.method_calls)
+
+    def test_profile_delete(self):
+        instance = stubs._fake_instance()
+        self.ml.profile_defined.return_value = True
+        self.ml.profile_delete.return_value = \
+            (200, fake_api.fake_standard_return())
+        self.assertEqual(None,
+                         self.session.profile_delete(instance))
+
+
+@ddt.ddt
+class SessionSnapshotTest(test.NoDBTestCase):
+
+    def setUp(self):
+        super(SessionSnapshotTest, self).setUp()
+
+        """This is so we can mock out pylxd API calls."""
+        self.ml = stubs.lxd_mock()
+        lxd_patcher = mock.patch('pylxd.api.API',
+                                 mock.Mock(return_value=self.ml))
+        lxd_patcher.start()
+        self.addCleanup(lxd_patcher.stop)
+
+        self.session = session.LXDAPISession()
+
+    @stubs.annotated_data(
+        ('1,', (200, fake_api.fake_operation_info_ok()))
+    )
+    def test_container_snapshot(self, tag, side_effect):
+        snapshot = mock.Mock()
+        instance = stubs._fake_instance()
+        self.ml.container_snapshot_create.return_value = side_effect
+        self.assertEqual(None,
+                         self.session.container_snapshot(snapshot, instance))
+        calls = [
+            mock.call.container_snapshot_create(instance.name, snapshot),
+            mock.call.wait_container_operation('/1.0/operation/1234', 200, -1)]
+        self.assertEqual(calls, self.ml.method_calls)
+
+    @stubs.annotated_data(
+        ('api_fail', lxd_exceptions.APIError(500, 'Fake'),
+         exception.NovaException)
+    )
+    def test_container_snapshot_fail(self, tag, side_effect, expected):
+        snapshot = mock.Mock()
+        instance = stubs._fake_instance()
+        self.ml.container_snapshot_create.side_effect = side_effect
+        self.assertRaises(expected,
+                          self.session.container_snapshot,
+                          instance.name, snapshot)
+
+    @stubs.annotated_data(
+        (1, (200, fake_api.fake_operation_info_ok()))
+    )
+    def test_container_publish(self, tag, side_effect):
+        image = mock.Mock()
+        instance = stubs._fake_instance()
+        self.ml.image_export.return_value = True
+        self.assertTrue(
+            self.session.container_publish(image, instance))
+        calls = [
+            mock.call.container_publish(image)]
+        self.assertEqual(calls, self.ml.method_calls)

@@ -13,7 +13,7 @@ NOVA_CONF_DIR=${NOVA_CONF_DIR:-/etc/nova}
 NOVA_CONF=${NOVA_CONF:-NOVA_CONF_DIR/nova.conf}
 
 # nova-powervm directories
-NOVA_COMPUTE_LXD_DIR=${NOVA_POWERVM_DIR:-${DEST}/nova-lxd}
+NOVA_COMPUTE_LXD_DIR=${NOVA_COMPUTE_LXD_DIR:-${DEST}/nova-lxd}
 NOVA_COMPUTE_LXD_PLUGIN_DIR=$(readlink -f $(dirname ${BASH_SOURCE[0]}))
 
 source $NOVA_COMPUTE_LXD_PLUGIN_DIR/nova-lxd-functions.sh
@@ -31,7 +31,8 @@ function install_nova-lxd() {
 
 function configure_nova-lxd() {
     # Configure the service.
-    iniset $NOVA_CONF DEFAULT compute_driver nova_lxd.nova.virt.lxd.LXDDriver
+    iniset $NOVA_CONF DEFAULT compute_driver lxd.LXDDriver
+    iniset $NOVA_CONF DEFAULT force_config_drive False
 }
 
 function init_nova-lxd() {

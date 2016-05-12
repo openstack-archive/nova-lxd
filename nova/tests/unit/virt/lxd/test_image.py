@@ -27,9 +27,9 @@ from oslo_concurrency import lockutils
 from oslo_config import fixture as config_fixture
 
 
-from nova_lxd.nova.virt.lxd import image
-from nova_lxd.nova.virt.lxd import session
-from nova_lxd.tests import stubs
+from nova.virt.lxd import image
+from nova.virt.lxd import session
+import stubs
 
 
 @ddt.ddt
