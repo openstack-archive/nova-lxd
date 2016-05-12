@@ -1,5 +1,5 @@
 language: python
-install: pip install tox
+install: pip install tox flake8
 before_script: flake8 --ignore=E123,E125,H904,H405,H404,H305,H306,H307
 script: tox
 cache:
