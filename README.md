@@ -5,7 +5,7 @@ An OpenStack Compute driver for managing containers using LXD.
 ## nova-lxd on Devstack
 
 For development purposes, nova-lxd provides a devstack plugin. To use it, just include the
-following in your devstack `local.conf`
+following in your devstack `local.conf`::
 
    [[local|localrc]]
    enable_plugin nova-lxd https://github.com/lxc/nova-lxd
@@ -15,7 +15,7 @@ nova-lxd repo). If you have a local tree you'd like to use, you can symlink your
 `/opt/stack/nova-lxd` and do your development from there.
 
 The devstack default images won't work with lxd, as lxd doesn't support them. Once your
-stack is up and you've configured authentication against your devstack, do the following:
+stack is up and you've configured authentication against your devstack, do the following::
 
    wget http://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-root.tar.gz
    glance image-create --name xenial --disk-format raw --container-format bare --file xenial-server-cloudimg-amd64-root.tar.gz
