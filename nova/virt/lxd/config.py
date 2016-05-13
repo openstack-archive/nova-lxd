@@ -22,7 +22,8 @@ from nova import i18n
 from nova.virt import configdrive
 
 from oslo_log import log as logging
-from oslo_utils import excutils, units
+from oslo_utils import excutils
+from oslo_utils import units
 
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
@@ -216,16 +217,18 @@ class LXDContainerConfig(object):
         # profile - we let Bytes take priority over IOps if both are set.
         # Align all limits to MiB/s, which should be a sensible middle road.
         if disk_read_iops_sec:
-            disk_config['limits.read'] = str(disk_read_iops_sec) + 'iops'
+            disk_config['limits.read'] = disk_read_iops_sec + 'iops'
 
         if disk_read_bytes_sec:
-            disk_config['limits.read'] = str(disk_read_bytes_sec / units.Mi) + 'MB'
+            disk_config['limits.read'] = \
+                str(int(disk_read_bytes_sec) / units.Mi) + 'MB'
 
         if disk_write_iops_sec:
-            disk_config['limits.write'] = str(disk_write_iops_sec) + 'iops'
+            disk_config['limits.write'] = disk_write_iops_sec + 'iops'
 
         if disk_write_bytes_sec:
-            disk_config['limits.write'] = str(disk_write_bytes_sec / units.Mi) + 'MB'
+            disk_config['limits.write'] = \
+                str(int(disk_write_bytes_sec) / units.Mi) + 'MB'
 
         # If at least one of the above limits has been defined, do not set
         # the "max" quota (which would apply to both read and write)
@@ -233,10 +236,11 @@ class LXDContainerConfig(object):
                                disk_read_bytes_sec or disk_write_bytes_sec)
 
         if disk_total_iops_sec and not minor_quota_defined:
-            disk_config['limits.max'] = str(disk_total_iops_sec) + 'iops'
+            disk_config['limits.max'] = disk_total_iops_sec + 'iops'
 
         if disk_total_bytes_sec and not minor_quota_defined:
-            disk_config['limits.max'] = str(disk_total_bytes_sec / units.Mi) + 'MB'
+            disk_config['limits.max'] = \
+                str(int(disk_total_bytes_sec) / units.Mi) + 'MB'
 
         return disk_config
 
@@ -280,10 +284,8 @@ class LXDContainerConfig(object):
 
         # Get network quotas from flavor metadata
         vif_inbound_average = extra_specs.get('quota:vif_inbound_average')
-        vif_inbound_burst = extra_specs.get('quota:vif_inbound_burst')
         vif_inbound_peak = extra_specs.get('quota:vif_inbound_peak')
         vif_outbound_average = extra_specs.get('quota:vif_outbound_average')
-        vif_outbound_burst = extra_specs.get('quota:vif_outbound_burst')
         vif_outbound_peak = extra_specs.get('quota:vif_outbound_peak')
 
         # Since LXD does not implement average NIC IO and number of burst
@@ -292,11 +294,13 @@ class LXDContainerConfig(object):
         # Align values to MB/s (powers of 1000 in this case)
         vif_inbound_limit = max(vif_inbound_average, vif_inbound_peak)
         if vif_inbound_limit:
-            network_config['limits.ingress'] = str(vif_inbound_limit / units.M) + 'Mbit'
+            network_config['limits.ingress'] = \
+                str(int(vif_inbound_limit) / units.M) + 'Mbit'
 
         vif_outbound_limit = max(vif_outbound_average, vif_outbound_peak)
         if vif_outbound_limit:
-            network_config['limits.egress'] = str(vif_outbound_limit / units.M) + 'Mbit'
+            network_config['limits.egress'] = \
+                str(int(vif_outbound_limit) / units.M) + 'Mbit'
 
         return network_config
 
