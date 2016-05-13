@@ -227,10 +227,15 @@ class LXDContainerConfig(object):
         if disk_write_bytes_sec:
             disk_config['limits.write'] = str(disk_write_bytes_sec / units.Mi) + 'MB'
 
-        if disk_total_iops_sec:
+        # If at least one of the above limits has been defined, do not set
+        # the "max" quota (which would apply to both read and write)
+        minor_quota_defined = (disk_read_iops_sec or disk_write_iops_sec or
+                               disk_read_bytes_sec or disk_write_bytes_sec)
+
+        if disk_total_iops_sec and not minor_quota_defined:
             disk_config['limits.max'] = str(disk_total_iops_sec) + 'iops'
 
-        if disk_total_bytes_sec:
+        if disk_total_bytes_sec and not minor_quota_defined:
             disk_config['limits.max'] = str(disk_total_bytes_sec / units.Mi) + 'MB'
 
         return disk_config
