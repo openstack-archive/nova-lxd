@@ -202,45 +202,57 @@ class LXDContainerConfig(object):
                           instance=instance)
 
     def create_disk_quota_config(self, instance):
-        extra_specs = instance.flavor.extra_specs
+        md = instance.flavor.extra_specs
         disk_config = {}
+        md_namespace = 'quota:'
+        params = ['disk_read_iops_sec', 'disk_read_bytes_sec',
+                  'disk_write_iops_sec', 'disk_write_bytes_sec',
+                  'disk_total_iops_sec', 'disk_total_bytes_sec']
 
-        # Get disk quotas from flavor metadata
-        disk_read_iops_sec = extra_specs.get('quota:disk_read_iops_sec')
-        disk_read_bytes_sec = extra_specs.get('quota:disk_read_bytes_sec')
-        disk_write_iops_sec = extra_specs.get('quota:disk_write_iops_sec')
-        disk_write_bytes_sec = extra_specs.get('quota:disk_write_bytes_sec')
-        disk_total_iops_sec = extra_specs.get('quota:disk_total_iops_sec')
-        disk_total_bytes_sec = extra_specs.get('quota:disk_total_bytes_sec')
+        # Get disk quotas from flavor metadata and cast the values to int
+        q = {}
+        for param in params:
+            try:
+                q[param] = int(md.get(md_namespace + param, 0))
+            except ValueError:
+                LOG.warning(_LE('Disk quota %(p)s must be an integer'),
+                            {'p': param},
+                            instance=instance)
 
         # Bytes and IOps are not separate config options in a container
         # profile - we let Bytes take priority over IOps if both are set.
         # Align all limits to MiB/s, which should be a sensible middle road.
-        if disk_read_iops_sec:
-            disk_config['limits.read'] = disk_read_iops_sec + 'iops'
-
-        if disk_read_bytes_sec:
+        if q.get('disk_read_iops_sec'):
             disk_config['limits.read'] = \
-                str(int(disk_read_bytes_sec) / units.Mi) + 'MB'
+                ('%s' + 'iops') % q['disk_read_iops_sec']
 
-        if disk_write_iops_sec:
-            disk_config['limits.write'] = disk_write_iops_sec + 'iops'
+        if q.get('disk_read_bytes_sec'):
+            disk_config['limits.read'] = \
+                ('%s' + 'MB') % (q['disk_read_bytes_sec'] / units.Mi)
 
-        if disk_write_bytes_sec:
+        if q.get('disk_write_iops_sec'):
             disk_config['limits.write'] = \
-                str(int(disk_write_bytes_sec) / units.Mi) + 'MB'
+                ('%s' + 'iops') % q['disk_write_iops_sec']
+
+        if q.get('disk_write_bytes_sec'):
+            disk_config['limits.write'] = \
+                ('%s' + 'MB') % (q['disk_write_bytes_sec'] / units.Mi)
 
         # If at least one of the above limits has been defined, do not set
         # the "max" quota (which would apply to both read and write)
-        minor_quota_defined = (disk_read_iops_sec or disk_write_iops_sec or
-                               disk_read_bytes_sec or disk_write_bytes_sec)
+        minor_quota_defined = any(
+            q.get(param) for param in
+            ['disk_read_iops_sec', 'disk_write_iops_sec',
+             'disk_read_bytes_sec', 'disk_write_bytes_sec']
+        )
 
-        if disk_total_iops_sec and not minor_quota_defined:
-            disk_config['limits.max'] = disk_total_iops_sec + 'iops'
-
-        if disk_total_bytes_sec and not minor_quota_defined:
+        if q.get('disk_total_iops_sec') and not minor_quota_defined:
             disk_config['limits.max'] = \
-                str(int(disk_total_bytes_sec) / units.Mi) + 'MB'
+                ('%s' + 'iops') % q['disk_total_iops_sec']
+
+        if q.get('disk_total_bytes_sec') and not minor_quota_defined:
+            disk_config['limits.max'] = \
+                ('%s' + 'MB') % (q['disk_total_bytes_sec'] / units.Mi)
 
         return disk_config
 
@@ -279,28 +291,41 @@ class LXDContainerConfig(object):
                     {'instance': instance_name, 'ex': ex}, instance=instance)
 
     def create_network_quota_config(self, instance):
-        extra_specs = instance.flavor.extra_specs
+        md = instance.flavor.extra_specs
         network_config = {}
+        md_namespace = 'quota:'
+        params = ['vif_inbound_average', 'vif_inbound_peak',
+                  'vif_outbound_average', 'vif_outbound_peak']
 
-        # Get network quotas from flavor metadata
-        vif_inbound_average = extra_specs.get('quota:vif_inbound_average')
-        vif_inbound_peak = extra_specs.get('quota:vif_inbound_peak')
-        vif_outbound_average = extra_specs.get('quota:vif_outbound_average')
-        vif_outbound_peak = extra_specs.get('quota:vif_outbound_peak')
+        # Get network quotas from flavor metadata and cast the values to int
+        q = {}
+        for param in params:
+            try:
+                q[param] = int(md.get(md_namespace + param, 0))
+            except ValueError:
+                LOG.warning(_LE('Network quota %(p)s must be an integer'),
+                            {'p': param},
+                            instance=instance)
 
         # Since LXD does not implement average NIC IO and number of burst
         # bytes, we take the max(vif_*_average, vif_*_peak) to set the peak
         # network IO and simply ignore the burst bytes.
         # Align values to MB/s (powers of 1000 in this case)
-        vif_inbound_limit = max(vif_inbound_average, vif_inbound_peak)
+        vif_inbound_limit = max(
+            q.get('vif_inbound_average'),
+            q.get('vif_inbound_peak')
+        )
         if vif_inbound_limit:
             network_config['limits.ingress'] = \
-                str(int(vif_inbound_limit) / units.M) + 'Mbit'
+                ('%s' + 'Mbit') % (vif_inbound_limit / units.M)
 
-        vif_outbound_limit = max(vif_outbound_average, vif_outbound_peak)
+        vif_outbound_limit = max(
+            q.get('vif_outbound_average'),
+            q.get('vif_outbound_peak')
+        )
         if vif_outbound_limit:
             network_config['limits.egress'] = \
-                str(int(vif_outbound_limit) / units.M) + 'Mbit'
+                ('%s' + 'Mbit') % (vif_outbound_limit / units.M)
 
         return network_config
 

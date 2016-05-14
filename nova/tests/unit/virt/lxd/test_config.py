@@ -235,10 +235,10 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         # Max of the two values should take precedence
         instance = stubs._fake_instance()
         instance.flavor.extra_specs = {
-            'quota:vif_inbound_average': 20 * units.M,
-            'quota:vif_outbound_average': 9 * units.M,
-            'quota:vif_inbound_peak': 21 * units.M,
-            'quota:vif_outbound_peak': 8 * units.M,
+            'quota:vif_inbound_average': 2 * units.M,
+            'quota:vif_outbound_average': 10 * units.M,
+            'quota:vif_inbound_peak': 10 * units.M,
+            'quota:vif_outbound_peak': 2 * units.M,
         }
         instance_name = 'fake_instance'
         network_info = fake_network.fake_get_instance_nw_info(self)
@@ -248,5 +248,5 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                                        'nictype': 'bridged',
                                        'parent': 'fake_br1',
                                        'type': 'nic',
-                                       'limits.ingress': '21Mbit',
-                                       'limits.egress': '9Mbit'}}, config)
+                                       'limits.ingress': '10Mbit',
+                                       'limits.egress': '10Mbit'}}, config)
