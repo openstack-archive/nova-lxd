@@ -73,6 +73,8 @@ class LXDTestDriver(test.NoDBTestCase):
         self.assertFalse(self.connection.capabilities['supports_recreate'])
         self.assertFalse(
             self.connection.capabilities['supports_migrate_to_same_host'])
+        self.assertTrue(
+            self.connection.capabilities['supports_attach_interface'])
 
     def test_init_host(self):
         self.assertEqual(
