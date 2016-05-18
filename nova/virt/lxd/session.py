@@ -737,7 +737,7 @@ class LXDAPISession(object):
                   instance=instance)
         try:
             if self.profile_defined(instance.name, instance):
-                msg = _('Profile already exists %(instnce)s') % \
+                msg = _('Profile already exists %(instance)s') % \
                     {'instance': instance.name}
                 raise exception.NovaException(msg)
 
