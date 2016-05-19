@@ -158,7 +158,7 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def swap_volume(self, old_connection_info, new_connection_info,
-                     instance, mountpoint, resize_to):
+                    instance, mountpoint, resize_to):
         raise NotImplementedError()
 
     def attach_interface(self, instance, image_meta, vif):
@@ -257,11 +257,10 @@ class LXDDriver(driver.ComputeDriver):
 
     def rollback_live_migration_at_destination(self, context, instance,
                                                network_info,
-                                               block_device_info
+                                               block_device_info,
                                                destroy_disks=True,
                                                migrate_data=None):
         raise NotImplementedError()
-                                                
 
     def post_live_migration(self, context, instance, block_device_info,
                             migrate_data=None):
