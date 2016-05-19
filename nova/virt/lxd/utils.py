@@ -15,9 +15,9 @@
 
 import os
 
-from oslo_config import cfg
+import nova.conf
 
-CONF = cfg.CONF
+CONF = nova.conf.CONF
 
 
 class LXDContainerDirectories(object):

@@ -13,12 +13,12 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+import nova.conf
 from nova.virt import firewall
 
-from oslo_config import cfg
 from oslo_log import log as logging
 
-CONF = cfg.CONF
+CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
 

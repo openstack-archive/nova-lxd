@@ -21,8 +21,9 @@ from pylxd.deprecated import exceptions as lxd_exceptions
 
 import ddt
 import mock
-from oslo_config import cfg
 import six
+
+from oslo_config import cfg
 
 from nova.compute import arch
 from nova.compute import hv_type

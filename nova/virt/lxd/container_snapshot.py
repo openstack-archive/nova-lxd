@@ -14,6 +14,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.from oslo_config import cfg
 
+import nova.conf
 from nova.compute import task_states
 from nova import exception
 from nova import i18n
@@ -21,7 +22,6 @@ from nova import image
 import os
 
 from oslo_concurrency import lockutils
-from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 
@@ -30,7 +30,7 @@ from nova.virt.lxd import session
 _ = i18n._
 _LE = i18n._LE
 
-CONF = cfg.CONF
+CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
 IMAGE_API = image.API()

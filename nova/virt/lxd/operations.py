@@ -15,6 +15,7 @@
 #    under the License.
 
 
+import nova.conf
 from nova.api.metadata import base as instance_metadata
 from nova.virt import configdrive
 from nova.virt import hardware
@@ -22,7 +23,6 @@ import os
 import pwd
 import shutil
 
-from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import fileutils
@@ -45,7 +45,7 @@ _LE = i18n._LE
 _LW = i18n._LW
 _LI = i18n._LI
 
-CONF = cfg.CONF
+CONF = nova.conf.CONF
 CONF.import_opt('vif_plugging_timeout', 'nova.virt.driver')
 CONF.import_opt('vif_plugging_is_fatal', 'nova.virt.driver')
 LOG = logging.getLogger(__name__)

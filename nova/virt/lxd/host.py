@@ -18,6 +18,7 @@
 #    under the License.
 
 
+import nova.conf
 from nova.compute import arch
 from nova.compute import hv_type
 from nova.compute import utils as compute_utils
@@ -31,7 +32,6 @@ from pylxd.deprecated import api
 from pylxd.deprecated import exceptions as lxd_exceptions
 import socket
 
-from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import units
@@ -39,7 +39,7 @@ import psutil
 
 _ = i18n._
 _LW = i18n._LW
-CONF = cfg.CONF
+CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
 
