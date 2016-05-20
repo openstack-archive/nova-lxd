@@ -22,6 +22,8 @@ from nova.tests.unit import fake_network
 from nova.virt.lxd import config
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
+from oslo_utils import units
+
 import stubs
 
 
@@ -132,3 +134,119 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         config = self.config.config_instance_options({}, instance)
         self.assertEqual({'security.privileged': 'True',
                           'boot.autostart': 'True'}, config)
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    def test_disk_quota_rw_iops(self):
+        instance = stubs._fake_instance()
+        instance.flavor.extra_specs = {'quota:disk_read_iops_sec': 10000,
+                                       'quota:disk_write_iops_sec': 10000}
+        config = self.config.configure_container_root(instance)
+        self.assertEqual({'root': {'path': '/',
+                                   'type': 'disk',
+                                   'size': '10GB',
+                                   'limits.read': '10000iops',
+                                   'limits.write': '10000iops'}}, config)
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    def test_disk_quota_rw_iops_and_bytes(self):
+        # Byte values should take precedence
+        instance = stubs._fake_instance()
+        instance.flavor.extra_specs = {
+            'quota:disk_read_iops_sec': 10000,
+            'quota:disk_write_iops_sec': 10000,
+            'quota:disk_read_bytes_sec': 13 * units.Mi,
+            'quota:disk_write_bytes_sec': 5 * units.Mi
+        }
+        config = self.config.configure_container_root(instance)
+        self.assertEqual({'root': {'path': '/',
+                                   'type': 'disk',
+                                   'size': '10GB',
+                                   'limits.read': '13MB',
+                                   'limits.write': '5MB'}}, config)
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    def test_disk_quota_total_iops(self):
+        instance = stubs._fake_instance()
+        instance.flavor.extra_specs = {
+            'quota:disk_total_iops_sec': 10000
+        }
+        config = self.config.configure_container_root(instance)
+        self.assertEqual({'root': {'path': '/',
+                                   'type': 'disk',
+                                   'size': '10GB',
+                                   'limits.max': '10000iops'}}, config)
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    def test_disk_quota_total_iops_and_bytes(self):
+        instance = stubs._fake_instance()
+        instance.flavor.extra_specs = {
+            'quota:disk_total_iops_sec': 10000,
+            'quota:disk_total_bytes_sec': 11 * units.Mi
+        }
+        config = self.config.configure_container_root(instance)
+        self.assertEqual({'root': {'path': '/',
+                                   'type': 'disk',
+                                   'size': '10GB',
+                                   'limits.max': '11MB'}}, config)
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    def test_disk_quota_rw_and_total_iops_and_bytes(self):
+        # More granular quotas should be set only, moreover
+        # in MBytes, not iops
+        instance = stubs._fake_instance()
+        instance.flavor.extra_specs = {
+            'quota:disk_read_iops_sec': 10000,
+            'quota:disk_write_iops_sec': 10000,
+            'quota:disk_read_bytes_sec': 13 * units.Mi,
+            'quota:disk_write_bytes_sec': 5 * units.Mi,
+            'quota:disk_total_iops_sec': 10000,
+            'quota:disk_total_bytes_sec': 11 * units.Mi
+        }
+        config = self.config.configure_container_root(instance)
+        self.assertEqual({'root': {'path': '/',
+                                   'type': 'disk',
+                                   'size': '10GB',
+                                   'limits.read': '13MB',
+                                   'limits.write': '5MB'}}, config)
+
+    def test_network_in_out_average(self):
+        instance = stubs._fake_instance()
+        instance.flavor.extra_specs = {
+            'quota:vif_inbound_average': 20 * units.M,
+            'quota:vif_outbound_average': 8 * units.M
+        }
+        instance_name = 'fake_instance'
+        network_info = fake_network.fake_get_instance_nw_info(self)
+        config = self.config.create_network(instance_name, instance,
+                                            network_info)
+        self.assertEqual({'fake_br1': {'hwaddr': 'DE:AD:BE:EF:00:01',
+                                       'nictype': 'bridged',
+                                       'parent': 'fake_br1',
+                                       'type': 'nic',
+                                       'limits.ingress': '20Mbit',
+                                       'limits.egress': '8Mbit'}}, config)
+
+    def test_network_in_out_average_and_peak(self):
+        # Max of the two values should take precedence
+        instance = stubs._fake_instance()
+        instance.flavor.extra_specs = {
+            'quota:vif_inbound_average': 2 * units.M,
+            'quota:vif_outbound_average': 10 * units.M,
+            'quota:vif_inbound_peak': 10 * units.M,
+            'quota:vif_outbound_peak': 2 * units.M,
+        }
+        instance_name = 'fake_instance'
+        network_info = fake_network.fake_get_instance_nw_info(self)
+        config = self.config.create_network(instance_name, instance,
+                                            network_info)
+        self.assertEqual({'fake_br1': {'hwaddr': 'DE:AD:BE:EF:00:01',
+                                       'nictype': 'bridged',
+                                       'parent': 'fake_br1',
+                                       'type': 'nic',
+                                       'limits.ingress': '10Mbit',
+                                       'limits.egress': '10Mbit'}}, config)

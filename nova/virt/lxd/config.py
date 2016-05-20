@@ -23,6 +23,7 @@ from nova.virt import configdrive
 
 from oslo_log import log as logging
 from oslo_utils import excutils
+from oslo_utils import units
 
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
@@ -128,7 +129,7 @@ class LXDContainerConfig(object):
         try:
             config = {}
 
-            # Update continaer options
+            # Update container options
             config.update(self.config_instance_options(config, instance))
 
             # Set the instance memory limit
@@ -188,6 +189,10 @@ class LXDContainerConfig(object):
             else:
                 config['root'] = {'path': '/',
                                   'type': 'disk'}
+
+            # Set disk quotas
+            config['root'].update(self.create_disk_quota_config(instance))
+
             return config
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -195,6 +200,61 @@ class LXDContainerConfig(object):
                               '%(instance)s: %(ex)s'),
                           {'instance': instance.name, 'ex': ex},
                           instance=instance)
+
+    def create_disk_quota_config(self, instance):
+        md = instance.flavor.extra_specs
+        disk_config = {}
+        md_namespace = 'quota:'
+        params = ['disk_read_iops_sec', 'disk_read_bytes_sec',
+                  'disk_write_iops_sec', 'disk_write_bytes_sec',
+                  'disk_total_iops_sec', 'disk_total_bytes_sec']
+
+        # Get disk quotas from flavor metadata and cast the values to int
+        q = {}
+        for param in params:
+            try:
+                q[param] = int(md.get(md_namespace + param, 0))
+            except ValueError:
+                LOG.warning(_LE('Disk quota %(p)s must be an integer'),
+                            {'p': param},
+                            instance=instance)
+
+        # Bytes and IOps are not separate config options in a container
+        # profile - we let Bytes take priority over IOps if both are set.
+        # Align all limits to MiB/s, which should be a sensible middle road.
+        if q.get('disk_read_iops_sec'):
+            disk_config['limits.read'] = \
+                ('%s' + 'iops') % q['disk_read_iops_sec']
+
+        if q.get('disk_read_bytes_sec'):
+            disk_config['limits.read'] = \
+                ('%s' + 'MB') % (q['disk_read_bytes_sec'] / units.Mi)
+
+        if q.get('disk_write_iops_sec'):
+            disk_config['limits.write'] = \
+                ('%s' + 'iops') % q['disk_write_iops_sec']
+
+        if q.get('disk_write_bytes_sec'):
+            disk_config['limits.write'] = \
+                ('%s' + 'MB') % (q['disk_write_bytes_sec'] / units.Mi)
+
+        # If at least one of the above limits has been defined, do not set
+        # the "max" quota (which would apply to both read and write)
+        minor_quota_defined = any(
+            q.get(param) for param in
+            ['disk_read_iops_sec', 'disk_write_iops_sec',
+             'disk_read_bytes_sec', 'disk_write_bytes_sec']
+        )
+
+        if q.get('disk_total_iops_sec') and not minor_quota_defined:
+            disk_config['limits.max'] = \
+                ('%s' + 'iops') % q['disk_total_iops_sec']
+
+        if q.get('disk_total_bytes_sec') and not minor_quota_defined:
+            disk_config['limits.max'] = \
+                ('%s' + 'MB') % (q['disk_total_bytes_sec'] / units.Mi)
+
+        return disk_config
 
     def create_network(self, instance_name, instance, network_info):
         """Create the LXD container network on the host
@@ -218,12 +278,56 @@ class LXDContainerConfig(object):
                      'hwaddr': str(cfg['mac_address']),
                      'parent': str(cfg['bridge']),
                      'type': 'nic'}
+
+                # Set network device quotas
+                network_devices[str(cfg['bridge'])].update(
+                    self.create_network_quota_config(instance)
+                )
                 return network_devices
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
                     _LE('Fail to configure network for %(instance)s: %(ex)s'),
                     {'instance': instance_name, 'ex': ex}, instance=instance)
+
+    def create_network_quota_config(self, instance):
+        md = instance.flavor.extra_specs
+        network_config = {}
+        md_namespace = 'quota:'
+        params = ['vif_inbound_average', 'vif_inbound_peak',
+                  'vif_outbound_average', 'vif_outbound_peak']
+
+        # Get network quotas from flavor metadata and cast the values to int
+        q = {}
+        for param in params:
+            try:
+                q[param] = int(md.get(md_namespace + param, 0))
+            except ValueError:
+                LOG.warning(_LE('Network quota %(p)s must be an integer'),
+                            {'p': param},
+                            instance=instance)
+
+        # Since LXD does not implement average NIC IO and number of burst
+        # bytes, we take the max(vif_*_average, vif_*_peak) to set the peak
+        # network IO and simply ignore the burst bytes.
+        # Align values to MB/s (powers of 1000 in this case)
+        vif_inbound_limit = max(
+            q.get('vif_inbound_average'),
+            q.get('vif_inbound_peak')
+        )
+        if vif_inbound_limit:
+            network_config['limits.ingress'] = \
+                ('%s' + 'Mbit') % (vif_inbound_limit / units.M)
+
+        vif_outbound_limit = max(
+            q.get('vif_outbound_average'),
+            q.get('vif_outbound_peak')
+        )
+        if vif_outbound_limit:
+            network_config['limits.egress'] = \
+                ('%s' + 'Mbit') % (vif_outbound_limit / units.M)
+
+        return network_config
 
     def get_container_source(self, instance):
         """Set the LXD container image for the instance.
