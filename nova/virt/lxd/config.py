@@ -310,14 +310,15 @@ class LXDContainerConfig(object):
         # Since LXD does not implement average NIC IO and number of burst
         # bytes, we take the max(vif_*_average, vif_*_peak) to set the peak
         # network IO and simply ignore the burst bytes.
-        # Align values to MB/s (powers of 1000 in this case)
+        # Align values to MBit/s (8 * powers of 1000 in this case), having
+        # in mind that the values are recieved in Kilobytes/s.
         vif_inbound_limit = max(
             q.get('vif_inbound_average'),
             q.get('vif_inbound_peak')
         )
         if vif_inbound_limit:
             network_config['limits.ingress'] = \
-                ('%s' + 'Mbit') % (vif_inbound_limit / units.M)
+                ('%s' + 'Mbit') % (vif_inbound_limit * units.k * 8 / units.M)
 
         vif_outbound_limit = max(
             q.get('vif_outbound_average'),
@@ -325,7 +326,7 @@ class LXDContainerConfig(object):
         )
         if vif_outbound_limit:
             network_config['limits.egress'] = \
-                ('%s' + 'Mbit') % (vif_outbound_limit / units.M)
+                ('%s' + 'Mbit') % (vif_outbound_limit * units.k * 8 / units.M)
 
         return network_config
 
