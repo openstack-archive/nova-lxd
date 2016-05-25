@@ -531,7 +531,8 @@ class LXDAPISession(object):
             status, data = self.operation_info(operation, instance)
             data = data.get('metadata')
             if not data['status_code'] == 200:
-                raise exception.NovaException(data['metadata'])
+                msg = data.get('err') or data['metadata']
+                raise exception.NovaException(msg)
 
             LOG.info(_LI('Successfully created container %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
