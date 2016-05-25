@@ -216,9 +216,11 @@ class LXDTestContainerConfig(test.NoDBTestCase):
 
     def test_network_in_out_average(self):
         instance = stubs._fake_instance()
+        # We get KB/s from flavor spec, but expect Mbit/s
+        # in LXD confix
         instance.flavor.extra_specs = {
-            'quota:vif_inbound_average': 20 * units.M,
-            'quota:vif_outbound_average': 8 * units.M
+            'quota:vif_inbound_average': 20000,
+            'quota:vif_outbound_average': 8000
         }
         instance_name = 'fake_instance'
         network_info = fake_network.fake_get_instance_nw_info(self)
@@ -228,17 +230,17 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                                        'nictype': 'bridged',
                                        'parent': 'fake_br1',
                                        'type': 'nic',
-                                       'limits.ingress': '20Mbit',
-                                       'limits.egress': '8Mbit'}}, config)
+                                       'limits.ingress': '160Mbit',
+                                       'limits.egress': '64Mbit'}}, config)
 
     def test_network_in_out_average_and_peak(self):
         # Max of the two values should take precedence
         instance = stubs._fake_instance()
         instance.flavor.extra_specs = {
-            'quota:vif_inbound_average': 2 * units.M,
-            'quota:vif_outbound_average': 10 * units.M,
-            'quota:vif_inbound_peak': 10 * units.M,
-            'quota:vif_outbound_peak': 2 * units.M,
+            'quota:vif_inbound_average': 2000,
+            'quota:vif_outbound_average': 10000,
+            'quota:vif_inbound_peak': 10000,
+            'quota:vif_outbound_peak': 2000,
         }
         instance_name = 'fake_instance'
         network_info = fake_network.fake_get_instance_nw_info(self)
@@ -248,5 +250,5 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                                        'nictype': 'bridged',
                                        'parent': 'fake_br1',
                                        'type': 'nic',
-                                       'limits.ingress': '10Mbit',
-                                       'limits.egress': '10Mbit'}}, config)
+                                       'limits.ingress': '80Mbit',
+                                       'limits.egress': '80Mbit'}}, config)
