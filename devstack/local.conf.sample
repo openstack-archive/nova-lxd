@@ -13,7 +13,7 @@ ADMIN_PASSWORD=password
 ENABLED_SERVICES=rabbit,mysql,key
 ENABLED_SERVICES+=,g-api,g-reg
 ENABLED_SERVICES+=,n-cpu,n-api,n-crt,n-obj,n-cond,n-sch,n-novnc,n-cauth
-ENABLED_SERVICES+=,neutron,q-svc,q-agt,q-dhcp,q-meta
+ENABLED_SERVICES+=,neutron,q-svc,q-agt,q-dhcp,q-meta,q-l3
 ENABLED_SERVICES+=,cinder,c-sch,c-api,c-vol
 ENABLED_SERVICES+=,horizon
 
