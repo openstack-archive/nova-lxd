@@ -40,26 +40,6 @@ _LI = i18n._LI
 CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
 
-
-def mount_filesystem(self, dev_path, dir_path):
-    try:
-        _out, err = utils.execute('mount',
-                                  '-t', 'ext4',
-                                  dev_path, dir_path, run_as_root=True)
-    except processutils.ProcessExecutionError as e:
-        err = six.text_type(e)
-    return err
-
-
-def umount_filesystem(self, dir_path):
-    try:
-        _out, err = utils.execute('umount',
-                                  dir_path, run_as_root=True)
-    except processutils.ProcessExecutionError as e:
-        err = six.text_type(e)
-    return err
-
-
 class LXDAPISession(object):
     """The session to invoke the LXD API session."""
 
