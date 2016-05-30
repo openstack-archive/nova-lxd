@@ -474,10 +474,6 @@ class LXDContainerOperations(object):
         """
         LOG.debug('rescue called for instance', instance=instance)
         try:
-            if not self.session.container_defined(instance.name, instance):
-                msg = _('Unable to find instance')
-                raise exception.NovaException(msg)
-
             # Step 1 - Stop the old container
             self.session.container_stop(instance.name, instance)
 
@@ -513,10 +509,6 @@ class LXDContainerOperations(object):
         """
         LOG.debug('unrescue called for instance', instance=instance)
         try:
-            if not self.session.container_defined(instance.name, instance):
-                msg = _('Unable to find instance')
-                raise exception.NovaException(msg)
-
             # Step 1 - Destory the rescue instance.
             self.session.container_destroy(instance.name,
                                            instance)
@@ -581,9 +573,6 @@ class LXDContainerOperations(object):
         """
         LOG.debug('get_info called for instance', instance=instance)
         try:
-            if not self.session.container_defined(instance.name, instance):
-                return hardware.InstanceInfo(state=power_state.NOSTATE)
-
             container_state = self.session.container_state(instance)
             return hardware.InstanceInfo(state=container_state['state'],
                                          max_mem_kb=container_state['max_mem'],

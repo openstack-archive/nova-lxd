@@ -107,9 +107,6 @@ class LXDAPISession(object):
         LOG.debug('container_update called fo instance', instance=instance)
         try:
             client = self.get_session()
-            if not self.container_defined(instance.name, instance):
-                msg = _('Instance is not found: %s') % instance.name
-                raise exception.InstanceNotFound(msg)
 
             return client.container_update(instance.name,
                                            config)
@@ -161,8 +158,6 @@ class LXDAPISession(object):
             max_mem = 0
 
             client = self.get_session()
-            if not self.container_defined(instance.name, instance):
-                return
 
             (state, data) = client.container_state(instance.name)
             state = constants.LXD_POWER_STATES[data['metadata']['status_code']]
@@ -195,10 +190,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_config called for instance', instance=instance)
         try:
-            if not self.container_defined(instance.name, instance):
-                msg = _('Instance is not found %s') % instance.name
-                raise exception.InstanceNotFound(msg)
-
             client = self.get_session()
             return client.get_container_config(instance.name)
         except lxd_exceptions.APIError as ex:
@@ -222,10 +213,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_info called for instance', instance=instance)
         try:
-            if not self.container_defined(instance.name, instance):
-                msg = _('Instance is not found %s') % instance.name
-                raise exception.InstanceNotFound(msg)
-
             client = self.get_session()
             return client.container_info(instance.name)
         except lxd_exceptions.APIError as ex:
@@ -280,12 +267,6 @@ class LXDAPISession(object):
             # Start the container
             client = self.get_session()
 
-            # (chuck): Something wicked could happen between
-            # container
-            if not self.container_defined(instance_name, instance):
-                msg = _('Instance is not found %s ') % instance.name
-                raise exception.InstanceNotFound(msg)
-
             (state, data) = client.container_start(instance_name,
                                                    CONF.lxd.timeout)
             self.operation_wait(data.get('operation'), instance)
@@ -314,10 +295,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_stop called for instance', instance=instance)
         try:
-            if not self.container_defined(instance_name, instance):
-                msg = _('Instance is not found %s') % instance.name
-                raise exception.InstanceNotFound(msg)
-
             LOG.info(_LI('Stopping instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
                                          'image': instance.image_ref})
@@ -350,10 +327,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_reboot called for instance', instance=instance)
         try:
-            if not self.container_defined(instance.name, instance):
-                msg = _('Instance is not found %s') % instance.name
-                raise exception.InstanceNotFound(msg)
-
             LOG.info(_LI('Rebooting instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
                                          'image': instance.image_ref})
@@ -388,9 +361,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_destroy for instance', instance=instance)
         try:
-            if not self.container_defined(instance_name, instance):
-                return
-
             LOG.info(_LI('Destroying instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
                                          'image': instance.image_ref})
@@ -425,10 +395,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_paused called for instance', instance=instance)
         try:
-            if not self.container_defined(instance_name, instance):
-                msg = _('Instance is not found %s') % instance_name
-                raise exception.InstanceNotFound(msg)
-
             LOG.info(_LI('Pausing instance %(instance)s with'
                          ' %(image)s'), {'instance': instance_name,
                                          'image': instance.image_ref})
@@ -463,10 +429,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_unpause called for instance', instance=instance)
         try:
-            if not self.container_defined(instance_name, instance):
-                msg = _('Instance is not found %s') % instance_name
-                raise exception.InstanceNotFound(msg)
-
             LOG.info(_LI('Unpausing instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
                                          'image': instance.image_ref})
