@@ -19,17 +19,14 @@ from nova import context as nova_context
 from nova import exception
 from nova import i18n
 from nova import rpc
-from nova import utils
 from nova.compute import power_state
 
-from oslo_concurrency import processutils
 from oslo_log import log as logging
 from oslo_service import loopingcall
 from oslo_utils import excutils
 
 from pylxd.deprecated import api
 from pylxd.deprecated import exceptions as lxd_exceptions
-import six
 
 from nova.virt.lxd import constants
 
@@ -39,6 +36,7 @@ _LI = i18n._LI
 
 CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
+
 
 class LXDAPISession(object):
     """The session to invoke the LXD API session."""

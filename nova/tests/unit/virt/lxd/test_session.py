@@ -347,11 +347,11 @@ class SessionContainerTest(test.NoDBTestCase):
                          self.session.container_destroy(instance.name,
                                                         instance))
         calls = [mock.call.container_stop(instance.name, -1),
-                mock.call.wait_container_operation(
-                    '/1.0/operation/1234', 200, -1),
-                mock.call.container_destroy(instance.name),
-                mock.call.wait_container_operation(
-                '/1.0/operation/1234', 200, -1)]
+                 mock.call.wait_container_operation(
+            '/1.0/operation/1234', 200, -1),
+            mock.call.container_destroy(instance.name),
+            mock.call.wait_container_operation(
+            '/1.0/operation/1234', 200, -1)]
         self.assertEqual(calls, self.ml.method_calls)
 
     @stubs.annotated_data(
