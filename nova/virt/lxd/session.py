@@ -19,17 +19,14 @@ from nova import context as nova_context
 from nova import exception
 from nova import i18n
 from nova import rpc
-from nova import utils
 from nova.compute import power_state
 
-from oslo_concurrency import processutils
 from oslo_log import log as logging
 from oslo_service import loopingcall
 from oslo_utils import excutils
 
 from pylxd.deprecated import api
 from pylxd.deprecated import exceptions as lxd_exceptions
-import six
 
 from nova.virt.lxd import constants
 
@@ -39,25 +36,6 @@ _LI = i18n._LI
 
 CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
-
-
-def mount_filesystem(self, dev_path, dir_path):
-    try:
-        _out, err = utils.execute('mount',
-                                  '-t', 'ext4',
-                                  dev_path, dir_path, run_as_root=True)
-    except processutils.ProcessExecutionError as e:
-        err = six.text_type(e)
-    return err
-
-
-def umount_filesystem(self, dir_path):
-    try:
-        _out, err = utils.execute('umount',
-                                  dir_path, run_as_root=True)
-    except processutils.ProcessExecutionError as e:
-        err = six.text_type(e)
-    return err
 
 
 class LXDAPISession(object):
@@ -127,9 +105,6 @@ class LXDAPISession(object):
         LOG.debug('container_update called fo instance', instance=instance)
         try:
             client = self.get_session()
-            if not self.container_defined(instance.name, instance):
-                msg = _('Instance is not found: %s') % instance.name
-                raise exception.InstanceNotFound(msg)
 
             return client.container_update(instance.name,
                                            config)
@@ -181,8 +156,6 @@ class LXDAPISession(object):
             max_mem = 0
 
             client = self.get_session()
-            if not self.container_defined(instance.name, instance):
-                return
 
             (state, data) = client.container_state(instance.name)
             state = constants.LXD_POWER_STATES[data['metadata']['status_code']]
@@ -215,10 +188,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_config called for instance', instance=instance)
         try:
-            if not self.container_defined(instance.name, instance):
-                msg = _('Instance is not found %s') % instance.name
-                raise exception.InstanceNotFound(msg)
-
             client = self.get_session()
             return client.get_container_config(instance.name)
         except lxd_exceptions.APIError as ex:
@@ -242,10 +211,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_info called for instance', instance=instance)
         try:
-            if not self.container_defined(instance.name, instance):
-                msg = _('Instance is not found %s') % instance.name
-                raise exception.InstanceNotFound(msg)
-
             client = self.get_session()
             return client.container_info(instance.name)
         except lxd_exceptions.APIError as ex:
@@ -300,12 +265,6 @@ class LXDAPISession(object):
             # Start the container
             client = self.get_session()
 
-            # (chuck): Something wicked could happen between
-            # container
-            if not self.container_defined(instance_name, instance):
-                msg = _('Instance is not found %s ') % instance.name
-                raise exception.InstanceNotFound(msg)
-
             (state, data) = client.container_start(instance_name,
                                                    CONF.lxd.timeout)
             self.operation_wait(data.get('operation'), instance)
@@ -334,10 +293,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_stop called for instance', instance=instance)
         try:
-            if not self.container_defined(instance_name, instance):
-                msg = _('Instance is not found %s') % instance.name
-                raise exception.InstanceNotFound(msg)
-
             LOG.info(_LI('Stopping instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
                                          'image': instance.image_ref})
@@ -370,10 +325,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_reboot called for instance', instance=instance)
         try:
-            if not self.container_defined(instance.name, instance):
-                msg = _('Instance is not found %s') % instance.name
-                raise exception.InstanceNotFound(msg)
-
             LOG.info(_LI('Rebooting instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
                                          'image': instance.image_ref})
@@ -408,9 +359,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_destroy for instance', instance=instance)
         try:
-            if not self.container_defined(instance_name, instance):
-                return
-
             LOG.info(_LI('Destroying instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
                                          'image': instance.image_ref})
@@ -445,10 +393,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_paused called for instance', instance=instance)
         try:
-            if not self.container_defined(instance_name, instance):
-                msg = _('Instance is not found %s') % instance_name
-                raise exception.InstanceNotFound(msg)
-
             LOG.info(_LI('Pausing instance %(instance)s with'
                          ' %(image)s'), {'instance': instance_name,
                                          'image': instance.image_ref})
@@ -483,10 +427,6 @@ class LXDAPISession(object):
         """
         LOG.debug('container_unpause called for instance', instance=instance)
         try:
-            if not self.container_defined(instance_name, instance):
-                msg = _('Instance is not found %s') % instance_name
-                raise exception.InstanceNotFound(msg)
-
             LOG.info(_LI('Unpausing instance %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
                                          'image': instance.image_ref})

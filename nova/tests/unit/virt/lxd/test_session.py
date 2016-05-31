@@ -84,17 +84,14 @@ class SessionContainerTest(test.NoDBTestCase):
         self.assertEqual((200, fake_api.fake_container_config()),
                          self.session.container_update(config, instance))
         calls = [
-            mock.call.container_defined(instance.name),
             mock.call.container_update(instance.name, config)]
         self.assertEqual(calls, self.ml.method_calls)
 
     @stubs.annotated_data(
-        ('api_fail', True, lxd_exceptions.APIError('Fake', 500),
+        ('api_fail', lxd_exceptions.APIError('Fake', 500),
          exception.NovaException),
-        ('missing_container', False, None,
-         exception.InstanceNotFound)
     )
-    def test_container_update_fail(self, tag, container_defined, side_effect,
+    def test_container_update_fail(self, tag, side_effect,
                                    expected):
         """
         container_update will fail if the container is not found, or the
@@ -103,18 +100,11 @@ class SessionContainerTest(test.NoDBTestCase):
         """
         config = mock.Mock()
         instance = stubs._fake_instance()
-        if container_defined:
-            self.ml.container_defined.return_value = container_defined
-            self.ml.container_update.side_effect = (
-                lxd_exceptions.APIError('Fake', 500))
-            self.assertRaises(
-                expected,
-                self.session.container_update, config, instance)
-        if not container_defined:
-            self.ml.container_defined.return_value = container_defined
-            self.assertRaises(
-                expected,
-                self.session.container_update, config, instance)
+        self.ml.container_update.side_effect = (
+            lxd_exceptions.APIError('Fake', 500))
+        self.assertRaises(
+            expected,
+            self.session.container_update, config, instance)
 
     @stubs.annotated_data(
         ('running', True),
@@ -266,44 +256,14 @@ class SessionContainerTest(test.NoDBTestCase):
         Verify that the correct pyLXD calls are made.
         """
         instance = stubs._fake_instance()
-        self.ml.container_defined.return_value = defined
         self.ml.container_start.return_value = side_effect
         self.assertEqual(None,
                          self.session.container_start(instance.name,
                                                       instance))
-        calls = [mock.call.container_defined(instance.name),
-                 mock.call.container_start(instance.name, -1),
+        calls = [mock.call.container_start(instance.name, -1),
                  mock.call.wait_container_operation(
             '/1.0/operation/1234', 200, -1)]
         self.assertEqual(calls, self.ml.method_calls)
-
-    @stubs.annotated_data(
-        ('container_missing', False,
-         exception.InstanceNotFound),
-        ('api_error', True,
-         exception.NovaException,
-         lxd_exceptions.APIError('Fake', 500)),
-    )
-    def test_container_start_fail(self, tag, container_defined,
-                                  expected, side_effect=None):
-        """
-        container_start starts a container on a given LXD host.
-        Veify that an exception.InstanceNotFound when the container
-        is not found on an LXD host. Raises an exception.NovaException
-        when there is an APIError.
-        """
-        instance = stubs._fake_instance()
-        if container_defined:
-            self.ml.container_defined.return_value = container_defined
-            self.ml.container_start.side_effect = side_effect
-            self.assertRaises(expected,
-                              self.session.container_start,
-                              instance.name, instance)
-        if not container_defined:
-            self.ml.container_defined.return_value = container_defined
-            self.assertRaises(expected,
-                              self.session.container_start, instance.name,
-                              instance)
 
     @stubs.annotated_data(
         ('1', (200, fake_api.fake_operation_info_ok()))
@@ -319,8 +279,7 @@ class SessionContainerTest(test.NoDBTestCase):
         self.assertEqual(None,
                          self.session.container_stop(instance.name,
                                                      instance))
-        calls = [mock.call.container_defined(instance.name),
-                 mock.call.container_stop(instance.name, -1),
+        calls = [mock.call.container_stop(instance.name, -1),
                  mock.call.wait_container_operation(
             '/1.0/operation/1234', 200, -1)]
         self.assertEqual(calls, self.ml.method_calls)
@@ -353,8 +312,7 @@ class SessionContainerTest(test.NoDBTestCase):
         self.ml.container_reboot.return_value = side_effect
         self.assertEqual(None,
                          self.session.container_reboot(instance))
-        calls = [mock.call.container_defined(instance.name),
-                 mock.call.container_reboot(instance.name, -1),
+        calls = [mock.call.container_reboot(instance.name, -1),
                  mock.call.wait_container_operation(
                      '/1.0/operation/1234', 200, -1)]
         self.assertEqual(calls, self.ml.method_calls)
@@ -375,38 +333,26 @@ class SessionContainerTest(test.NoDBTestCase):
                           self.session.container_reboot, instance)
 
     @stubs.annotated_data(
-        ('exists', True, (200, fake_api.fake_operation_info_ok())),
-        ('missing', False, (200, fake_api.fake_operation_info_ok()))
+        ('exists', (200, fake_api.fake_operation_info_ok())),
     )
-    def test_container_destroy(self, tag, container_defined, side_effect):
+    def test_container_destroy(self, tag, side_effect):
         """
         container_destroy delete a container from the LXD Host. Check
         that the approiate pylxd calls are made.
         """
         instance = stubs._fake_instance()
-        if container_defined:
-            self.ml.container_defined.return_value = container_defined
-            self.ml.container_stop.return_value = side_effect
-            self.ml.container_destroy.return_value = side_effect
-            self.assertEqual(None,
-                             self.session.container_destroy(instance.name,
-                                                            instance))
-            calls = [mock.call.container_defined(instance.name),
-                     mock.call.container_defined(instance.name),
-                     mock.call.container_stop(instance.name, -1),
-                     mock.call.wait_container_operation(
-                '/1.0/operation/1234', 200, -1),
-                mock.call.container_destroy(instance.name),
-                mock.call.wait_container_operation(
-                '/1.0/operation/1234', 200, -1)]
-            self.assertEqual(calls, self.ml.method_calls)
-        if not container_defined:
-            self.ml.container_defined.return_value = container_defined
-            self.assertEqual(None,
-                             self.session.container_destroy(instance.name,
-                                                            instance))
-            calls = [mock.call.container_defined(instance.name)]
-            self.assertEqual(calls, self.ml.method_calls)
+        self.ml.container_stop.return_value = side_effect
+        self.ml.container_destroy.return_value = side_effect
+        self.assertEqual(None,
+                         self.session.container_destroy(instance.name,
+                                                        instance))
+        calls = [mock.call.container_stop(instance.name, -1),
+                 mock.call.wait_container_operation(
+            '/1.0/operation/1234', 200, -1),
+            mock.call.container_destroy(instance.name),
+            mock.call.wait_container_operation(
+            '/1.0/operation/1234', 200, -1)]
+        self.assertEqual(calls, self.ml.method_calls)
 
     @stubs.annotated_data(
         ('fail_to_stop', True, 'fail_stop',
@@ -429,7 +375,6 @@ class SessionContainerTest(test.NoDBTestCase):
                               self.session.container_destroy, instance.name,
                               instance)
         if test_type == 'fail_destroy':
-            self.ml.container_defined.return_value = container_defined
             self.ml.container_stop.return_value = \
                 (200, fake_api.fake_operation_info_ok())
             self.ml.container_destroy.side_effect = side_effect
@@ -488,7 +433,6 @@ class SessionContainerTest(test.NoDBTestCase):
                          self.session.container_unpause(instance.name,
                                                         instance))
         calls = [
-            mock.call.container_defined(instance.name),
             mock.call.container_resume(instance.name, -1),
             mock.call.wait_container_operation(
                 '/1.0/operation/1234', 200, -1)]
