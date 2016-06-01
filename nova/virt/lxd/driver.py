@@ -16,7 +16,6 @@
 
 from __future__ import absolute_import
 
-import nova.conf
 from nova import exception
 from nova import i18n
 from nova.virt import driver
