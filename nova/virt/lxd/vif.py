@@ -13,9 +13,9 @@
 #    under the License.
 
 from oslo_concurrency import processutils
-from oslo_config import cfg
 from oslo_log import log as logging
 
+import nova.conf
 from nova import exception
 from nova import i18n
 from nova.network import linux_net
@@ -25,7 +25,7 @@ from nova import utils
 _ = i18n._
 _LE = i18n._LE
 
-CONF = cfg.CONF
+CONF = nova.conf.CONF
 
 LOG = logging.getLogger(__name__)
 
