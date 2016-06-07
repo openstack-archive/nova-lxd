@@ -5,10 +5,12 @@ An OpenStack Compute driver for managing containers using LXD.
 ## nova-lxd on Devstack
 
 For development purposes, nova-lxd provides a devstack plugin. To use it, just include the
-following in your devstack `local.conf`::
+following in your devstack `local.conf`:
 
-   [[local|localrc]]
-   enable_plugin nova-lxd https://github.com/lxc/nova-lxd
+```
+[[local|localrc]]
+enable_plugin nova-lxd https://github.com/lxc/nova-lxd
+```
 
 Change git repositories as needed (it's probably not very useful to point to the main
 nova-lxd repo). If you have a local tree you'd like to use, you can symlink your tree to
@@ -17,12 +19,16 @@ nova-lxd repo). If you have a local tree you'd like to use, you can symlink your
 The devstack default images won't work with lxd, as lxd doesn't support them. Once your
 stack is up and you've configured authentication against your devstack, do the following::
 
-   wget http://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-root.tar.gz
-   glance image-create --name xenial --disk-format raw --container-format bare --file xenial-server-cloudimg-amd64-root.tar.gz
+```
+wget http://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-root.tar.gz
+glance image-create --name xenial --disk-format raw --container-format bare --file xenial-server-cloudimg-amd64-root.tar.gz
+```
 
 You can test your configuration using the exercise scripts in devstack. For instance,
 
-   DEFAULT_IMAGE_NAME=xenial ./exercises/volumes.sh
+```
+DEFAULT_IMAGE_NAME=xenial ./exercises/volumes.sh
+```
 
 Please note: the exercise scripts in devstack likely won't work, as they have requirements
 for using the cirros images.
