@@ -25,6 +25,8 @@ from nova.virt.lxd import operations as container_ops
 from nova.virt.lxd import session
 import stubs
 
+TEST_INSTANCE_PATH = '/test/instances'
+
 
 @ddt.ddt
 @mock.patch.object(container_ops, 'CONF', stubs.MockConf())
@@ -71,16 +73,26 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mock.patch.object(container_ops.LXDContainerOperations,
                               '_add_configdrive'),
             mock.patch.object(container_ops.LXDContainerOperations,
-                              '_setup_container')
+                              '_setup_container'),
+            mock.patch('os.path.exists'),
+            mock.patch.object(container_ops, 'fileutils'),
+            mock.patch.object(container_ops.
+                              container_dir.LXDContainerDirectories,
+                              'get_instance_dir'),
         ) as (
             mock_container_defined,
             mock_fetch_image,
             mock_setup_network,
             mock_setup_profile,
             mock_add_configdrive,
-            mock_setup_container
+            mock_setup_container,
+            mock_path_exists,
+            mock_fileutils,
+            mock_get_instance_dir,
         ):
             mock_container_defined.return_value = False
+            mock_path_exists.return_value = False
+            mock_get_instance_dir.return_value = TEST_INSTANCE_PATH
             self.assertEqual(None,
                              self.operations.spawn(context, instance,
                                                    image_meta,
@@ -88,6 +100,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
                                                    admin_password,
                                                    network_info,
                                                    block_device_info))
+            mock_fileutils.ensure_tree.assert_called_with(TEST_INSTANCE_PATH)
 
     def test_reboot_container(self):
         """Test the reboot method. Ensure that the proper
