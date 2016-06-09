@@ -16,3 +16,8 @@ testscenarios>=0.4 # Apache-2.0/BSD
 testtools>=1.4.0 # MIT
 os-testr>=0.4.1 # Apache-2.0
 nosexcover # BSD
+
+# NOTE(jamespage): Required for deprecated API on
+#                  older Python 2.7 versions as
+#                  provided in Ubuntu 14.04
+pyOpenSSL>=0.14  # Apache-2.0
