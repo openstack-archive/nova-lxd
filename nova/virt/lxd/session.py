@@ -14,6 +14,8 @@
 #    the License for the specific language governing permissions and
 #    limitations under the License.
 
+import os
+
 import nova.conf
 from nova import context as nova_context
 from nova import exception
@@ -25,6 +27,7 @@ from oslo_log import log as logging
 from oslo_service import loopingcall
 from oslo_utils import excutils
 
+from pylxd import client
 from pylxd.deprecated import api
 from pylxd.deprecated import exceptions as lxd_exceptions
 
@@ -41,8 +44,45 @@ LOG = logging.getLogger(__name__)
 class LXDAPISession(object):
     """The session to invoke the LXD API session."""
 
-    def __init__(self):
-        super(LXDAPISession, self).__init__()
+    def __init__(self, host):
+        super(LXDAPISession, self).__init__(host)
+
+        self.client = self._get_session()
+        self.host = host
+
+    def _get_session(self):
+        """Returns a connection to the LXD hypervsior."""
+        try:
+            if self.host is None:
+                return self._get_local_session()
+            else:
+                return self._get_remote_session()
+        except Exception as ex:
+            LOG.exception(_LE('Unable to connect to host: %(reason)s'),
+                          {'reason': ex})
+
+    def _get_remote_session(self):
+        """Connect to LXD via remote HTTP."""
+        try:
+            lxc_cert = os.path.join(os.path.expanduser('~'),
+                                    '.config/lxc/client.crt')
+            lxc_key = os.path.join(os.path.expanduser('~'),
+                                   '.config/lxc/client.key')
+            endpoint = 'https://%s:8443' % self.host
+            return client.Client(endpoint=endpoint,
+                                 cert=(lxc_cert, lxc_key),
+                                 verify=False)
+        except Exception as ex:
+            LOG.exception(_LE('Unable to connect to host: %(reason)s'),
+                          {'reason': ex})
+
+    def _get_local_session(self):
+        """Connect to LXD via the local unix socket."""
+        try:
+            return client.Client()
+        except Exception as ex:
+            LOG.exception(_LE('Unable to connect to host: %(reason)s'),
+                          {'reason': ex})
 
     def get_session(self, host=None):
         """Returns a connection to the LXD hypervisor
