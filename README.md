@@ -9,7 +9,7 @@ following in your devstack `local.conf`:
 
 ```
 [[local|localrc]]
-enable_plugin nova-lxd https://github.com/lxc/nova-lxd
+enable_plugin nova-lxd https://git.openstack.org/openstack/nova-lxd
 ```
 
 Change git repositories as needed (it's probably not very useful to point to the main
@@ -43,4 +43,4 @@ If you prefer live discussions, some of us also hang out in
 
 ## Bug reports
 
-Bug reports can be filed at https://github.com/lxc/nova-lxd/issues/new
+Bug reports can be filed at https://bugs.launchpad.net/nova-lxd

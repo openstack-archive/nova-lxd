@@ -20,7 +20,7 @@ Using nova-lxd with devstack
 nova-lxd includes a plugin for use in devstack. If you'd like to run
 devstack with nova-lxd, you'll want to add the following to `local.conf`:
 
-   enable_plugin nova-lxd https://github.com/lxc/nova-lxd
+   enable_plugin nova-lxd https://git.openstack.org/openstack/nova-lxd
 
 In this case, nova-lxd will run HEAD from master. You may want to point
 this at your own fork. A final argument to `enable_plugin` can be used
@@ -47,7 +47,7 @@ run the very minimum you`ll need for devstack.
    # Optional, to enable tempest configuration as part of devstack
    enable_service tempest
 
-   enable_plugin nova-lxd https://github.com/lxc/nova-lxd
+   enable_plugin nova-lxd https://git.openstack.org/openstack/nova-lxd
 
    # More often than not, stack.sh explodes trying to configure IPv6 support,
    # so let's just disable it for now.
@@ -67,11 +67,11 @@ To run the tempest tests, you can use:
 Errata
 ======
 
-Pull requests should be submitted through GitHub.
+Patches should be submitted to Openstack Gerrit via `git-review`.
 
-Bugs should be filed on GitHub:
+Bugs should be filed on Launchpad:
 
-   https://github.com/lxc/nova-lxd
+   https://bugs.launchpad.net/nova-lxd
 
 If you would like to contribute to the development of OpenStack,
 you must follow the steps in this page:

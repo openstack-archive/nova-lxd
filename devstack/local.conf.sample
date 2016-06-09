@@ -21,4 +21,4 @@ ENABLED_SERVICES+=,horizon
 disable_service n-net
 
 # enable nova-lxd
-enable_plugin nova-lxd https://github.com/lxc/nova-lxd 
+enable_plugin nova-lxd https://git.openstack.org/openstack/nova-lxd
