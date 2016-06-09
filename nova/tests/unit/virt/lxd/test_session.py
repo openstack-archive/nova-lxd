@@ -48,6 +48,12 @@ class SessionContainerTest(test.NoDBTestCase):
 
         self.session = session.LXDAPISession()
 
+    @mock.patch('pylxd.client.Client')
+    def test_get_session(self, mock_client):
+        """Ensure the connection has been made to LXD."""
+        self.session._get_session()
+        mock_client.assert_called_once_with()
+
     @stubs.annotated_data(
         ('empty', [], []),
         ('valid', ['test'], ['test']),

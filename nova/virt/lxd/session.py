@@ -25,6 +25,8 @@ from oslo_log import log as logging
 from oslo_service import loopingcall
 from oslo_utils import excutils
 
+from pylxd import client
+
 from pylxd.deprecated import api
 from pylxd.deprecated import exceptions as lxd_exceptions
 
@@ -43,6 +45,15 @@ class LXDAPISession(object):
 
     def __init__(self):
         super(LXDAPISession, self).__init__()
+
+        self.client = self._get_session()
+
+    def _get_session(self):
+        try:
+            return client.Client()
+        except Exception as ex:
+            LOG.exception(_LE('Connection to LXD failed: %(reason)s'),
+                          {'reason': ex})
 
     def get_session(self, host=None):
         """Returns a connection to the LXD hypervisor
