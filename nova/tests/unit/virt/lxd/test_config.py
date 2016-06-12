@@ -255,7 +255,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
 
     @mock.patch.object(session.LXDAPISession, 'host_certificate')
     def test_container_migrate(self, mock_host_certificate):
-        """ Verify migration information is correct."""
+        """Verify migration information is correct."""
         mock_host_certificate.return_value = 'fake_certificate'
         container_migrate = {'operation': 'fake_operation',
                              'metadata': {'control': 'fake_control',
