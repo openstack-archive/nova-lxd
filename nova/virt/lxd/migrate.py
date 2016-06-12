@@ -18,6 +18,7 @@ import os
 import nova.conf
 from nova import exception
 from nova import i18n
+from nova.objects import migrate_data as migrate_data_obj
 from nova.virt import configdrive
 
 from oslo_log import log as logging
@@ -182,6 +183,7 @@ class LXDContainerMigrate(object):
                                            disk_over_commit=False):
         LOG.debug('check_can_live_migration called for instance',
                   instance=instance)
+        return migrate_data_obj.HyperVLiveMigrateData()
 
     def check_can_live_migrate_destination_cleanup(self, context,
                                                    dest_check_data):
@@ -192,6 +194,7 @@ class LXDContainerMigrate(object):
                                       block_device_info=None):
         LOG.debug('check_can_live_migrate_source called for instance',
                   instance=instance)
+        return dest_check_data
 
     def _copy_container_profile(self, instance, network_info):
         LOG.debug('_copy_cotontainer_profile called for instnace',
