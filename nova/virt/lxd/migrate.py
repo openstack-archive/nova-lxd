@@ -49,6 +49,10 @@ class LXDContainerMigrate(object):
             operations.LXDContainerOperations(
                 self.virtapi)
 
+    #
+    # migrate/resize
+    #
+
     def migrate_disk_and_power_off(self, context, instance, dest,
                                    flavor, network_info,
                                    block_device_info=None, timeout=0,
@@ -155,3 +159,45 @@ class LXDContainerMigrate(object):
                   instance=instance)
         if self.session.container_defined(instance.name, instance):
             self.session.container_start(instance.name, instance)
+
+    #
+    # live-migration
+    #
+
+    def pre_live_migration(self, context, instance, block_device_info,
+                           network_info, disk_info, migrate_data=None):
+        LOG.debug('pre_live_migration called for instance', instance=instance)
+
+    def live_migration(self, context, instance, dest,
+                       post_method, recover_method, block_migration=False,
+                       migrate_data=None):
+        LOG.debug('live_migration called for instance', instance=instance)
+
+    def post_live_migration(self, context, instance, block_device_info,
+                            migrate_data=None):
+        LOG.debug('post_live_migration called for instance',
+                  instance=instance)
+
+    def post_live_migration_at_destination(self, context, instance,
+                                           network_info,
+                                           block_migration=False,
+                                           block_device_info=None):
+        LOG.debug('post_live_migration_at_destinaation called for instance',
+                  instance=instance)
+
+    def check_can_live_migrate_destination(self, context, instance,
+                                           src_compute_info, dst_compute_info,
+                                           block_migration=False,
+                                           disk_over_commit=False):
+        LOG.debug('check_can_live_migration called for instance',
+                  instance=instance)
+
+    def check_can_live_migrate_destination_cleanup(self, context,
+                                                   dest_check_data):
+        LOG.debug('check_can_live_migrate_destination_cleanup')
+
+    def check_can_live_migrate_source(self, context, instance,
+                                      dest_check_data,
+                                      block_device_info=None):
+        LOG.debug('check_can_live_migrate_source called for instance',
+                  instance=instance)
