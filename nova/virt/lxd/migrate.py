@@ -128,20 +128,11 @@ class LXDContainerMigrate(object):
                 fileutils.ensure_tree(configdrive_dir)
 
             # Step 1 - Setup the profile on the dest host
-            container_profile = self.config.create_profile(instance,
-                                                           network_info)
-            self.session.profile_create(container_profile, instance)
+            self._copy_container_profile(instance, network_info)
 
             # Step 2 - Open a websocket on the srct and and
             #          generate the container config
-            src_host = migration['source_compute']
-            (state, data) = (self.session.container_migrate(instance.name,
-                                                            src_host,
-                                                            instance))
-            container_config = self.config.create_container(instance)
-            container_config['source'] = \
-                self.config.get_container_migrate(data, src_host, instance)
-            self.session.container_init(container_config, instance)
+            self._container_init(migration['source_compute'], instance)
 
             # Step 3 - Start the network and contianer
             self.operations.plug_vifs(instance, network_info)
@@ -201,3 +192,20 @@ class LXDContainerMigrate(object):
                                       block_device_info=None):
         LOG.debug('check_can_live_migrate_source called for instance',
                   instance=instance)
+
+    def _copy_container_profile(self, instance, network_info):
+        LOG.debug('_copy_cotontainer_profile called for instnace',
+                  instance=instance)
+        container_profile = self.config.create_profile(instance,
+                                                       network_info)
+        self.session.profile_create(container_profile, instance)
+
+    def _container_init(self, host, instance):
+        LOG.debug('_container_init called for instnace', instance=instance)
+        (state, data) = (self.session.container_migrate(instance.name,
+                                                        host,
+                                                        instance))
+        container_config = self.config.create_container(instance)
+        container_config['source'] = \
+                self.config.get_container_migrate(data, host, instance)
+        self.session.container_init(container_config, instance)
