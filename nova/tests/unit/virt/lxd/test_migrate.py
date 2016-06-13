@@ -21,12 +21,8 @@ from nova.tests.unit import fake_instance
 from nova.tests.unit import fake_network
 from nova.virt import fake
 
-
-from nova.virt.lxd import config
 from nova.virt.lxd import migrate
-from nova.virt.lxd import operations
 from nova.virt.lxd import session
-import stubs
 
 CONF = nova.conf.CONF
 
@@ -38,58 +34,41 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
 
         self.migrate = migrate.LXDContainerMigrate(
             fake.FakeVirtAPI())
+        self.context = 'fake_context'
+        self.migrate.session = mock.MagicMock()
+        self.migrate.config = mock.MagicMock()
+        self.migrate.operations = mock.MagicMock()
 
-    def test_migrate_disk_power_off_resize(self):
-        self.flags(my_ip='fakeip')
-        instance = stubs._fake_instance()
-        network_info = mock.Mock()
-        flavor = mock.Mock()
-        context = mock.Mock()
-        dest = 'fakeip'
+    @mock.patch.object(session.LXDAPISession, 'container_defined')
+    def test_migrate_disk_and_power_off_different_host(
+            self, mock_container_defined):
+        mock_instance = fake_instance.fake_instance_obj(self.context)
+        self.migrate.migrate_disk_and_power_off(
+            mock.sentinel.context, mock_instance,
+            mock.sentinel.dest, mock.sentinel.flavor,
+            mock.sentinel.network_info,
+            mock.sentinel.block_device_info,
+            mock.sentinel.timeout, mock.sentinel.retry_interval)
+        mock_container_defined.return_value = True
+        self.migrate.session.container_stop.assert_called_once_with(
+            mock_instance.name, mock_instance
+        )
 
-        with test.nested(
-            mock.patch.object(session.LXDAPISession, 'container_defined'),
-            mock.patch.object(config.LXDContainerConfig, 'create_profile'),
-            mock.patch.object(session.LXDAPISession, 'profile_update')
-        ) as (
-            mock_container_defined,
-            mock_create_profile,
-            mock_profile_update
-        ):
-            self.assertEqual('',
-                             self.migrate.migrate_disk_and_power_off(
-                                 context, instance, dest, flavor,
-                                 network_info))
-            mock_container_defined.assert_called_once_with(instance.name,
-                                                           instance)
-            mock_create_profile.assert_called_once_with(instance,
-                                                        network_info)
-
-    def test_confirm_migration(self):
-        migration = mock.Mock()
-        instance = stubs._fake_instance()
-        network_info = mock.Mock()
-
-        with test.nested(
-            mock.patch.object(session.LXDAPISession, 'container_defined'),
-            mock.patch.object(session.LXDAPISession, 'profile_delete'),
-            mock.patch.object(session.LXDAPISession, 'container_destroy'),
-            mock.patch.object(operations.LXDContainerOperations,
-                              'unplug_vifs'),
-        ) as (
-                mock_container_defined,
-                mock_profile_delete,
-                mock_container_destroy,
-                mock_unplug_vifs):
-            self.assertEqual(None,
-                             self.migrate.confirm_migration(migration,
-                                                            instance,
-                                                            network_info))
-            mock_container_defined.assert_called_once_with(instance.name,
-                                                           instance)
-            mock_profile_delete.assert_called_once_with(instance)
-            mock_unplug_vifs.assert_called_once_with(instance,
-                                                     network_info)
+    @mock.patch.object(session.LXDAPISession, 'container_defined')
+    def test_confirm_migration(self, mock_contaienr_defined):
+        mock_instance = fake_instance.fake_instance_obj(self.context)
+        fake_network_info = fake_network.fake_get_instance_nw_info
+        self.migrate.confirm_migration(
+            mock.sentinel.migration, mock_instance, fake_network_info)
+        self.migrate.session.profile_delete.assert_called_once_with(
+            mock_instance
+        )
+        self.migrate.session.container_destroy.assert_called_once_with(
+            mock_instance.name, mock_instance
+        )
+        self.migrate.operations.unplug_vifs.assert_called_once_with(
+            mock_instance, fake_network_info
+        )
 
 
 class LXDTestLiveMigrate(test.NoDBTestCase):
@@ -104,6 +83,7 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
             fake.FakeVirtAPI())
         self.migrate.session = mock.MagicMock()
         self.migrate.config = mock.MagicMock()
+        self.migrate.operations = mock.MagicMock()
 
     def test_copy_container_profile(self):
         mock_instance = fake_instance.fake_instance_obj(self.context)
