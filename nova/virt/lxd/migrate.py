@@ -159,16 +159,41 @@ class LXDContainerMigrate(object):
     def pre_live_migration(self, context, instance, block_device_info,
                            network_info, disk_info, migrate_data=None):
         LOG.debug('pre_live_migration called for instance', instance=instance)
+        try:
+            self._copy_container_profile(instance, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('pre_live_migration failed for %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instance=instance)
 
     def live_migration(self, context, instance, dest,
                        post_method, recover_method, block_migration=False,
                        migrate_data=None):
         LOG.debug('live_migration called for instance', instance=instance)
+        try:
+            self._container_init(CONF.my_ip, instance)
+            post_method(context, instance, dest, block_migration, host=dest)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('live_migration failed for %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instance=instance)
 
     def post_live_migration(self, context, instance, block_device_info,
                             migrate_data=None):
         LOG.debug('post_live_migration called for instance',
                   instance=instance)
+        try:
+            self.session.container_destroy(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('post_live_migration failed for %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instance=instance)
 
     def post_live_migration_at_destination(self, context, instance,
                                            network_info,
@@ -176,6 +201,19 @@ class LXDContainerMigrate(object):
                                            block_device_info=None):
         LOG.debug('post_live_migration_at_destinaation called for instance',
                   instance=instance)
+        return
+
+    def post_live_migration_at_source(self, context, instance, network_info):
+        LOG.debug('post_live_migration_at_source called for instance',
+                  instance=instance)
+        try:
+            self.operations.cleanup(context, instance, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('post_live_migration failed for %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instance=instance)
 
     def check_can_live_migrate_destination(self, context, instance,
                                            src_compute_info, dst_compute_info,
@@ -183,11 +221,14 @@ class LXDContainerMigrate(object):
                                            disk_over_commit=False):
         LOG.debug('check_can_live_migration called for instance',
                   instance=instance)
+        if self.session.container_defined(instance.name, instance):
+            raise exception.InstanceExists(name=instance.name)
         return migrate_data_obj.HyperVLiveMigrateData()
 
     def check_can_live_migrate_destination_cleanup(self, context,
                                                    dest_check_data):
         LOG.debug('check_can_live_migrate_destination_cleanup')
+        return
 
     def check_can_live_migrate_source(self, context, instance,
                                       dest_check_data,
@@ -210,5 +251,5 @@ class LXDContainerMigrate(object):
                                                         instance))
         container_config = self.config.create_container(instance)
         container_config['source'] = \
-                self.config.get_container_migrate(data, host, instance)
+            self.config.get_container_migrate(data, host, instance)
         self.session.container_init(container_config, instance)

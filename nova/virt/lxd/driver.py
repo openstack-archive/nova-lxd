@@ -290,6 +290,10 @@ class LXDDriver(driver.ComputeDriver):
         self.container_migrate.check_can_live_migrate_destination_cleanup(
             context, dest_check_data)
 
+    def post_live_migration_at_source(self, context, instance, network_info):
+        self.container_migrate.post_live_migration_at_source(
+            context, instance, network_info)
+
     def check_can_live_migrate_source(self, context, instance,
                                       dest_check_data, block_device_info=None):
         self.container_migrate.check_can_live_migrate_source(

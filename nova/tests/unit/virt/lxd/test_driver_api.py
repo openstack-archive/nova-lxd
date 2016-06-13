@@ -540,7 +540,6 @@ class LXDTestDriverNoops(test.NoDBTestCase):
         'attach_volume',
         'detach_volume',
         'soft_delete',
-        'post_live_migration_at_source',
         'check_instance_shared_storage_local',
         'check_instance_shared_storage_remote',
         'get_instance_disk_info',
