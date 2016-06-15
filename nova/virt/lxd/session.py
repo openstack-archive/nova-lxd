@@ -451,11 +451,12 @@ class LXDAPISession(object):
                         '%(reason)s'), {'instance': instance_name,
                                         'reason': ex})
 
-    def container_init(self, config, instance):
+    def container_init(self, config, instance, host=None):
         """Create a LXD container
 
         :param config: LXD container config as a dict
         :param instance: nova instance object
+        :param host: perform initialization on perfered host
 
         """
         LOG.debug('container_init called for instance', instance=instance)
@@ -464,11 +465,11 @@ class LXDAPISession(object):
                          ' %(image)s'), {'instance': instance.name,
                                          'image': instance.image_ref})
 
-            client = self.get_session()
+            client = self.get_session(host=host)
             (state, data) = client.container_init(config)
             operation = data.get('operation')
-            self.operation_wait(operation, instance)
-            status, data = self.operation_info(operation, instance)
+            self.operation_wait(operation, instance, host=host)
+            status, data = self.operation_info(operation, instance, host=host)
             data = data.get('metadata')
             if not data['status_code'] == 200:
                 msg = data.get('err') or data['metadata']
@@ -579,7 +580,7 @@ class LXDAPISession(object):
     # Operation methods
     #
 
-    def operation_wait(self, operation_id, instance):
+    def operation_wait(self, operation_id, instance, host=None):
         """Waits for an operation to return 200 (Success)
 
         :param operation_id: The operation to wait for.
@@ -587,7 +588,7 @@ class LXDAPISession(object):
         """
         LOG.debug('wait_for_contianer for instance', instance=instance)
         try:
-            client = self.get_session()
+            client = self.get_session(host=host)
             if not client.wait_container_operation(operation_id, 200, -1):
                 msg = _('Container creation timed out')
                 raise exception.NovaException(msg)
@@ -604,10 +605,10 @@ class LXDAPISession(object):
                           {'instance': instance.image_ref, 'reason': e},
                           instance=instance)
 
-    def operation_info(self, operation_id, instance):
+    def operation_info(self, operation_id, instance, host=None):
         LOG.debug('operation_info called for instance', instance=instance)
         try:
-            client = self.get_session()
+            client = self.get_session(host=host)
             return client.operation_info(operation_id)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'

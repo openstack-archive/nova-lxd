@@ -252,3 +252,36 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                                        'type': 'nic',
                                        'limits.ingress': '80Mbit',
                                        'limits.egress': '80Mbit'}}, config)
+
+    @mock.patch.object(session.LXDAPISession, 'host_certificate')
+    def test_container_migrate(self, mock_host_certificate):
+        """Verify that certificate is passed to the container configuration."""
+        mock_host_certificate.return_value = 'fake_certificate'
+        container_migrate = {'operation': 'fake_operation',
+                             'metadata': {'control': 'fake_control',
+                                          'fs': 'fake_fs'}
+                             }
+        host = '10.0.0.1'
+        instance = mock.MagicMock()
+        container_image = self.config.get_container_migrate(
+            container_migrate, host, instance)
+        self.assertEqual('fake_certificate',
+                         container_image['certificate'])
+
+    @mock.patch.object(session.LXDAPISession, 'host_certificate')
+    def test_container_live_migrate(self, mock_host_certificate):
+        """Verify that the migrate websocket information is used
+           when configuring a container for migration."""
+        mock_host_certificate.return_value = 'fake_certificate'
+        container_migrate = {'operation': 'fake_operation',
+                             'metadata': {'control': 'fake_control',
+                                          'fs': 'fake_fs',
+                                          'criu': 'fake_criu'}
+                             }
+        host = '10.0.0.1'
+        instance = mock.MagicMock()
+        container_image = self.config.get_container_migrate(
+            container_migrate, host, instance)
+        self.assertEqual({'control': 'fake_control',
+                          'fs': 'fake_fs',
+                          'criu': 'fake_criu'}, container_image['secrets'])
