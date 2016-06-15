@@ -14,8 +14,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import socket
-
 import nova.conf
 from nova import exception
 from nova import i18n
@@ -354,34 +352,32 @@ class LXDContainerConfig(object):
                     {'instance': instance.name, 'ex': ex},
                     instance=instance)
 
-    def get_container_migrate(self, container_migrate, migration,
-                              host, instance):
+    def get_container_migrate(self, container_migrate, host, instance):
+        """Create the image source for a migrating container
+
+        :container_migrate: the container websocket information
+        :host: the source host
+        :instance: nova instance object
+        return dictionary of the image source
+        """
         LOG.debug('get_container_migrate called for instance',
                   instance=instance)
         try:
             # Generate the container config
-            host = socket.gethostbyname(host)
             container_metadata = container_migrate['metadata']
-            container_control = container_metadata['metadata']['control']
-            container_fs = container_metadata['metadata']['fs']
 
             container_url = 'https://%s:8443%s' \
                 % (host, container_migrate.get('operation'))
 
-            container_migrate = {
+            return {
                 'base_image': '',
                 'mode': 'pull',
                 'certificate': str(self.session.host_certificate(instance,
                                                                  host)),
                 'operation': str(container_url),
-                'secrets': {
-                        'control': str(container_control),
-                        'fs': str(container_fs)
-                },
+                'secrets': container_metadata,
                 'type': 'migration'
             }
-
-            return container_migrate
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to configure migation source '
