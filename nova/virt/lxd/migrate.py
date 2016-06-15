@@ -18,7 +18,7 @@ import os
 import nova.conf
 from nova import exception
 from nova import i18n
-from nova import utils
+from nova.objects import migrate_data as migrate_data_obj
 from nova.virt import configdrive
 
 from oslo_log import log as logging
@@ -49,6 +49,10 @@ class LXDContainerMigrate(object):
         self.operations = \
             operations.LXDContainerOperations(
                 self.virtapi)
+
+    #
+    # migrate/resize
+    #
 
     def migrate_disk_and_power_off(self, context, instance, dest,
                                    flavor, network_info,
@@ -125,22 +129,11 @@ class LXDContainerMigrate(object):
                 fileutils.ensure_tree(configdrive_dir)
 
             # Step 1 - Setup the profile on the dest host
-            container_profile = self.config.create_profile(instance,
-                                                           network_info)
-            self.session.profile_create(container_profile, instance)
+            self._copy_container_profile(instance, network_info)
 
             # Step 2 - Open a websocket on the srct and and
             #          generate the container config
-            src_host = self._get_hostname(
-                migration['source_compute'], instance)
-            (state, data) = (self.session.container_migrate(instance.name,
-                                                            src_host,
-                                                            instance))
-            container_config = self.config.create_container(instance)
-            container_config['source'] = \
-                self.config.get_container_migrate(
-                    data, migration, src_host, instance)
-            self.session.container_init(container_config, instance)
+            self._container_init(migration['source_compute'], instance)
 
             # Step 3 - Start the network and contianer
             self.operations.plug_vifs(instance, network_info)
@@ -159,10 +152,107 @@ class LXDContainerMigrate(object):
         if self.session.container_defined(instance.name, instance):
             self.session.container_start(instance.name, instance)
 
-    def _get_hostname(self, host, instance):
-        LOG.debug('_get_hostname called for instance', instance=instance)
-        out, err = utils.execute('env', 'LANG=C', 'dnsdomainname')
-        if out != '':
-            return '%s.%s' % (host, out.rstrip('\n'))
-        else:
-            return host
+    #
+    # live-migration
+    #
+
+    def pre_live_migration(self, context, instance, block_device_info,
+                           network_info, disk_info, migrate_data=None):
+        LOG.debug('pre_live_migration called for instance', instance=instance)
+        try:
+            self._copy_container_profile(instance, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('pre_live_migration failed for %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instance=instance)
+
+    def live_migration(self, context, instance, dest,
+                       post_method, recover_method, block_migration=False,
+                       migrate_data=None):
+        LOG.debug('live_migration called for instance', instance=instance)
+        try:
+            self._container_init(CONF.my_ip, instance)
+            post_method(context, instance, dest, block_migration, host=dest)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('live_migration failed for %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instance=instance)
+
+    def post_live_migration(self, context, instance, block_device_info,
+                            migrate_data=None):
+        LOG.debug('post_live_migration called for instance',
+                  instance=instance)
+        try:
+            self.session.container_destroy(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('post_live_migration failed for %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instance=instance)
+
+    def post_live_migration_at_destination(self, context, instance,
+                                           network_info,
+                                           block_migration=False,
+                                           block_device_info=None):
+        LOG.debug('post_live_migration_at_destinaation called for instance',
+                  instance=instance)
+        return
+
+    def post_live_migration_at_source(self, context, instance, network_info):
+        LOG.debug('post_live_migration_at_source called for instance',
+                  instance=instance)
+        try:
+            self.operations.cleanup(context, instance, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('post_live_migration failed for %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instance=instance)
+
+    def check_can_live_migrate_destination(self, context, instance,
+                                           src_compute_info, dst_compute_info,
+                                           block_migration=False,
+                                           disk_over_commit=False):
+        LOG.debug('check_can_live_migration called for instance',
+                  instance=instance)
+        if self.session.container_defined(instance.name, instance):
+            raise exception.InstanceExists(name=instance.name)
+
+        # XXX (zulcss) - June 14, 2016 - Replace this with
+        # an LXD object in nova.
+        return migrate_data_obj.HyperVLiveMigrateData()
+
+    def check_can_live_migrate_destination_cleanup(self, context,
+                                                   dest_check_data):
+        LOG.debug('check_can_live_migrate_destination_cleanup')
+        return
+
+    def check_can_live_migrate_source(self, context, instance,
+                                      dest_check_data,
+                                      block_device_info=None):
+        LOG.debug('check_can_live_migrate_source called for instance',
+                  instance=instance)
+        return dest_check_data
+
+    def _copy_container_profile(self, instance, network_info):
+        LOG.debug('_copy_cotontainer_profile called for instnace',
+                  instance=instance)
+        container_profile = self.config.create_profile(instance,
+                                                       network_info)
+        self.session.profile_create(container_profile, instance)
+
+    def _container_init(self, host, instance):
+        LOG.debug('_container_init called for instnace', instance=instance)
+        (state, data) = (self.session.container_migrate(instance.name,
+                                                        host,
+                                                        instance))
+        container_config = self.config.create_container(instance)
+        container_config['source'] = \
+            self.config.get_container_migrate(data, host, instance)
+        self.session.container_init(container_config, instance)

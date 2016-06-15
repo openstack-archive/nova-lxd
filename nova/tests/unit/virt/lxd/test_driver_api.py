@@ -69,6 +69,9 @@ class LXDTestDriver(test.NoDBTestCase):
 
         self.connection = driver.LXDDriver(fake.FakeVirtAPI())
 
+        self.driver = driver.LXDDriver(mock.MagicMock())
+        self.driver.container_migrate = mock.MagicMock()
+
     def test_capabilities(self):
         self.assertFalse(self.connection.capabilities['has_imagecache'])
         self.assertFalse(self.connection.capabilities['supports_recreate'])
@@ -425,6 +428,101 @@ class LXDTestDriver(test.NoDBTestCase):
         self.assertEqual(available,
                          self.connection.node_is_available(nodename))
 
+    def test_pre_live_migration(self):
+        """Verify the pre_live_migration call."""
+        self.driver.pre_live_migration(
+            mock.sentinel.context, mock.sentinel.instance,
+            mock.sentinel.block_device_info,
+            mock.sentinel.network_info,
+            mock.sentinel.disk_info,
+            mock.sentinel.migrate_data)
+        self.driver.container_migrate.pre_live_migration.\
+            assert_called_once_with(
+                mock.sentinel.context, mock.sentinel.instance,
+                mock.sentinel.block_device_info,
+                mock.sentinel.network_info,
+                mock.sentinel.disk_info,
+                mock.sentinel.migrate_data)
+
+    def test_live_migration(self):
+        """Verify the live_migration call."""
+        self.driver.live_migration(
+            mock.sentinel.context, mock.sentinel.instance,
+            mock.sentinel.dest, mock.sentinel.post_method,
+            mock.sentinel.recover_method,
+            mock.sentinel.block_migration,
+            mock.sentinel.migrate_data)
+        self.driver.container_migrate.\
+            live_migration.assert_called_once_with(
+                mock.sentinel.context, mock.sentinel.instance,
+                mock.sentinel.dest, mock.sentinel.post_method,
+                mock.sentinel.recover_method,
+                mock.sentinel.block_migration,
+                mock.sentinel.migrate_data)
+
+    def test_post_live_migration(self):
+        """Verifty the post_live_migratoion call."""
+        self.driver.post_live_migration(
+            mock.sentinel.context, mock.sentinel.instance,
+            mock.sentinel.block_device_info, mock.sentinel.migrate_data)
+        self.driver.container_migrate.post_live_migration.\
+            assert_called_once_with(
+                mock.sentinel.context, mock.sentinel.instance,
+                mock.sentinel.block_device_info,
+                mock.sentinel.migrate_data)
+
+    def test_post_live_migration_at_destination(self):
+        """Verify the post_live_migration_at_destination call."""
+        self.driver.post_live_migration_at_destination(
+            mock.sentinel.context, mock.sentinel.instance,
+            mock.sentinel.network_info,
+            mock.sentinel.block_migration,
+            mock.sentinel.block_device_info)
+        self.driver.container_migrate.post_live_migration_at_destination.\
+            assert_called_once_with(
+                mock.sentinel.context, mock.sentinel.instance,
+                mock.sentinel.network_info,
+                mock.sentinel.block_migration,
+                mock.sentinel.block_device_info)
+
+    def test_check_can_live_migrate_destination(self):
+        """Verify the check_can_live_migrate_destination call."""
+        self.driver.check_can_live_migrate_destination(
+            mock.sentinel.context, mock.sentinel.instance,
+            mock.sentinel.src_compute_info, mock.sentinel.dst_compute_info,
+            mock.sentinel.block_migration, mock.sentinel.disk_over_commit)
+        self.driver.container_migrate.check_can_live_migrate_destination.\
+            assert_called_once_with(
+                mock.sentinel.context, mock.sentinel.instance,
+                mock.sentinel.src_compute_info,
+                mock.sentinel.dst_compute_info,
+                mock.sentinel.block_migration,
+                mock.sentinel.disk_over_commit)
+
+    def test_check_can_live_migrate_destination_cleanup(self):
+        """Verify the check_can_live_migration destination cleanup call."""
+        self.driver.check_can_live_migrate_destination_cleanup(
+            mock.sentinel.context, mock.sentinel.instance
+        )
+        self.driver.container_migrate. \
+            check_can_live_migrate_destination_cleanup.assert_called_once_with(
+                mock.sentinel.context, mock.sentinel.instance
+            )
+
+    def test_check_can_live_migrate_source(self):
+        """Verify check_can_live_migrate_source call."""
+        self.driver.check_can_live_migrate_source(
+            mock.sentinel.context, mock.sentinel.instance,
+            mock.sentinel.dest_check_data,
+            mock.sentinel.block_device_info
+        )
+        self.driver.container_migrate.check_can_live_migrate_source.\
+            assert_called_once_with(
+                mock.sentinel.context, mock.sentinel.instance,
+                mock.sentinel.dest_check_data,
+                mock.sentinel.block_device_info
+            )
+
 
 @ddt.ddt
 class LXDTestDriverNoops(test.NoDBTestCase):
@@ -442,12 +540,8 @@ class LXDTestDriverNoops(test.NoDBTestCase):
         'attach_volume',
         'detach_volume',
         'soft_delete',
-        'post_live_migration_at_source',
         'check_instance_shared_storage_local',
         'check_instance_shared_storage_remote',
-        'check_can_live_migrate_destination',
-        'check_can_live_migrate_destination_cleanup',
-        'check_can_live_migrate_source',
         'get_instance_disk_info',
         'poll_rebooting_instances',
         'host_power_action',
