@@ -3,16 +3,16 @@
 # process, which may cause wedges in the gate later.
 
 pbr>=1.6 # Apache-2.0
-Babel>=1.3 # BSD
-requests!=2.9.0,>=2.8.1 # Apache-2.0
-oslo.config>=3.4.0 # Apache-2.0
-oslo.concurrency>=2.3.0 # Apache-2.0
-oslo.utils>=3.4.0 # Apache-2.0
+Babel>=2.3.4 # BSD
+requests>=2.10.0 # Apache-2.0
+oslo.config>=3.10.0 # Apache-2.0
+oslo.concurrency>=3.8.0 # Apache-2.0
+oslo.utils>=3.11.0 # Apache-2.0
 oslo.i18n>=2.1.0 # Apache-2.0
 oslo.log>=1.14.0 # Apache-2.0
-pyOpenSSL>=0.14;python_version<'2.7.9' # Apache-2.0
+pyOpenSSL>=0.14 # Apache-2.0
 
 # XXX: rockstar (17 Feb 2016) - oslo_config imports
 # debtcollector, which imports this, but doesn't
 # require it in dependencies.
-wrapt==1.10.6
+wrapt>=1.7.0 # BSD License
