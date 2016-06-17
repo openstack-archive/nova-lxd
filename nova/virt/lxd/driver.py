@@ -284,7 +284,7 @@ class LXDDriver(driver.ComputeDriver):
                                            src_compute_info, dst_compute_info,
                                            block_migration=False,
                                            disk_over_commit=False):
-        self.container_migrate.check_can_live_migrate_destination(
+        return self.container_migrate.check_can_live_migrate_destination(
             context, instance, src_compute_info, dst_compute_info,
             block_migration, disk_over_commit)
 
@@ -294,7 +294,7 @@ class LXDDriver(driver.ComputeDriver):
             context, dest_check_data)
 
     def post_live_migration_at_source(self, context, instance, network_info):
-        self.container_migrate.post_live_migration_at_source(
+        return self.container_migrate.post_live_migration_at_snurce(
             context, instance, network_info)
 
     def check_can_live_migrate_source(self, context, instance,

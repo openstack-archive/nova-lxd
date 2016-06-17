@@ -491,13 +491,13 @@ class LXDTestDriver(test.NoDBTestCase):
             mock.sentinel.context, mock.sentinel.instance,
             mock.sentinel.src_compute_info, mock.sentinel.dst_compute_info,
             mock.sentinel.block_migration, mock.sentinel.disk_over_commit)
-        self.driver.container_migrate.check_can_live_migrate_destination.\
-            assert_called_once_with(
-                mock.sentinel.context, mock.sentinel.instance,
-                mock.sentinel.src_compute_info,
-                mock.sentinel.dst_compute_info,
-                mock.sentinel.block_migration,
-                mock.sentinel.disk_over_commit)
+        mtd = self.driver.container_migrate.check_can_live_migrate_destination
+        mtd.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.instance,
+            mock.sentinel.src_compute_info,
+            mock.sentinel.dst_compute_info,
+            mock.sentinel.block_migration,
+            mock.sentinel.disk_over_commit)
 
     def test_check_can_live_migrate_destination_cleanup(self):
         """Verify the check_can_live_migration destination cleanup call."""
@@ -516,12 +516,12 @@ class LXDTestDriver(test.NoDBTestCase):
             mock.sentinel.dest_check_data,
             mock.sentinel.block_device_info
         )
-        self.driver.container_migrate.check_can_live_migrate_source.\
-            assert_called_once_with(
-                mock.sentinel.context, mock.sentinel.instance,
-                mock.sentinel.dest_check_data,
-                mock.sentinel.block_device_info
-            )
+        mtd = self.driver.container_migrate.check_can_live_migrate_source
+        mtd.assert_called_once_with(
+            mock.sentinel.context, mock.sentinel.instance,
+            mock.sentinel.dest_check_data,
+            mock.sentinel.block_device_info
+        )
 
 
 @ddt.ddt
