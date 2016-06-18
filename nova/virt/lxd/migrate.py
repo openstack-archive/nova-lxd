@@ -260,10 +260,11 @@ class LXDContainerMigrate(object):
 
     def _container_init(self, host, instance):
         LOG.debug('_container_init called for instnace', instance=instance)
+
         (state, data) = (self.session.container_migrate(instance.name,
-                                                        host,
+                                                        CONF.my_ip,
                                                         instance))
         container_config = self.config.create_container(instance)
         container_config['source'] = \
             self.config.get_container_migrate(data, host, instance)
-        self.session.container_init(container_config, instance)
+        self.session.container_init(container_config, instance, host)
