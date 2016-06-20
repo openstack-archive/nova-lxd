@@ -21,6 +21,8 @@ from nova import test
 from nova.tests.unit import fake_instance
 from nova.tests.unit import fake_network
 from nova.virt import fake
+import pylxd
+from pylxd.deprecated import exceptions as lxd_exceptions
 
 from nova.virt.lxd import migrate
 from nova.virt.lxd import session
@@ -136,6 +138,21 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
         mock_post_method.assert_called_once_with(
             mock.sentinel.context, mock.sentinel.instance, mock.sentinel.dest,
             mock.sentinel.block_migration, host=mock.sentinel.dest)
+
+    @mock.patch.object(migrate.LXDContainerMigrate, '_container_init')
+    def test_live_migration_failed(self, mock_container_init):
+        """Verify that an exception is raised when live-migration
+           fails.
+        """
+        self.flags(my_ip='fakeip')
+        mock_container_init.side_effect = \
+            lxd_exceptions.APIError(500, 'Fake')
+        self.assertRaises(
+            pylxd.deprecated.exceptions.APIError,
+            self.migrate.live_migration, mock.sentinel.context,
+            mock.sentinel.instance, mock.sentinel.dest,
+            mock.sentinel.recover_method, mock.sentinel.block_migration,
+            mock.sentinel.migrate_data)
 
     def test_post_live_migration(self):
         """Verify that the correct post_live_migration calls
