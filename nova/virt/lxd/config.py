@@ -56,29 +56,12 @@ class LXDContainerConfig(object):
 
             # Fetch the container configuration from the current nova
             # instance object
-            container_config = {
+            return {
                 'name': instance_name,
                 'profiles': [str(instance.name)],
                 'source': self.get_container_source(instance),
                 'devices': {}
             }
-
-            # if a configdrive is required, setup the mount point for
-            # the container
-            if configdrive.required_by(instance):
-                configdrive_dir = \
-                    self.container_dir.get_container_configdrive(
-                        instance.name)
-                config = self.configure_disk_path(configdrive_dir,
-                                                  'var/lib/cloud/data',
-                                                  'configdrive', instance)
-                container_config['devices'].update(config)
-
-            if container_config is None:
-                msg = _('Failed to get container configuration for %s') \
-                    % instance_name
-                raise exception.NovaException(msg)
-            return container_config
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error('Failed to get container configuration'
@@ -108,6 +91,17 @@ class LXDContainerConfig(object):
                 config['devices'].update(self.create_network(instance_name,
                                                              instance,
                                                              network_info))
+
+            # if a configdrive is required, setup the mount point for
+            # the container
+            if configdrive.required_by(instance):
+                configdrive_dir = \
+                    self.container_dir.get_container_configdrive(
+                        instance.name)
+                config_drive = self.configure_disk_path(
+                    configdrive_dir, 'var/lib/cloud/data',
+                    'configdrive', instance)
+                config['devices'].update(config_drive)
 
             return config
         except Exception as ex:

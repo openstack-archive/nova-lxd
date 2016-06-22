@@ -35,6 +35,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
 
     def setUp(self):
         super(LXDTestContainerConfig, self).setUp()
+
         self.config = config.LXDContainerConfig()
 
     @stubs.annotated_data(
@@ -60,6 +61,92 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         instance_name = 'fake_instance'
         config = self.config.create_config(instance_name, instance)
         self.assertEqual(config[key], expected)
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_create_container_profile(self, mock_config_drive):
+        """Verify the LXD profile is correct. no configdrive."""
+        instance = stubs._fake_instance()
+        network_info = fake_network.fake_get_instance_nw_info(self)
+        mock_config_drive.return_value = False
+
+        container_profile = self.config.create_profile(instance, network_info)
+        self.assertEqual(container_profile['name'], instance.name)
+        self.assertEqual(container_profile['config'],
+                         {'boot.autostart': 'True',
+                          'limits.cpu': '1',
+                          'limits.memory': '512MB',
+                          'raw.lxc':
+                          'lxc.console.logfile=/var/log/lxd/instance-00000001'
+                          '/console.log\n'})
+        self.assertEqual(container_profile['devices']['fake_br1'],
+                         {'hwaddr': 'DE:AD:BE:EF:00:01',
+                          'nictype': 'bridged',
+                          'parent': 'fake_br1',
+                          'type': 'nic'},
+                         )
+        self.assertEqual(container_profile['devices']['root'],
+                         {'path': '/', 'size': '10GB', 'type': 'disk'})
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_create_container_profle_without_network(self, mock_config_drive):
+        """Verify the LXD profile without network configuration."""
+        instance = stubs._fake_instance()
+        mock_config_drive.return_value = False
+
+        container_profile = self.config.create_profile(instance, None)
+        self.assertEqual(len(container_profile['devices']), 1)
+        self.assertEqual(container_profile['devices']['root'],
+                         {'path': '/', 'size': '10GB', 'type': 'disk'})
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_create_contianer_profile_with_configdrive(self, mock_configdrive):
+        """Verify the LXD profile with both network and configdrive enabled."""
+        instance = stubs._fake_instance()
+        network_info = fake_network.fake_get_instance_nw_info(self)
+        container_profile = self.config.create_profile(instance, network_info)
+        mock_configdrive.return_value = True
+
+        self.assertEqual(len(container_profile['devices']), 3)
+        self.assertEqual(container_profile['devices']['configdrive'],
+                         {'optional': 'True',
+                          'path': 'var/lib/cloud/data',
+                          'source': '/fake/instances/path/'
+                                    'instance-00000001/configdrive',
+                          'type': 'disk'},
+                         )
+        self.assertEqual(container_profile['devices']['root'],
+                         {'path': '/', 'size': '10GB', 'type': 'disk'})
+        self.assertEqual(container_profile['devices']['fake_br1'],
+                         {'hwaddr': 'DE:AD:BE:EF:00:01',
+                          'nictype': 'bridged',
+                          'parent': 'fake_br1',
+                          'type': 'nic'})
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_create_contianer_profile_configdrive_network(self, mock_config):
+        """Verify the LXD profile with no network and configdrive enabled."""
+        instance = stubs._fake_instance()
+        container_profile = self.config.create_profile(instance, None)
+        mock_config.return_value = True
+
+        self.assertEqual(len(container_profile['devices']), 2)
+        self.assertEqual(container_profile['devices']['configdrive'],
+                         {'optional': 'True',
+                          'path': 'var/lib/cloud/data',
+                          'source': '/fake/instances/path/'
+                                    'instance-00000001/configdrive',
+                          'type': 'disk'},
+                         )
+        self.assertEqual(container_profile['devices']['root'],
+                         {'path': '/', 'size': '10GB', 'type': 'disk'})
 
     def test_create_network(self):
         instance = stubs._fake_instance()
