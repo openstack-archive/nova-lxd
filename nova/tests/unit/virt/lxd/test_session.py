@@ -565,41 +565,22 @@ class SessionProfileTest(test.NoDBTestCase):
 
         self.session = session.LXDAPISession()
 
-    @stubs.annotated_data(
-        ('empty', [], []),
-        ('valid', ['test'], ['test']),
-    )
-    def test_profile_list(self, tag, side_effect, expected):
-        self.ml.profile_list.return_value = side_effect
-        self.assertEqual(expected,
-                         self.session.profile_list())
-
-    def test_profile_list_fail(self):
-        self.ml.profile_list.side_effect = (
-            lxd_exceptions.APIError('Fake', 500))
-        self.assertRaises(
-            exception.NovaException,
-            self.session.profile_list)
-
     def test_profile_create(self):
         instance = stubs._fake_instance()
         config = mock.Mock()
-        self.ml.profile_defined.return_value = True
         self.ml.profile_create.return_value = \
             (200, fake_api.fake_standard_return())
         self.assertEqual((200, fake_api.fake_standard_return()),
                          self.session.profile_create(config,
                                                      instance))
-        calls = [mock.call.profile_list(),
-                 mock.call.profile_create(config)]
+        calls = [mock.call.profile_create(config)]
         self.assertEqual(calls, self.ml.method_calls)
 
     def test_profile_delete(self):
         instance = stubs._fake_instance()
-        self.ml.profile_defined.return_value = True
         self.ml.profile_delete.return_value = \
             (200, fake_api.fake_standard_return())
-        self.assertEqual(None,
+        self.assertEqual((200, fake_api.fake_standard_return()),
                          self.session.profile_delete(instance))
 
 

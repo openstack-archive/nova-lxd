@@ -626,49 +626,6 @@ class LXDAPISession(object):
     #
     # Profile methods
     #
-    def profile_list(self):
-        LOG.debug('profile_list called for instance')
-        try:
-            client = self.get_session()
-            return client.profile_list()
-        except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD API: %(reason)s') \
-                % {'reason': ex}
-            LOG.error(msg)
-            raise exception.NovaException(msg)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Error from LXD during profile_list: '
-                              '%(reason)s') % {'reason': ex})
-
-    def profile_defined(self, instance_name, instance):
-        """Validate if the profile is available on the LXD
-           host
-
-           :param instance: nova instance object
-        """
-        LOG.debug('profile_defined called for instance',
-                  instance=instance)
-        try:
-            found = False
-            if instance_name in self.profile_list():
-                found = True
-            return found
-        except lxd_exceptions.APIError as ex:
-            if ex.status_code == 404:
-                return False
-            else:
-                msg = _('Failed to communicate with LXD API %(instance)s:'
-                        ' %(reason)s') % {'instance': instance.name,
-                                          'reason': ex}
-                raise exception.NovaException(msg)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(
-                    _LE('Failed to determine profile %(instance)s:'
-                        ' %(reason)s'),
-                    {'instance': instance.name, 'reason': ex})
-
     def profile_create(self, config, instance):
         """Create an LXD container profile
 
@@ -678,11 +635,6 @@ class LXDAPISession(object):
         LOG.debug('profile_create called for instance',
                   instance=instance)
         try:
-            if self.profile_defined(instance.name, instance):
-                msg = _('Profile already exists %(instance)s') % \
-                    {'instance': instance.name}
-                raise exception.NovaException(msg)
-
             client = self.get_session()
             return client.profile_create(config)
         except lxd_exceptions.APIError as ex:
@@ -704,11 +656,6 @@ class LXDAPISession(object):
         """
         LOG.debug('profile_udpate called for instance', instance=instance)
         try:
-            if not self.profile_defined(instance.name, instance):
-                msg = _('Profile not found %(instance)s') % \
-                    {'instance': instance.name}
-                raise exception.NovaException(msg)
-
             client = self.get_session()
             return client.profile_update(instance.name, config)
         except lxd_exceptions.APIError as ex:
@@ -730,9 +677,6 @@ class LXDAPISession(object):
         """
         LOG.debug('profile_delete called for instance', instance=instance)
         try:
-            if not self.profile_defined(instance.name, instance):
-                return
-
             client = self.get_session()
             return client.profile_delete(instance.name)
         except lxd_exceptions.APIError as ex:
