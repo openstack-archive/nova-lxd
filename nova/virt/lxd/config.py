@@ -267,6 +267,7 @@ class LXDContainerConfig(object):
                 cfg = self.vif_driver.get_config(instance, vifaddr)
                 network_devices[str(cfg['bridge'])] = \
                     {'nictype': 'bridged',
+                     'host_name': self.vif_driver.get_vif_devname(vifaddr),
                      'hwaddr': str(cfg['mac_address']),
                      'parent': str(cfg['bridge']),
                      'type': 'nic'}
