@@ -22,6 +22,7 @@ from nova.tests.unit import fake_network
 from nova.virt.lxd import config
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
+from nova.virt.lxd import volumeops
 from oslo_utils import units
 
 import stubs
@@ -37,6 +38,21 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         super(LXDTestContainerConfig, self).setUp()
 
         self.config = config.LXDContainerConfig()
+
+    def _fake_root_mapping(self):
+        return {
+            'root': {'type': 'disk', 'size': '1GB', 'path': '/'},
+        }
+
+    def _fake_root_configdrive_mapping(self):
+        return {
+            'root': {'type': 'disk', 'size': '1GB', 'path': '/'},
+            'configdrive': {'type': 'disk',
+                            'path': 'var/lib/cloud/data',
+                            'source': '/fake/instances/path/'
+                                      'instance-00000001/configdrive'
+                            }
+        }
 
     @stubs.annotated_data(
         ('test_name', 'name', 'instance-00000001'),
@@ -62,16 +78,17 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         config = self.config.create_config(instance_name, instance)
         self.assertEqual(config[key], expected)
 
-    @mock.patch.object(session.LXDAPISession, 'get_host_config',
-                       mock.Mock(return_value={'storage': 'zfs'}))
+    @mock.patch('nova.virt.lxd.volumeops.LXDVolumeOps.get_disk_mapping')
     @mock.patch('nova.virt.configdrive.required_by')
-    def test_create_container_profile(self, mock_config_drive):
+    def test_create_container_profile(self, mock_disk_mapping, mock_config_drive):
         """Verify the LXD profile is correct. no configdrive."""
         instance = stubs._fake_instance()
         network_info = fake_network.fake_get_instance_nw_info(self)
         mock_config_drive.return_value = False
+        mock_disk_mapping = self._fake_root_mapping()
 
-        container_profile = self.config.create_profile(instance, network_info)
+        container_profile = self.config.create_profile(
+            instance, mock_disk_mapping, network_info)
         self.assertEqual(container_profile['name'], instance.name)
         self.assertEqual(container_profile['config'],
                          {'boot.autostart': 'True',
@@ -87,29 +104,31 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                           'type': 'nic'},
                          )
         self.assertEqual(container_profile['devices']['root'],
-                         {'path': '/', 'size': '10GB', 'type': 'disk'})
+                         {'path': '/', 'size': '1GB', 'type': 'disk'})
 
-    @mock.patch.object(session.LXDAPISession, 'get_host_config',
-                       mock.Mock(return_value={'storage': 'zfs'}))
+    @mock.patch('nova.virt.lxd.volumeops.LXDVolumeOps.get_disk_mapping')
     @mock.patch('nova.virt.configdrive.required_by')
-    def test_create_container_profle_without_network(self, mock_config_drive):
+    def test_create_container_profle_without_network(self, mock_disk_mapping, mock_config_drive):
         """Verify the LXD profile without network configuration."""
         instance = stubs._fake_instance()
+        disk_mapping = self._fake_root_mapping()
         mock_config_drive.return_value = False
 
-        container_profile = self.config.create_profile(instance, None)
-        self.assertEqual(len(container_profile['devices']), 1)
+        container_profile = self.config.create_profile(
+            instance, disk_mapping, None)
         self.assertEqual(container_profile['devices']['root'],
-                         {'path': '/', 'size': '10GB', 'type': 'disk'})
+                         {'path': '/', 'size': '1GB', 'type': 'disk'})
 
-    @mock.patch.object(session.LXDAPISession, 'get_host_config',
-                       mock.Mock(return_value={'storage': 'zfs'}))
     @mock.patch('nova.virt.configdrive.required_by')
-    def test_create_contianer_profile_with_configdrive(self, mock_configdrive):
+    @mock.patch('nova.virt.lxd.volumeops.LXDVolumeOps.get_disk_mapping')
+    def test_create_contianer_profile_with_configdrive(
+            self, mock_configdrive, mock_disk_mapping):
         """Verify the LXD profile with both network and configdrive enabled."""
         instance = stubs._fake_instance()
+        disk_mapping = self._fake_root_configdrive_mapping()
         network_info = fake_network.fake_get_instance_nw_info(self)
-        container_profile = self.config.create_profile(instance, network_info)
+        container_profile = self.config.create_profile(
+            instance, disk_mapping, network_info)
         mock_configdrive.return_value = True
 
         self.assertEqual(len(container_profile['devices']), 3)
@@ -121,20 +140,22 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                           'type': 'disk'},
                          )
         self.assertEqual(container_profile['devices']['root'],
-                         {'path': '/', 'size': '10GB', 'type': 'disk'})
+                         {'path': '/', 'size': '1GB', 'type': 'disk'})
         self.assertEqual(container_profile['devices']['fake_br1'],
                          {'hwaddr': 'DE:AD:BE:EF:00:01',
                           'nictype': 'bridged',
                           'parent': 'fake_br1',
                           'type': 'nic'})
 
-    @mock.patch.object(session.LXDAPISession, 'get_host_config',
-                       mock.Mock(return_value={'storage': 'zfs'}))
     @mock.patch('nova.virt.configdrive.required_by')
-    def test_create_contianer_profile_configdrive_network(self, mock_config):
+    @mock.patch('nova.virt.lxd.volumeops.LXDVolumeOps.get_disk_mapping')
+    def test_create_contianer_profile_configdrive_network(
+            self, mock_config, mock_disk_mapping):
         """Verify the LXD profile with no network and configdrive enabled."""
         instance = stubs._fake_instance()
-        container_profile = self.config.create_profile(instance, None)
+        disk_mapping = self._fake_root_mapping()
+        container_profile = self.config.create_profile(
+            instance, disk_mapping, None)
         mock_config.return_value = True
 
         self.assertEqual(len(container_profile['devices']), 2)
@@ -146,7 +167,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                           'type': 'disk'},
                          )
         self.assertEqual(container_profile['devices']['root'],
-                         {'path': '/', 'size': '10GB', 'type': 'disk'})
+                         {'path': '/', 'size': '1GB', 'type': 'disk'})
 
     def test_create_network(self):
         instance = stubs._fake_instance()
@@ -182,32 +203,6 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         config = self.config.get_container_source(instance)
         self.assertEqual(config, {'type': 'image', 'alias': 'fake_image'})
 
-    @mock.patch.object(session.LXDAPISession, 'get_host_config',
-                       mock.Mock(return_value={'storage': 'btrfs'}))
-    def test_container_root_btrfs(self):
-        instance = stubs._fake_instance()
-        config = self.config.configure_container_root(instance)
-        self.assertEqual({'root': {'path': '/',
-                                   'type': 'disk',
-                                   'size': '10GB'}}, config)
-
-    @mock.patch.object(session.LXDAPISession, 'get_host_config',
-                       mock.Mock(return_value={'storage': 'zfs'}))
-    def test_container_root_zfs(self):
-        instance = stubs._fake_instance()
-        config = self.config.configure_container_root(instance)
-        self.assertEqual({'root': {'path': '/',
-                                   'type': 'disk',
-                                   'size': '10GB'}}, config)
-
-    @mock.patch.object(session.LXDAPISession, 'get_host_config',
-                       mock.Mock(return_value={'storage': 'lvm'}))
-    def test_container_root_lvm(self):
-        instance = stubs._fake_instance()
-        config = self.config.configure_container_root(instance)
-        self.assertEqual({'root': {'path': '/',
-                                   'type': 'disk'}}, config)
-
     def test_container_nested_container(self):
         instance = stubs._fake_instance()
         instance.flavor.extra_specs = {'lxd:nested_allowed': True}
@@ -228,12 +223,14 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         instance = stubs._fake_instance()
         instance.flavor.extra_specs = {'quota:disk_read_iops_sec': 10000,
                                        'quota:disk_write_iops_sec': 10000}
-        config = self.config.configure_container_root(instance)
-        self.assertEqual({'root': {'path': '/',
-                                   'type': 'disk',
-                                   'size': '10GB',
-                                   'limits.read': '10000iops',
-                                   'limits.write': '10000iops'}}, config)
+        disk_mapping = self._fake_root_mapping()
+        config = self.config.create_profile(instance, disk_mapping, None)
+        self.assertEqual({'path': '/',
+                          'type': 'disk',
+                          'size': '1GB',
+                          'limits.read': '10000iops',
+                          'limits.write': '10000iops'},
+                         config['devices']['root'])
 
     @mock.patch.object(session.LXDAPISession, 'get_host_config',
                        mock.Mock(return_value={'storage': 'zfs'}))
@@ -246,12 +243,14 @@ class LXDTestContainerConfig(test.NoDBTestCase):
             'quota:disk_read_bytes_sec': 13 * units.Mi,
             'quota:disk_write_bytes_sec': 5 * units.Mi
         }
-        config = self.config.configure_container_root(instance)
-        self.assertEqual({'root': {'path': '/',
-                                   'type': 'disk',
-                                   'size': '10GB',
-                                   'limits.read': '13MB',
-                                   'limits.write': '5MB'}}, config)
+        disk_mapping = self._fake_root_mapping()
+        config = self.config.create_profile(instance, disk_mapping, None)
+        self.assertEqual({'path': '/',
+                          'type': 'disk',
+                          'size': '1GB',
+                          'limits.read': '13MB',
+                          'limits.write': '5MB'},
+                         config['devices']['root'])
 
     @mock.patch.object(session.LXDAPISession, 'get_host_config',
                        mock.Mock(return_value={'storage': 'zfs'}))
@@ -260,11 +259,13 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         instance.flavor.extra_specs = {
             'quota:disk_total_iops_sec': 10000
         }
-        config = self.config.configure_container_root(instance)
-        self.assertEqual({'root': {'path': '/',
-                                   'type': 'disk',
-                                   'size': '10GB',
-                                   'limits.max': '10000iops'}}, config)
+        disk_mapping = self._fake_root_mapping()
+        config = self.config.create_profile(instance, disk_mapping, None)
+        self.assertEqual({'path': '/',
+                          'type': 'disk',
+                          'size': '1GB',
+                          'limits.max': '10000iops'},
+                         config['devices']['root'])
 
     @mock.patch.object(session.LXDAPISession, 'get_host_config',
                        mock.Mock(return_value={'storage': 'zfs'}))
@@ -274,11 +275,13 @@ class LXDTestContainerConfig(test.NoDBTestCase):
             'quota:disk_total_iops_sec': 10000,
             'quota:disk_total_bytes_sec': 11 * units.Mi
         }
-        config = self.config.configure_container_root(instance)
-        self.assertEqual({'root': {'path': '/',
-                                   'type': 'disk',
-                                   'size': '10GB',
-                                   'limits.max': '11MB'}}, config)
+        disk_mapping = self._fake_root_mapping()
+        config = self.config.create_profile(instance, disk_mapping, None)
+        self.assertEqual({'path': '/',
+                          'type': 'disk',
+                          'size': '1GB',
+                          'limits.max': '11MB'},
+                         config['devices']['root'])
 
     @mock.patch.object(session.LXDAPISession, 'get_host_config',
                        mock.Mock(return_value={'storage': 'zfs'}))
@@ -294,12 +297,14 @@ class LXDTestContainerConfig(test.NoDBTestCase):
             'quota:disk_total_iops_sec': 10000,
             'quota:disk_total_bytes_sec': 11 * units.Mi
         }
-        config = self.config.configure_container_root(instance)
-        self.assertEqual({'root': {'path': '/',
-                                   'type': 'disk',
-                                   'size': '10GB',
-                                   'limits.read': '13MB',
-                                   'limits.write': '5MB'}}, config)
+        disk_mapping = self._fake_root_mapping()
+        config = self.config.create_profile(instance, disk_mapping, None)
+        self.assertEqual({'path': '/',
+                          'type': 'disk',
+                          'size': '1GB',
+                          'limits.read': '13MB',
+                          'limits.write': '5MB'},
+                         config['devices']['root'])
 
     def test_network_in_out_average(self):
         instance = stubs._fake_instance()

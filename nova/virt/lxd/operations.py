@@ -36,8 +36,9 @@ from nova.virt.lxd import config as container_config
 from nova.virt.lxd import container_firewall
 from nova.virt.lxd import image
 from nova.virt.lxd import session
-from nova.virt.lxd import utils as container_dir
+from nova.virt.lxd import utils as container_utils
 from nova.virt.lxd import vif
+from nova.virt.lxd import volumeops
 
 _ = i18n._
 _LE = i18n._LE
@@ -59,12 +60,13 @@ class LXDContainerOperations(object):
         self.virtapi = virtapi
 
         self.config = container_config.LXDContainerConfig()
-        self.container_dir = container_dir.LXDContainerDirectories()
+        self.container_dir = container_utils.LXDContainerDirectories()
         self.image = image.LXDContainerImage()
         self.firewall_driver = container_firewall.LXDContainerFirewall()
         self.session = session.LXDAPISession()
 
         self.vif_driver = vif.LXDGenericDriver()
+        self.volumeops = volumeops.LXDVolumeOps()
         self.instance_dir = None
 
     def list_instances(self):
@@ -124,15 +126,19 @@ class LXDContainerOperations(object):
             # Step 2 - Setup the container network
             self._setup_network(instance_name, instance, network_info)
 
-            # Step 3 - Create the container profile
-            self._setup_profile(instance_name, instance, network_info)
+            # Step 3 - Ensure the block devices
+            disk_mapping = self._setup_storage(block_device_info, instance)
 
-            # Step 4 - Create a config drive (optional)
+            # Step 4 - Create the container profile
+            self._setup_profile(instance_name, instance,
+                                disk_mapping, network_info)
+
+            # Step 5 - Create a config drive (optional)
             if configdrive.required_by(instance):
                 self._add_configdrive(instance, injected_files)
 
-            # Step 5 - Configure and start the container
-            self._setup_container(instance_name, instance)
+            # Step 6 - Configure and start the container
+            self._setup_container(instance_name, block_device_info, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Faild to start container '
@@ -161,6 +167,13 @@ class LXDContainerOperations(object):
                            'image': instance.image_ref,
                            'ex': ex}, instance=instance)
 
+    def _setup_storage(self, block_device_info, instance):
+        LOG.debug('_setup_storage called for instance', instance=instance)
+
+        disk_mapping = self.volumeops.get_disk_mapping(
+            instance, block_device_info)
+        return disk_mapping
+
     def _setup_network(self, instance_name, instance, network_info):
         """Setup the network when creating the lXD container
 
@@ -178,7 +191,8 @@ class LXDContainerOperations(object):
                           {'instance': instance_name, 'ex': ex},
                           instance=instance)
 
-    def _setup_profile(self, instance_name, instance, network_info):
+    def _setup_profile(self, instance_name, instance, disk_mapping,
+                       network_info):
         """Create an LXD container profile for the nova intsance
 
         :param instance_name: nova instance name
@@ -190,6 +204,7 @@ class LXDContainerOperations(object):
             # Setup the container profile based on the nova
             # instance object and network objects
             container_profile = self.config.create_profile(instance,
+                                                           disk_mapping,
                                                            network_info)
             self.session.profile_create(container_profile, instance)
         except Exception as ex:
@@ -199,7 +214,7 @@ class LXDContainerOperations(object):
                           {'instance': instance_name,
                            'ex': ex}, instance=instance)
 
-    def _setup_container(self, instance_name, instance):
+    def _setup_container(self, instance_name, block_device_info, instance):
         """Create and start the LXD container.
 
         :param instance_name: nova instjace name
@@ -214,6 +229,7 @@ class LXDContainerOperations(object):
                 container_config, instance)
 
             # Start the container
+            self.volumeops.create_storage(block_device_info, instance)
             self.session.container_start(instance_name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -269,8 +285,10 @@ class LXDContainerOperations(object):
                 utils.execute('chmod', '-R', '775', configdrive_dir,
                               run_as_root=True)
                 utils.execute('chown', '-R', '%s:%s'
-                              % (self._uid_map('/etc/subuid').rstrip(),
-                                 self._uid_map('/etc/subgid').rstrip()),
+                              % (int(container_utils.uid_map(
+                                  '/etc/subuid').rstrip()) + os.getuid(),
+                                 int(container_utils.uid_map(
+                                     '/etc/subgid').rstrip()) + os.getuid()),
                               configdrive_dir, run_as_root=True)
             finally:
                 if mounted:
@@ -553,6 +571,8 @@ class LXDContainerOperations(object):
                               configdrive_dir, run_as_root=True)
                 shutil.rmtree(configdrive_dir)
 
+            self.volumeops.remove_storage(block_device_info, instance)
+
             container_dir = self.container_dir.get_instance_dir(instance.name)
             if os.path.exists(container_dir):
                 shutil.rmtree(container_dir)
@@ -649,18 +669,3 @@ class LXDContainerOperations(object):
 
     def stop_firewall(self, instance, network_info):
         self.firewall_driver.unfilter_instance(instance, network_info)
-
-    def _uid_map(self, subuid_f):
-        LOG.debug('Checking for subuid')
-
-        line = None
-        with open(subuid_f, 'r') as fp:
-            name = pwd.getpwuid(os.getuid()).pw_name
-            for cline in fp:
-                if cline.startswith(name + ":"):
-                    line = cline
-                    break
-            if line is None:
-                raise ValueError("%s not found in %s" % (name, subuid_f))
-            toks = line.split(":")
-            return toks[1]
