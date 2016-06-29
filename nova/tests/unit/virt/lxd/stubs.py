@@ -64,6 +64,7 @@ def lxd_mock(*args, **kwargs):
         'profile_list.return_value': ['fake_profile'],
         'container_list.return_value': ['mock-instance-1', 'mock-instance-2'],
         'host_ping.return_value': True,
+        'host_config.return_value': {'environment': {}},
     }
     default.update(kwargs)
     return mock.Mock(*args, **default)
@@ -103,6 +104,7 @@ def _fake_instance():
         'vcpus': 1,
         'memory_mb': 512,
         'root_gb': 10,
+        'ephemeral_root_gb': 1,
         'host': 'fake_host',
         'expected_attrs': ['system_metadata'],
     }

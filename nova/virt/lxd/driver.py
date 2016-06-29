@@ -48,6 +48,9 @@ lxd_opts = [
     cfg.BoolOpt('allow_live_migrate',
                 default=False,
                 help='Determine wheter to allow live migration'),
+    cfg.StrOpt('storage_driver',
+               default='fs',
+               help='Default nova-lxd storage driver'),
 ]
 
 CONF = cfg.CONF

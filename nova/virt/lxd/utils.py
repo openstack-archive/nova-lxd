@@ -19,6 +19,17 @@ import nova.conf
 
 CONF = nova.conf.CONF
 
+def uid_map(subuid_f):
+    line = None
+    with open(subuid_f, 'r') as fp:
+        for cline in fp:
+            if cline.startswith("lxd:"):
+                line = cline
+                break
+        if line is None:
+            raise ValueError("lxd not found in %s" % (subuid_f))
+        tokens = line.split(":")
+        return tokens[1]
 
 class LXDContainerDirectories(object):
 
