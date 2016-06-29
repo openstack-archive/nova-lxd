@@ -193,54 +193,6 @@ class LXDTestDriver(test.NoDBTestCase):
                                   block_device_info)
             self.assertTrue(create_container)
 
-    def test_destroy_fail(self):
-        instance = stubs._fake_instance()
-        context = mock.Mock()
-        network_info = mock.Mock()
-        self.ml.container_destroy.side_effect = (
-            lxd_exceptions.APIError('Fake', 500))
-        with test.nested(
-            mock.patch.object(session.LXDAPISession,
-                              'container_destroy'),
-            mock.patch.object(session.LXDAPISession,
-                              'container_stop'),
-            mock.patch.object(self.connection, 'cleanup'),
-            mock.patch.object(container_ops.LXDContainerOperations,
-                              'unplug_vifs'),
-
-        ) as (
-            container_destroy,
-            container_stop,
-            cleanup,
-            unplug_vifs
-        ):
-            self.connection.destroy(context, instance, network_info)
-
-    def test_destroy(self):
-        instance = stubs._fake_instance()
-        context = mock.Mock()
-        network_info = mock.Mock()
-        with test.nested(
-                mock.patch.object(session.LXDAPISession,
-                                  'container_stop'),
-                mock.patch.object(session.LXDAPISession,
-                                  'container_destroy'),
-                mock.patch.object(self.connection,
-                                  'cleanup'),
-                mock.patch.object(container_ops.LXDContainerOperations,
-                                  'unplug_vifs'),
-        ) as (
-                container_stop,
-                container_destroy,
-                cleanup,
-                unplug_vifs
-        ):
-            self.connection.destroy(context, instance, network_info)
-            self.assertTrue(container_stop)
-            self.assertTrue(container_destroy)
-            self.assertTrue(cleanup)
-            unplug_vifs.assert_called_with(instance, network_info)
-
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('shutil.rmtree')
     @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
@@ -464,7 +416,8 @@ class LXDTestDriver(test.NoDBTestCase):
         """Verifty the post_live_migratoion call."""
         self.driver.post_live_migration(
             mock.sentinel.context, mock.sentinel.instance,
-            mock.sentinel.block_device_info, mock.sentinel.migrate_data)
+            mock.sentinel.block_device_info,
+            mock.sentinel.migrate_data)
         self.driver.container_migrate.post_live_migration.\
             assert_called_once_with(
                 mock.sentinel.context, mock.sentinel.instance,

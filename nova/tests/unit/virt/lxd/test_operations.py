@@ -23,6 +23,7 @@ from nova.virt.lxd import config
 from nova.virt.lxd import image
 from nova.virt.lxd import operations as container_ops
 from nova.virt.lxd import session
+from nova.virt.lxd import volumeops
 import stubs
 
 TEST_INSTANCE_PATH = '/test/instances'
@@ -77,8 +78,10 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mock.patch('os.path.exists'),
             mock.patch.object(container_ops, 'fileutils'),
             mock.patch.object(container_ops.
-                              container_dir.LXDContainerDirectories,
+                              container_utils.LXDContainerDirectories,
                               'get_instance_dir'),
+            mock.patch.object(container_ops.LXDContainerOperations,
+                              '_setup_storage'),
         ) as (
             mock_container_defined,
             mock_fetch_image,
@@ -89,10 +92,12 @@ class LXDTestContainerOps(test.NoDBTestCase):
             mock_path_exists,
             mock_fileutils,
             mock_get_instance_dir,
+            mock_setup_storage,
         ):
             mock_container_defined.return_value = False
             mock_path_exists.return_value = False
             mock_get_instance_dir.return_value = TEST_INSTANCE_PATH
+            mock_setup_storage.return_value = {}
             self.assertEqual(None,
                              self.operations.spawn(context, instance,
                                                    image_meta,
@@ -236,9 +241,11 @@ class LXDTestContainerOps(test.NoDBTestCase):
         instance = stubs._fake_instance()
         network_info = mock.Mock()
         container_profile = mock.Mock()
-        self.operations._setup_profile(instance.name, instance, network_info)
+        disk_mapping = mock.Mock()
+        self.operations._setup_profile(
+            instance.name, instance, disk_mapping, network_info)
         mock_profile_create.assert_has_calls(
-            [mock.call(instance, network_info)])
+            [mock.call(instance, disk_mapping, network_info)])
         container_profile = mock_profile_create.return_value
         mock_create_profile.assert_has_calls(
             [mock.call(container_profile, instance)])
@@ -246,9 +253,12 @@ class LXDTestContainerOps(test.NoDBTestCase):
     @mock.patch.object(config.LXDContainerConfig, 'create_container')
     @mock.patch.object(session.LXDAPISession, 'container_init')
     @mock.patch.object(session.LXDAPISession, 'container_start')
+    @mock.patch.object(volumeops.LXDVolumeOps, 'create_storage')
     def test_setup_container(self, mock_create_container, mock_container_init,
-                             mock_container_start):
+                             mock_container_start, mock_create_storage):
         instance = stubs._fake_instance()
+        block_device_info = mock.Mock()
         self.assertEqual(None,
                          self.operations._setup_container(instance.name,
+                                                          block_device_info,
                                                           instance))

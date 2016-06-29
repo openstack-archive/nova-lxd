@@ -69,7 +69,7 @@ class LXDContainerConfig(object):
                           {'instance': instance_name, 'ex': ex},
                           instance=instance)
 
-    def create_profile(self, instance, network_info):
+    def create_profile(self, instance, disk_mapping, network_info):
         """Create a LXD container profile configuration
 
         :param instance: nova instance object
@@ -80,12 +80,14 @@ class LXDContainerConfig(object):
                   instance=instance)
         instance_name = instance.name
         try:
+
             config = {}
             config['name'] = str(instance_name)
             config['config'] = self.create_config(instance_name, instance)
 
-            # Restrict the size of the "/" disk
-            config['devices'] = self.configure_container_root(instance)
+            disk_mapping['root'].update(
+                self.create_disk_quota_config(instance))
+            config['devices'] = disk_mapping
 
             if network_info:
                 config['devices'].update(self.create_network(instance_name,
@@ -167,31 +169,6 @@ class LXDContainerConfig(object):
             config['security.privileged'] = 'True'
 
         return config
-
-    def configure_container_root(self, instance):
-        LOG.debug('configure_container_root called for instance',
-                  instance=instance)
-        try:
-            config = {}
-            lxd_config = self.session.get_host_config(instance)
-            if str(lxd_config['storage']) in ['btrfs', 'zfs']:
-                config['root'] = {'path': '/',
-                                  'type': 'disk',
-                                  'size': '%sGB' % str(instance.root_gb)}
-            else:
-                config['root'] = {'path': '/',
-                                  'type': 'disk'}
-
-            # Set disk quotas
-            config['root'].update(self.create_disk_quota_config(instance))
-
-            return config
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to configure disk for '
-                              '%(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
 
     def create_disk_quota_config(self, instance):
         md = instance.flavor.extra_specs

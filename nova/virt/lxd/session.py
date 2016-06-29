@@ -760,15 +760,14 @@ class LXDAPISession(object):
                                       'ex': ex}
             LOG.error(msg)
 
-    def get_host_config(self, instance):
-        LOG.debug('host_config called for instance', instance=instance)
+    def get_host_config(self):
+        LOG.debug('host_config called for instance')
         try:
             client = self.get_session()
             return client.host_config()['environment']
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD %(instance)s:'
-                    ' %(reason)s') % {'instance': instance.name,
-                                      'ex': ex}
+            msg = _('Failed to communicate with LXD'
+                    ' %(reason)s') % {'ex': ex}
             LOG.error(msg)
 
     #

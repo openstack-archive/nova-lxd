@@ -64,6 +64,7 @@ def lxd_mock(*args, **kwargs):
         'profile_list.return_value': ['fake_profile'],
         'container_list.return_value': ['mock-instance-1', 'mock-instance-2'],
         'host_ping.return_value': True,
+        'host_config.return_value': {'environment': {}},
     }
     default.update(kwargs)
     return mock.Mock(*args, **default)
