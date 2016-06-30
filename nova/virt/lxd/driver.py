@@ -16,14 +16,15 @@
 
 from __future__ import absolute_import
 
+import socket
+
 from nova import exception
 from nova import i18n
 from nova.virt import driver
-import socket
-
 from oslo_config import cfg
 from oslo_log import log as logging
-
+import pylxd
+from pylxd import exceptions as lxd_exceptions
 
 from nova.virt.lxd import container_firewall
 from nova.virt.lxd import container_snapshot
@@ -78,7 +79,12 @@ class LXDDriver(driver.ComputeDriver):
         self.host = host.LXDHost()
 
     def init_host(self, host):
-        return self.host.init_host(host)
+        try:
+            pylxd.Client()
+            return True
+        except lxd_exceptions.ClientConnectionFailed as e:
+            msg = _('Unable to connect to LXD daemon: %s') % e
+            raise exception.HostNotFound(msg)
 
     def get_info(self, instance):
         return self.container_ops.get_info(instance)

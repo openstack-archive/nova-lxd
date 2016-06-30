@@ -18,6 +18,10 @@
 #    under the License.
 
 
+import os
+import platform
+import socket
+
 import nova.conf
 from nova.compute import arch
 from nova.compute import hv_type
@@ -26,12 +30,6 @@ from nova.compute import vm_mode
 from nova import exception
 from nova import i18n
 from nova import utils
-import os
-import platform
-from pylxd.deprecated import api
-from pylxd.deprecated import exceptions as lxd_exceptions
-import socket
-
 from oslo_log import log as logging
 from oslo_serialization import jsonutils
 from oslo_utils import units
@@ -44,9 +42,6 @@ LOG = logging.getLogger(__name__)
 
 
 class LXDHost(object):
-
-    def __init__(self):
-        self.lxd = api.API()
 
     def get_available_resource(self, nodename):
         LOG.debug('In get_available_resource')
@@ -175,10 +170,6 @@ class LXDHost(object):
 
         return cpuinfo
 
-    def _get_hypersivor_version(self):
-        version = self.lxd.get_lxd_version()
-        return '.'.join(str(v) for v in version)
-
     def get_host_cpu_stats(self):
         cpuinfo = self._get_cpu_info()
         return {
@@ -188,15 +179,3 @@ class LXDHost(object):
             'iowait': int(psutil.cpu_times()[4]),
             'frequency': cpuinfo.get('cpu mhz', 0)
         }
-
-    def init_host(self, host):
-        LOG.debug('Host check')
-        try:
-            if not self.lxd.host_ping():
-                msg = _('Unable to connect to LXD daemon')
-                raise exception.HostNotFound(msg)
-
-            return True
-        except lxd_exceptions.APIError as ex:
-            msg = _('Unable to connect to LXD daemon: %s') % ex
-            raise exception.HostNotFound(msg)

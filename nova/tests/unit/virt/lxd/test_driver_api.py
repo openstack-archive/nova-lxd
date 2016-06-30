@@ -17,6 +17,7 @@ import inspect
 import json
 import os
 import platform
+from pylxd import exceptions as lxdcore_exceptions
 from pylxd.deprecated import exceptions as lxd_exceptions
 
 import ddt
@@ -80,27 +81,27 @@ class LXDTestDriver(test.NoDBTestCase):
         self.assertTrue(
             self.connection.capabilities['supports_attach_interface'])
 
-    def test_init_host(self):
+    @mock.patch('nova.virt.lxd.driver.pylxd.Client')
+    def test_init_host(self, Client):
         self.assertEqual(
             True,
             self.connection.init_host(None)
         )
 
-    def test_init_host_new_profile(self):
+    @mock.patch('nova.virt.lxd.driver.pylxd.Client')
+    def test_init_host_new_profile(self, Client):
         self.ml.profile_list.return_value = []
         self.assertEqual(
             True,
             self.connection.init_host(None)
         )
 
-    @stubs.annotated_data(
-        ('no_ping', {'host_ping.return_value': False}),
-        ('ping_fail', {'host_ping.side_effect': (lxd_exceptions.
-                                                 APIError('Fake',
-                                                          500))}),
-    )
-    def test_init_host_fail(self, tag, config):
-        self.ml.configure_mock(**config)
+    @mock.patch('nova.virt.lxd.driver.pylxd.Client')
+    def test_init_host_fail(self, Client):
+        def side_effect():
+            raise lxdcore_exceptions.ClientConnectionFailed()
+        Client.side_effect = side_effect
+
         self.assertRaises(
             exception.HostNotFound,
             self.connection.init_host,

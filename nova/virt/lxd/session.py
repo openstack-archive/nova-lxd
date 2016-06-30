@@ -41,9 +41,6 @@ LOG = logging.getLogger(__name__)
 class LXDAPISession(object):
     """The session to invoke the LXD API session."""
 
-    def __init__(self):
-        super(LXDAPISession, self).__init__()
-
     def get_session(self, host=None):
         """Returns a connection to the LXD hypervisor
 
