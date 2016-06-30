@@ -36,7 +36,6 @@ from nova.virt import fake
 from nova.virt import hardware
 
 from nova.virt.lxd import driver
-from nova.virt.lxd import host
 from nova.virt.lxd import operations as container_ops
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
@@ -56,7 +55,6 @@ class LXDTestConfig(test.NoDBTestCase):
 @mock.patch.object(container_ops, 'CONF', stubs.MockConf())
 @mock.patch.object(container_dir, 'CONF', stubs.MockConf())
 @mock.patch.object(driver, 'CONF', stubs.MockConf())
-@mock.patch.object(host, 'CONF', stubs.MockConf())
 class LXDTestDriver(test.NoDBTestCase):
 
     @mock.patch.object(driver, 'CONF', stubs.MockConf())
@@ -272,7 +270,7 @@ class LXDTestDriver(test.NoDBTestCase):
         ]
         self.assertEqual(calls, me.call_args_list)
 
-    @mock.patch.object(host.compute_utils, 'get_machine_ips')
+    @mock.patch.object(driver.compute_utils, 'get_machine_ips')
     @stubs.annotated_data(
         ('found', ['1.2.3.4']),
         ('not-found', ['4.3.2.1']),
@@ -409,7 +407,7 @@ class LXDTestDriver(test.NoDBTestCase):
                 driver_method(*args))
             firewall_method.assert_called_once_with(*args)
 
-    @mock.patch.object(host.utils, 'execute')
+    @mock.patch.object(driver.utils, 'execute')
     def test_get_host_uptime(self, me):
         me.return_value = ('out', 'err')
         self.assertEqual('out',
