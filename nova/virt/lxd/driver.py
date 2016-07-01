@@ -30,7 +30,6 @@ import pylxd
 from pylxd import exceptions as lxd_exceptions
 from nova.compute import utils as compute_utils
 
-from nova.virt.lxd import container_firewall
 from nova.virt.lxd import migrate
 from nova.virt.lxd import operations as container_ops
 from nova.virt.lxd import vif as lxd_vif
@@ -46,6 +45,7 @@ import psutil
 from oslo_concurrency import lockutils
 from nova.compute import task_states
 from oslo_utils import excutils
+from nova.virt import firewall
 
 _ = i18n._
 _LW = i18n._LW
@@ -90,11 +90,13 @@ class LXDDriver(driver.ComputeDriver):
         self.vif_driver = lxd_vif.LXDGenericDriver()
 
         self.container_ops = container_ops.LXDContainerOperations()
-        self.container_firewall = container_firewall.LXDContainerFirewall()
         self.container_migrate = migrate.LXDContainerMigrate()
 
         # The pylxd client, initialized with init_host
         self.client = None
+
+        self.firewall_driver = firewall.load_driver(
+            default='nova.virt.firewall.NoopFirewallDriver')
 
         # XXX: rockstar (1 Jul 2016) - This is temporary, until we can
         # switch to the newer pylxd api.
@@ -395,34 +397,23 @@ class LXDDriver(driver.ComputeDriver):
                                block_device_info=None):
         raise NotImplementedError()
 
-    def refresh_security_group_rules(self, security_group_id):
-        return (self.container_firewall
-                .refresh_security_group_rules(security_group_id))
-
-    def refresh_security_group_members(self, security_group_id):
-        return (self.container_firewall
-                .refresh_security_group_members(security_group_id))
-
-    def refresh_provider_fw_rules(self):
-        return self.container_firewall.refresh_provider_fw_rules()
-
     def refresh_instance_security_rules(self, instance):
-        return (self.container_firewall
-                .refresh_instance_security_rules(instance))
+        return self.firewall_driver.refresh_instance_security_rules(
+            instance)
 
     def ensure_filtering_rules_for_instance(self, instance, network_info):
-        return (self.container_firewall
-                .ensure_filtering_rules_for_instance(instance, network_info))
+        return self.firewall_driver.ensure_filtering_rules_for_instance(
+            instance, network_info)
 
     def filter_defer_apply_on(self):
-        return self.container_firewall.filter_defer_apply_on()
+        return self.firewall_driver.filter_defer_apply_on()
 
     def filter_defer_apply_off(self):
-        return self.container_firewall.filter_defer_apply_off()
+        return self.firewall_driver.filter_defer_apply_off()
 
     def unfilter_instance(self, instance, network_info):
-        return self.container_firewall.unfilter_instance(instance,
-                                                         network_info)
+        return self.firewall_driver.unfilter_instance(
+            instance, network_info)
 
     def poll_rebooting_instances(self, timeout, instances):
         raise NotImplementedError()
