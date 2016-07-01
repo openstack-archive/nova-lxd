@@ -17,7 +17,6 @@ import ddt
 import mock
 
 from nova import test
-from nova.virt import fake
 
 from nova.virt.lxd import config
 from nova.virt.lxd import image
@@ -42,7 +41,7 @@ class LXDTestContainerOps(test.NoDBTestCase):
         self.addCleanup(lxd_patcher.stop)
 
         self.operations = (
-            container_ops.LXDContainerOperations(fake.FakeVirtAPI()))
+            container_ops.LXDContainerOperations())
         self.mv = mock.MagicMock()
         vif_patcher = mock.patch.object(self.operations,
                                         'vif_driver',

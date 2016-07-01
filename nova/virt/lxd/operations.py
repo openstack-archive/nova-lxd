@@ -55,9 +55,7 @@ MAX_CONSOLE_BYTES = 100 * units.Ki
 class LXDContainerOperations(object):
     """LXD container operations."""
 
-    def __init__(self, virtapi):
-        self.virtapi = virtapi
-
+    def __init__(self):
         self.config = container_config.LXDContainerConfig()
         self.container_dir = container_dir.LXDContainerDirectories()
         self.image = image.LXDContainerImage()

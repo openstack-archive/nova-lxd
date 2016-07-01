@@ -41,14 +41,12 @@ LOG = logging.getLogger(__name__)
 
 class LXDContainerMigrate(object):
 
-    def __init__(self, virtapi):
-        self.virtapi = virtapi
+    def __init__(self):
         self.config = config.LXDContainerConfig()
         self.container_dir = container_dir.LXDContainerDirectories()
         self.session = session.LXDAPISession()
         self.operations = \
-            operations.LXDContainerOperations(
-                self.virtapi)
+            operations.LXDContainerOperations()
 
     #
     # migrate/resize

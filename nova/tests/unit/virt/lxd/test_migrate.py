@@ -20,7 +20,6 @@ from nova import exception
 from nova import test
 from nova.tests.unit import fake_instance
 from nova.tests.unit import fake_network
-from nova.virt import fake
 import pylxd
 from pylxd.deprecated import exceptions as lxd_exceptions
 
@@ -35,8 +34,7 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
     def setUp(self):
         super(LXDTestContainerMigrate, self).setUp()
 
-        self.migrate = migrate.LXDContainerMigrate(
-            fake.FakeVirtAPI())
+        self.migrate = migrate.LXDContainerMigrate()
         self.context = 'fake_context'
         self.migrate.session = mock.MagicMock()
         self.migrate.config = mock.MagicMock()
@@ -85,11 +83,8 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
     def setUp(self):
         super(LXDTestLiveMigrate, self).setUp()
 
-        self.migrate = migrate.LXDContainerMigrate(
-            fake.FakeVirtAPI())
+        self.migrate = migrate.LXDContainerMigrate()
         self.context = 'fake_context'
-        self.migrate = migrate.LXDContainerMigrate(
-            fake.FakeVirtAPI())
         self.migrate.session = mock.MagicMock()
         self.migrate.config = mock.MagicMock()
         self.migrate.operations = mock.MagicMock()

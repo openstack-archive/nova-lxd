@@ -83,10 +83,10 @@ class LXDDriver(driver.ComputeDriver):
 
         self.vif_driver = lxd_vif.LXDGenericDriver()
 
-        self.container_ops = container_ops.LXDContainerOperations(virtapi)
+        self.container_ops = container_ops.LXDContainerOperations()
         self.container_snapshot = container_snapshot.LXDSnapshot()
         self.container_firewall = container_firewall.LXDContainerFirewall()
-        self.container_migrate = migrate.LXDContainerMigrate(virtapi)
+        self.container_migrate = migrate.LXDContainerMigrate()
 
         # The pylxd client, initialized with init_host
         self.client = None
@@ -103,10 +103,7 @@ class LXDDriver(driver.ComputeDriver):
         return self.container_ops.get_info(instance)
 
     def instance_exists(self, instance):
-        try:
-            return instance.name in self.list_instance_uuids()
-        except NotImplementedError:
-            return instance.name in self.list_instances()
+        return instance.name in self.list_instances()
 
     def plug_vifs(self, instance, network_info):
         """Plug VIFs into networks."""
