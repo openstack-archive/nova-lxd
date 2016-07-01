@@ -31,9 +31,9 @@ from oslo_utils import units
 from nova import exception
 from nova import i18n
 from nova import utils
+from nova.virt import firewall
 
 from nova.virt.lxd import config as container_config
-from nova.virt.lxd import container_firewall
 from nova.virt.lxd import image
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
@@ -59,11 +59,13 @@ class LXDContainerOperations(object):
         self.config = container_config.LXDContainerConfig()
         self.container_dir = container_dir.LXDContainerDirectories()
         self.image = image.LXDContainerImage()
-        self.firewall_driver = container_firewall.LXDContainerFirewall()
         self.session = session.LXDAPISession()
 
         self.vif_driver = vif.LXDGenericDriver()
         self.instance_dir = None
+
+        self.firewall_driver = firewall.load_driver(
+            default='nova.virt.firewall.NoopFirewallDriver')
 
     def list_instances(self):
         return self.session.container_list()

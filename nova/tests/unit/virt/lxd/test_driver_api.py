@@ -390,7 +390,6 @@ class LXDTestDriver(test.NoDBTestCase):
     @stubs.annotated_data(
         ('refresh_security_group_rules', (mock.Mock(),)),
         ('refresh_security_group_members', (mock.Mock(),)),
-        ('refresh_provider_fw_rules',),
         ('refresh_instance_security_rules', (mock.Mock(),)),
         ('ensure_filtering_rules_for_instance', (mock.Mock(), mock.Mock())),
         ('filter_defer_apply_on',),
@@ -398,7 +397,7 @@ class LXDTestDriver(test.NoDBTestCase):
         ('unfilter_instance', (mock.Mock(), mock.Mock())),
     )
     def test_firewall_calls(self, name, args=()):
-        with mock.patch.object(self.connection.container_firewall,
+        with mock.patch.object(self.connection,
                                'firewall_driver') as mf:
             driver_method = getattr(self.connection, name)
             firewall_method = getattr(mf, name)
