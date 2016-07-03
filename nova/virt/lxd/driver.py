@@ -134,7 +134,13 @@ class LXDDriver(driver.ComputeDriver):
         return {'memory_mb': 0}
 
     def list_instances(self):
-        return self.container_ops.list_instances()
+        try:
+            return [c.name for c in self.client.containers.all()]
+        except lxd_exceptions.LXDAPIException as ex:
+            msg = _('Failed to communicate with LXD API: %(reason)s') \
+                % {'reason': ex}
+            LOG.error(msg)
+            raise exception.NovaException(msg)
 
     def list_instance_uuids(self):
         raise NotImplementedError()
