@@ -18,8 +18,6 @@ import mock
 
 from nova import test
 
-from nova.virt.lxd import config
-from nova.virt.lxd import image
 from nova.virt.lxd import operations as container_ops
 from nova.virt.lxd import session
 import stubs
@@ -49,58 +47,6 @@ class LXDTestContainerOps(test.NoDBTestCase):
         vif_patcher.start()
         self.addCleanup(vif_patcher.stop)
 
-    def test_spawn_container(self):
-        """Test spawn method. Ensure that the right calls
-           are made when creating a container.
-        """
-        context = mock.Mock()
-        instance = stubs._fake_instance()
-        image_meta = mock.Mock()
-        injected_files = mock.Mock()
-        admin_password = mock.Mock()
-        network_info = mock.Mock()
-        block_device_info = mock.Mock()
-
-        with test.nested(
-            mock.patch.object(session.LXDAPISession, 'container_defined'),
-            mock.patch.object(container_ops.LXDContainerOperations,
-                              '_fetch_image'),
-            mock.patch.object(container_ops.LXDContainerOperations,
-                              '_setup_network'),
-            mock.patch.object(container_ops.LXDContainerOperations,
-                              '_setup_profile'),
-            mock.patch.object(container_ops.LXDContainerOperations,
-                              '_add_configdrive'),
-            mock.patch.object(container_ops.LXDContainerOperations,
-                              '_setup_container'),
-            mock.patch('os.path.exists'),
-            mock.patch.object(container_ops, 'fileutils'),
-            mock.patch.object(container_ops.
-                              container_dir.LXDContainerDirectories,
-                              'get_instance_dir'),
-        ) as (
-            mock_container_defined,
-            mock_fetch_image,
-            mock_setup_network,
-            mock_setup_profile,
-            mock_add_configdrive,
-            mock_setup_container,
-            mock_path_exists,
-            mock_fileutils,
-            mock_get_instance_dir,
-        ):
-            mock_container_defined.return_value = False
-            mock_path_exists.return_value = False
-            mock_get_instance_dir.return_value = TEST_INSTANCE_PATH
-            self.assertEqual(None,
-                             self.operations.spawn(context, instance,
-                                                   image_meta,
-                                                   injected_files,
-                                                   admin_password,
-                                                   network_info,
-                                                   block_device_info))
-            mock_fileutils.ensure_tree.assert_called_with(TEST_INSTANCE_PATH)
-
     def test_reboot_container(self):
         """Test the reboot method. Ensure that the proper
            calls are made when rebooting a continer.
@@ -108,7 +54,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
         instance = stubs._fake_instance()
         context = mock.Mock()
         with test.nested(
-            mock.patch.object(session.LXDAPISession, 'container_reboot')
+            mock.patch.object(session.LXDAPISession, 'container_reboot'),
+
         ) as (container_reboot):
             self.assertEqual(None,
                              self.operations.reboot(context, instance, {},
@@ -214,40 +161,3 @@ class LXDTestContainerOps(test.NoDBTestCase):
                              self.operations.resume(context, instance,
                                                     network_info))
             self.assertTrue(mock_container_resume)
-
-    @mock.patch.object(image.LXDContainerImage, 'setup_image')
-    def test_fetch_image(self, mock_fetch_image):
-        instance = stubs._fake_instance()
-        context = mock.Mock()
-        self.operations._fetch_image(context, instance, {})
-        mock_fetch_image.assert_called_once_with(context, instance, {})
-
-    @mock.patch.object(container_ops.LXDContainerOperations, 'plug_vifs')
-    def test_setup_network(self, mock_plug_vifs):
-        instance = stubs._fake_instance()
-
-        self.operations._setup_network(instance.name, [], instance)
-        mock_plug_vifs.assert_called_once_with([], instance)
-
-    @mock.patch.object(session.LXDAPISession, 'profile_create')
-    @mock.patch.object(config.LXDContainerConfig, 'create_profile')
-    def test_setup_profile(self, mock_profile_create, mock_create_profile):
-        instance = stubs._fake_instance()
-        network_info = mock.Mock()
-        container_profile = mock.Mock()
-        self.operations._setup_profile(instance.name, instance, network_info)
-        mock_profile_create.assert_has_calls(
-            [mock.call(instance, network_info)])
-        container_profile = mock_profile_create.return_value
-        mock_create_profile.assert_has_calls(
-            [mock.call(container_profile, instance)])
-
-    @mock.patch.object(config.LXDContainerConfig, 'create_container')
-    @mock.patch.object(session.LXDAPISession, 'container_init')
-    @mock.patch.object(session.LXDAPISession, 'container_start')
-    def test_setup_container(self, mock_create_container, mock_container_init,
-                             mock_container_start):
-        instance = stubs._fake_instance()
-        self.assertEqual(None,
-                         self.operations._setup_container(instance.name,
-                                                          instance))

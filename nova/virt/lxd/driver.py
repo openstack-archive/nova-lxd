@@ -18,22 +18,29 @@ from __future__ import absolute_import
 
 import os
 import platform
+import shutil
 import socket
 
+from nova.api.metadata import base as instance_metadata
+from nova.virt import configdrive
 from nova import image
 from nova import exception
 from nova import i18n
 from nova.virt import driver
 from oslo_config import cfg
 from oslo_log import log as logging
+from oslo_utils import fileutils
 import pylxd
 from pylxd import exceptions as lxd_exceptions
 from nova.compute import utils as compute_utils
 
+from nova.virt.lxd import config
+from nova.virt.lxd import image as container_image
 from nova.virt.lxd import migrate
 from nova.virt.lxd import operations as container_ops
 from nova.virt.lxd import vif as lxd_vif
 from nova.virt.lxd import session
+from nova.virt.lxd import utils as container_utils
 
 from nova.compute import arch
 from nova.compute import hv_type
@@ -89,8 +96,11 @@ class LXDDriver(driver.ComputeDriver):
 
         self.vif_driver = lxd_vif.LXDGenericDriver()
 
+        self.config = config.LXDContainerConfig()
         self.container_ops = container_ops.LXDContainerOperations()
         self.container_migrate = migrate.LXDContainerMigrate()
+        self.container_dir = container_utils.LXDContainerDirectories()
+        self.image = container_image.LXDContainerImage()
 
         # The pylxd client, initialized with init_host
         self.client = None
@@ -121,6 +131,9 @@ class LXDDriver(driver.ComputeDriver):
         """Plug VIFs into networks."""
         for vif in network_info:
             self.vif_driver.plug(instance, vif)
+        self.firewall_driver.setup_basic_filtering(instance, network_info)
+        self.firewall_driver.prepare_instance_filter(instance, network_info)
+        self.firewall_driver.apply_instance_filter(instance, network_info)
 
     def unplug_vifs(self, instance, network_info):
         """Unplug VIFs from networks."""
@@ -129,6 +142,7 @@ class LXDDriver(driver.ComputeDriver):
                 self.vif_driver.unplug(instance, vif)
             except exception.NovaException:
                 pass
+        self.firewall_driver.unfilter_instance(instance, network_info)
 
     def estimate_instance_overhead(self, instance_info):
         return {'memory_mb': 0}
@@ -141,9 +155,116 @@ class LXDDriver(driver.ComputeDriver):
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
-        self.container_ops.spawn(context, instance, image_meta,
-                                 injected_files, admin_password,
-                                 network_info, block_device_info)
+        msg = ('Spawning container '
+               'network_info=%(network_info)s '
+               'image_meta=%(image_meta)s '
+               'instance=%(instance)s '
+               'block_device_info=%(block_device_info)s' %
+               {'network_info': network_info,
+                'instance': instance,
+                'image_meta': image_meta,
+                'block_device_info': block_device_info})
+
+        LOG.debug(msg, instance=instance)
+
+        instance_name = instance.name
+
+        if self.session.container_defined(instance_name, instance):
+            raise exception.InstanceExists(name=instance.name)
+
+        try:
+            self.instance_dir = \
+                self.container_dir.get_instance_dir(instance_name)
+            if not os.path.exists(self.instance_dir):
+                fileutils.ensure_tree(self.instance_dir)
+
+            # Fetch the image from glance
+            self.image.setup_image(context, instance, image_meta)
+
+            # Plugin the network
+            self.plug_vifs(instance, network_info)
+
+            # Create the container profile
+            container_profile = self.config.create_profile(instance,
+                                                           network_info)
+            self.session.profile_create(container_profile, instance)
+
+            # Create the container
+            container_config = {
+                'name': instance_name,
+                'profiles': [str(instance.name)],
+                'source': self.config.get_container_source(instance),
+                'devices': {}
+            }
+            self.session.container_init(
+                container_config, instance)
+
+            if configdrive.required_by(instance):
+                self._add_configdrive(instance, injected_files)
+
+            # Start the container
+            self.session.container_start(instance_name, instance)
+
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Faild to start container '
+                              '%(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
+
+    def _add_configdrive(self, instance, injected_files):
+        """Configure the config drive for the container
+
+        :param instance: nova instance object
+        :param injected_files: instance injected files
+        """
+        LOG.debug('add_configdrive called for instance', instance=instance)
+
+        extra_md = {}
+        inst_md = instance_metadata.InstanceMetadata(instance,
+                                                     content=injected_files,
+                                                     extra_md=extra_md)
+        # Create the ISO image so we can inject the contents of the ISO
+        # into the container
+        iso_path = os.path.join(self.instance_dir, 'configdirve.iso')
+        with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
+            try:
+                cdb.make_drive(iso_path)
+            except Exception as e:
+                with excutils.save_and_reraise_exception():
+                    LOG.error(_LE('Creating config drive failed with error: '
+                                  '%s'), e, instance=instance)
+
+        # Copy the metadata info from the ISO into the container
+        configdrive_dir = \
+            self.container_dir.get_container_configdrive(instance.name)
+        with utils.tempdir() as tmpdir:
+            mounted = False
+            try:
+                _, err = utils.execute('mount',
+                                       '-o',
+                                       'loop,uid=%d,gid=%d' % (os.getuid(),
+                                                               os.getgid()),
+                                       iso_path, tmpdir,
+                                       run_as_root=True)
+                mounted = True
+
+                # Copy and adjust the files from the ISO so that we
+                # dont have the ISO mounted during the life cycle of the
+                # instance and the directory can be removed once the instance
+                # is terminated
+                for ent in os.listdir(tmpdir):
+                    shutil.copytree(os.path.join(tmpdir, ent),
+                                    os.path.join(configdrive_dir, ent))
+                utils.execute('chmod', '-R', '775', configdrive_dir,
+                              run_as_root=True)
+                utils.execute('chown', '-R', '%s:%s'
+                              % (self._uid_map('/etc/subuid').rstrip(),
+                                 self._uid_map('/etc/subgid').rstrip()),
+                              configdrive_dir, run_as_root=True)
+            finally:
+                if mounted:
+                    utils.execute('umount', tmpdir, run_as_root=True)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
