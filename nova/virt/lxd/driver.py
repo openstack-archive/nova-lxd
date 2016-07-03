@@ -274,9 +274,18 @@ class LXDDriver(driver.ComputeDriver):
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
-        self.container_ops.destroy(context, instance, network_info,
-                                   block_device_info, destroy_disks,
-                                   migrate_data)
+        LOG.debug('destroy called for instance', instance=instance)
+        try:
+            self.session.profile_delete(instance)
+            self.session.container_destroy(instance.name,
+                                           instance)
+            self.cleanup(context, instance, network_info, block_device_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to remove container'
+                              ' for %(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):

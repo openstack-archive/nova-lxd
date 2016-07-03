@@ -62,30 +62,6 @@ class LXDTestContainerOps(test.NoDBTestCase):
                                                     None, None, None))
             self.assertTrue(container_reboot)
 
-    def test_destroy_container(self):
-        """Test the destroy conainer method. Ensure that
-           the correct calls are made when removing
-           the contianer.
-        """
-        context = mock.Mock()
-        instance = stubs._fake_instance()
-        network_info = mock.Mock()
-
-        with test.nested(
-            mock.patch.object(session.LXDAPISession, 'profile_delete'),
-            mock.patch.object(session.LXDAPISession, 'container_destroy'),
-            mock.patch.object(container_ops.LXDContainerOperations, 'cleanup'),
-        ) as (
-            mock_profile_delete,
-            mock_container_destroy,
-            mock_cleanup
-        ):
-            self.assertEqual(None,
-                             self.operations.destroy(context,
-                                                     instance, network_info))
-            self.assertTrue(mock_profile_delete)
-            self.assertTrue(mock_container_destroy)
-
     def test_power_off(self):
         """Test the power_off method. Ensure that the proper
            calls are made when the container is powered

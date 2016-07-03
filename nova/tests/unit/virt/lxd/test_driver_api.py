@@ -18,7 +18,6 @@ import json
 import os
 import platform
 from pylxd import exceptions as lxdcore_exceptions
-from pylxd.deprecated import exceptions as lxd_exceptions
 
 import ddt
 import mock
@@ -315,53 +314,30 @@ class LXDTestDriver(test.NoDBTestCase):
             mock_container_start.assert_called_once_with(
                 instance_name, instance)
 
-    def test_destroy_fail(self):
-        instance = stubs._fake_instance()
-        context = mock.Mock()
-        network_info = mock.Mock()
-        self.ml.container_destroy.side_effect = (
-            lxd_exceptions.APIError('Fake', 500))
-        with test.nested(
-            mock.patch.object(session.LXDAPISession,
-                              'container_destroy'),
-            mock.patch.object(session.LXDAPISession,
-                              'container_stop'),
-            mock.patch.object(self.connection, 'cleanup'),
-            mock.patch.object(container_ops.LXDContainerOperations,
-                              'unplug_vifs'),
-
-        ) as (
-            container_destroy,
-            container_stop,
-            cleanup,
-            unplug_vifs
-        ):
-            self.connection.destroy(context, instance, network_info)
-
     def test_destroy(self):
         instance = stubs._fake_instance()
         context = mock.Mock()
         network_info = mock.Mock()
         with test.nested(
                 mock.patch.object(session.LXDAPISession,
-                                  'container_stop'),
+                                  'profile_delete'),
                 mock.patch.object(session.LXDAPISession,
                                   'container_destroy'),
                 mock.patch.object(self.connection,
                                   'cleanup'),
-                mock.patch.object(container_ops.LXDContainerOperations,
-                                  'unplug_vifs'),
         ) as (
-                container_stop,
-                container_destroy,
-                cleanup,
-                unplug_vifs
+            mock_profile_delete,
+            mock_container_destroy,
+            mock_container_cleanup
         ):
-            self.connection.destroy(context, instance, network_info)
-            self.assertTrue(container_stop)
-            self.assertTrue(container_destroy)
-            self.assertTrue(cleanup)
-            unplug_vifs.assert_called_with(instance, network_info)
+            self.assertEqual(None,
+                             self.connection.destroy(context, instance,
+                                                     network_info))
+            mock_profile_delete.assert_called_once_with(instance)
+            mock_container_destroy.assert_called_once_with(instance.name,
+                                                           instance)
+            mock_container_cleanup.assert_called_once_with(context, instance,
+                                                           network_info, None)
 
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('shutil.rmtree')
