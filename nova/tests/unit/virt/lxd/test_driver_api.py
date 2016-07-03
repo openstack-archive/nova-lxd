@@ -12,7 +12,7 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-
+import collections
 import inspect
 import json
 import os
@@ -40,6 +40,8 @@ from nova.virt.lxd import operations as container_ops
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
 import stubs
+
+MockContainer = collections.namedtuple('Container', ['name'])
 
 
 class LXDTestConfig(test.NoDBTestCase):
@@ -70,6 +72,13 @@ class LXDTestDriver(test.NoDBTestCase):
 
         self.driver = driver.LXDDriver(mock.MagicMock())
         self.driver.container_migrate = mock.MagicMock()
+
+        mock_client = mock.Mock()
+        mock_client.containers.all.return_value = [
+            MockContainer('mock-instance-1'),
+            MockContainer('mock-instance-2'),
+        ]
+        self.connection.client = mock_client
 
     def test_capabilities(self):
         self.assertFalse(self.connection.capabilities['has_imagecache'])
@@ -147,8 +156,13 @@ class LXDTestDriver(test.NoDBTestCase):
                          self.connection.list_instances())
 
     def test_list_instances_fail(self):
-        self.ml.container_list.side_effect = (
-            lxd_exceptions.APIError('Fake', 500))
+        mock_response = mock.Mock()
+        mock_response.json.return_value = {
+            'error': 'Fake',
+        }
+
+        self.connection.client.containers.all.side_effect = (
+            lxdcore_exceptions.LXDAPIException(mock_response))
         self.assertRaises(
             exception.NovaException,
             self.connection.list_instances
