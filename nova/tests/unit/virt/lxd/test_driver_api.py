@@ -35,7 +35,9 @@ from nova import test
 from nova.virt import fake
 from nova.virt import hardware
 
+from nova.virt.lxd import config
 from nova.virt.lxd import driver
+from nova.virt.lxd import image as container_image
 from nova.virt.lxd import operations as container_ops
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
@@ -168,43 +170,150 @@ class LXDTestDriver(test.NoDBTestCase):
             self.connection.list_instances
         )
 
-    @stubs.annotated_data(
-        ('exists', [True], exception.InstanceExists),
-        ('fail', lxd_exceptions.APIError('Fake', 500), exception.NovaException)
-    )
-    def test_spawn_defined(self, tag, side_effect, expected):
-        instance = stubs.MockInstance()
-        self.ml.container_defined.side_effect = side_effect
-        self.assertRaises(
-            expected,
-            self.connection.spawn,
-            {}, instance, {}, [], 'secret')
-        self.ml.container_defined.called_once_with('mock_instance')
-
-    @stubs.annotated_data(
-        ('undefined', False),
-        ('404', lxd_exceptions.APIError('Not found', 404)),
-    )
-    @mock.patch('oslo_concurrency.lockutils.lock')
-    def test_spawn_new(self, tag, side_effect, mc):
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_spawn(self, mock_configdrive):
+        """Test spawn method. Ensure that the right calls
+           are made when creating a container.
+        """
         context = mock.Mock()
-        instance = stubs.MockInstance()
+        instance = stubs._fake_instance()
+        instance_name = instance.name
         image_meta = mock.Mock()
         injected_files = mock.Mock()
+        admin_password = mock.Mock()
         network_info = mock.Mock()
         block_device_info = mock.Mock()
-        self.ml.container_defined.side_effect = [side_effect]
 
         with test.nested(
-                mock.patch.object(self.connection.container_ops,
-                                  'spawn'),
+            mock.patch.object(session.LXDAPISession, 'container_defined'),
+            mock.patch('os.path.exists'),
+            mock.patch('oslo_utils.fileutils.ensure_tree'),
+            mock.patch.object(
+                container_image.LXDContainerImage, 'setup_image'),
+            mock.patch.object(self.connection, 'plug_vifs'),
+            mock.patch.object(config.LXDContainerConfig, 'create_profile'),
+            mock.patch.object(session.LXDAPISession, 'profile_create'),
+            mock.patch.object(session.LXDAPISession, 'container_init'),
+            mock.patch.object(session.LXDAPISession, 'container_start')
+
         ) as (
-                create_container
+            mock_container_defined,
+            mock_path_exists,
+            mock_ensure_tree,
+            mock_setup_image,
+            mock_plug_vif,
+            mock_container_profile,
+            mock_profile_create,
+            mock_container_init,
+            mock_container_start
         ):
-            self.connection.spawn(context, instance, image_meta,
-                                  injected_files, None, network_info,
-                                  block_device_info)
-            self.assertTrue(create_container)
+            mock_container_defined.return_value = False
+            mock_path_exists.return_value = False
+            mock_configdrive.return_value = False
+            mock_container_profile.return_value = {}
+
+            container_config = {'devices': {},
+                                'name': 'instance-00000001',
+                                'profiles': ['instance-00000001'],
+                                'source': {'alias': 'fake_image',
+                                           'type': 'image'}}
+
+            self.assertEqual(None,
+                             self.connection.spawn(context, instance,
+                                                   image_meta,
+                                                   injected_files,
+                                                   admin_password,
+                                                   network_info,
+                                                   block_device_info))
+            mock_container_defined.assert_called_once_with(
+                instance_name, instance)
+            mock_path_exists.assert_called_once_with(
+                '/fake/instances/path/%s' % instance.name)
+            mock_setup_image.assert_called_once_with(
+                context, instance, image_meta)
+            mock_plug_vif.assert_called_once_with(instance, network_info)
+            mock_container_profile.assert_called_once_with(
+                instance, network_info)
+            mock_profile_create.assert_called_once_with({}, instance)
+            mock_container_init.assert_called_once_with(container_config,
+                                                        instance)
+            mock_container_start.assert_called_once_with(
+                instance_name, instance)
+
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_spawn_with_configdrive(self, mock_configdrive):
+        """Test spawn method. Ensure that the right calls
+           are made when creating a container with a configdrive
+        """
+        context = mock.Mock()
+        instance = stubs._fake_instance()
+        instance_name = instance.name
+        image_meta = mock.Mock()
+        injected_files = mock.Mock()
+        admin_password = mock.Mock()
+        network_info = mock.Mock()
+        block_device_info = mock.Mock()
+
+        with test.nested(
+                mock.patch.object(session.LXDAPISession, 'container_defined'),
+                mock.patch('os.path.exists'),
+                mock.patch('oslo_utils.fileutils.ensure_tree'),
+                mock.patch.object(
+                    container_image.LXDContainerImage, 'setup_image'),
+                mock.patch.object(self.connection, 'plug_vifs'),
+                mock.patch.object(config.LXDContainerConfig, 'create_profile'),
+                mock.patch.object(session.LXDAPISession, 'profile_create'),
+                mock.patch.object(self.connection, '_add_configdrive'),
+                mock.patch.object(session.LXDAPISession, 'container_init'),
+                mock.patch.object(session.LXDAPISession, 'container_start')
+
+        ) as (
+                mock_container_defined,
+                mock_path_exists,
+                mock_ensure_tree,
+                mock_setup_image,
+                mock_plug_vif,
+                mock_container_profile,
+                mock_profile_create,
+                mock_add_configdrive,
+                mock_container_init,
+                mock_container_start
+        ):
+            mock_container_defined.return_value = False
+            mock_path_exists.return_value = False
+            mock_configdrive.return_value = True
+            mock_container_profile.return_value = {}
+
+            container_config = {'devices': {},
+                                'name': 'instance-00000001',
+                                'profiles': ['instance-00000001'],
+                                'source': {'alias': 'fake_image',
+                                           'type': 'image'}}
+
+            self.assertEqual(None,
+                             self.connection.spawn(context, instance,
+                                                   image_meta,
+                                                   injected_files,
+                                                   admin_password,
+                                                   network_info,
+                                                   block_device_info))
+            mock_container_defined.assert_called_once_with(
+                instance_name, instance)
+            mock_path_exists.assert_called_once_with(
+                '/fake/instances/path/%s' % instance.name)
+            mock_setup_image.assert_called_once_with(
+                context, instance, image_meta)
+            mock_plug_vif.assert_called_once_with(instance, network_info)
+            mock_container_profile.assert_called_once_with(
+                instance, network_info)
+            mock_profile_create.assert_called_once_with({}, instance)
+            mock_configdrive.assert_called_once_with(instance)
+            mock_add_configdrive.assert_called_once_with(
+                instance, injected_files)
+            mock_container_init.assert_called_once_with(container_config,
+                                                        instance)
+            mock_container_start.assert_called_once_with(
+                instance_name, instance)
 
     def test_destroy_fail(self):
         instance = stubs._fake_instance()
