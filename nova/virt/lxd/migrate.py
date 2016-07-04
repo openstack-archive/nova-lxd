@@ -26,6 +26,7 @@ from oslo_utils import excutils
 from oslo_utils import fileutils
 
 from nova.virt.lxd import config
+from nova.virt.lxd import constants
 from nova.virt.lxd import operations
 from nova.virt.lxd import utils as container_dir
 from nova.virt.lxd import session
@@ -262,7 +263,7 @@ class LXDContainerMigrate(object):
         (state, data) = (self.session.container_migrate(instance.name,
                                                         CONF.my_ip,
                                                         instance))
-        container_config = self.config.create_container(instance)
+        container_config = constants.container_config(instance)
         container_config['source'] = \
             self.config.get_container_migrate(data, host, instance)
         self.session.container_init(container_config, instance, host)

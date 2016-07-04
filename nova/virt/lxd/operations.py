@@ -31,6 +31,7 @@ from nova import utils
 from nova.virt import firewall
 
 from nova.virt.lxd import config as container_config
+from nova.virt.lxd import constants
 from nova.virt.lxd import image
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
@@ -274,7 +275,7 @@ class LXDContainerOperations(object):
 
             # Step 3 - Re use the old instance object and confiugre
             #          the disk mount point and create a new container.
-            container_config = self.config.create_container(instance)
+            container_config = constants.container_config(instance)
             rescue_dir = self.container_dir.get_container_rescue(
                 instance.name + '-backup')
             config = self.config.configure_disk_path(rescue_dir,
@@ -412,7 +413,7 @@ class LXDContainerOperations(object):
             self.vif_driver.plug(instance, vif)
             self.firewall_driver.setup_basic_filtering(instance, vif)
 
-            container_config = self.config.create_container(instance)
+            container_config = constants.container_config(instance)
             container_network = self.config.create_container_net_device(
                 instance, vif)
             container_config['devices'].update(container_network)
