@@ -306,9 +306,28 @@ class LXDDriver(driver.ComputeDriver):
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
-        self.container_ops.cleanup(context, instance, network_info,
-                                   block_device_info, destroy_disks,
-                                   migrate_data, destroy_vifs)
+        LOG.debug('cleanup called for instance', instance=instance)
+        try:
+            if destroy_vifs:
+                self.unplug_vifs(instance, network_info)
+
+            name = pwd.getpwuid(os.getuid()).pw_name
+            configdrive_dir = \
+                self.container_dir.get_container_configdrive(instance.name)
+            if os.path.exists(configdrive_dir):
+                utils.execute('chown', '-R', '%s:%s' % (name, name),
+                              configdrive_dir, run_as_root=True)
+                shutil.rmtree(configdrive_dir)
+
+            container_dir = self.container_dir.get_instance_dir(instance.name)
+            if os.path.exists(container_dir):
+                shutil.rmtree(container_dir)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container cleanup failed for '
+                                  '%(instance)s: %(ex)s'),
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
@@ -380,12 +399,32 @@ class LXDDriver(driver.ComputeDriver):
         raise NotImplementedError()
 
     def attach_interface(self, instance, image_meta, vif):
-        return self.container_ops.container_attach_interface(instance,
-                                                             image_meta,
-                                                             vif)
+        LOG.debug('container_attach_interface called for instance',
+                  instance=instance)
+        try:
+            self.vif_driver.plug(instance, vif)
+            self.firewall_driver.setup_basic_filtering(instance, vif)
+
+            container_config = self.config.create_container(instance)
+            container_network = self.config.create_container_net_device(
+                instance, vif)
+            container_config['devices'].update(container_network)
+            self.session.container_update(container_config, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                self.vif_driver.unplug(instance, vif)
+                LOG.error(_LE('Failed to configure network'
+                              ' for %(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def detach_interface(self, instance, vif):
-        return self.container_ops.container_detach_interface(instance, vif)
+        LOG.debug('container_defatch_interface called for instance',
+                  instance=instance)
+        try:
+            self.vif_driver.unplug(instance, vif)
+        except exception.NovaException:
+            pass
 
     def migrate_disk_and_power_off(self, context, instance, dest,
                                    flavor, network_info,

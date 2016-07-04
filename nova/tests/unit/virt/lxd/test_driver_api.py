@@ -342,7 +342,7 @@ class LXDTestDriver(test.NoDBTestCase):
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('shutil.rmtree')
     @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
-    @mock.patch.object(container_ops.utils, 'execute')
+    @mock.patch.object(driver.utils, 'execute')
     def test_cleanup(self, mr, mu):
         instance = stubs.MockInstance()
         self.assertEqual(
@@ -350,7 +350,7 @@ class LXDTestDriver(test.NoDBTestCase):
             self.connection.cleanup({}, instance, [], [], None, None, None))
 
     @mock.patch('six.moves.builtins.open')
-    @mock.patch.object(container_ops.utils, 'execute')
+    @mock.patch.object(driver.utils, 'execute')
     @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
     @mock.patch('os.getuid', mock.Mock())
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
@@ -383,7 +383,7 @@ class LXDTestDriver(test.NoDBTestCase):
                                                      f_bsize=8192,
                                                      f_bavail=65536000))
     @mock.patch('six.moves.builtins.open')
-    @mock.patch.object(container_ops.utils, 'execute')
+    @mock.patch.object(driver.utils, 'execute')
     def test_get_available_resource(self, me, mo, ms):
         me.return_value = ('Model name:          Fake CPU\n'
                            'Vendor ID:           FakeVendor\n'
