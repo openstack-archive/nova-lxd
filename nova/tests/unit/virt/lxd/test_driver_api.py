@@ -461,26 +461,71 @@ class LXDTestDriver(test.NoDBTestCase):
     def test_container_power_off(self):
         instance = stubs._fake_instance()
         with test.nested(
-                mock.patch.object(self.connection.container_ops,
-                                  'power_off')
-        ) as (
-                power_off
-        ):
-            self.connection.power_off(instance)
-            self.assertTrue(power_off)
+            mock.patch.object(session.LXDAPISession, 'container_stop')
+        ) as (mock_container_stop):
+            self.assertEqual(None,
+                             self.connection.power_off(instance))
+            self.assertTrue(mock_container_stop)
 
     def test_container_power_on(self):
         context = mock.Mock()
         instance = stubs._fake_instance()
         network_info = mock.Mock()
+        block_device_info = mock.Mock()
         with test.nested(
-                mock.patch.object(self.connection.container_ops,
-                                  'power_on')
-        ) as (
-                power_on
-        ):
-            self.connection.power_on(context, instance, network_info)
-            self.assertTrue(power_on)
+            mock.patch.object(session.LXDAPISession, 'container_start')
+        ) as (mock_container_start):
+            self.assertEqual(None,
+                             self.connection.power_on(context, instance,
+                                                      network_info,
+                                                      block_device_info))
+            self.assertTrue(mock_container_start)
+
+    def test_pause_container(self):
+        """Test the pause container method. Ensure that that
+           the proper calls are made when pausing the container.
+        """
+        instance = stubs._fake_instance()
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_pause')
+        ) as (mock_container_pause):
+            self.assertEqual(None,
+                             self.connection.pause(instance))
+            self.assertTrue(mock_container_pause)
+
+    def test_unpause_container(self):
+        """Test the unapuse continaer. Ensure that the proper
+           calls are made when unpausing a container.
+        """
+        instance = stubs._fake_instance()
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_unpause')
+        ) as (mock_container_unpause):
+            self.assertEqual(None,
+                             self.connection.unpause(instance))
+            self.assertTrue(mock_container_unpause)
+
+    def test_container_suspend(self):
+        instance = stubs._fake_instance()
+        context = mock.Mock()
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_pause')
+        ) as (mock_container_suspend):
+            self.assertEqual(None,
+                             self.connection.suspend(context, instance))
+            self.assertTrue(mock_container_suspend)
+
+    def test_container_resume(self):
+        instance = stubs._fake_instance()
+        context = mock.Mock()
+        network_info = mock.Mock()
+        with test.nested(
+            mock.patch.object(session.LXDAPISession, 'container_unpause')
+        ) as (mock_container_resume):
+            self.assertEqual(None,
+                             self.connection.resume(context, instance,
+                                                    network_info))
+            self.assertTrue(mock_container_resume)
 
     @stubs.annotated_data(
         ('refresh_instance_security_rules', (mock.Mock(),)),
