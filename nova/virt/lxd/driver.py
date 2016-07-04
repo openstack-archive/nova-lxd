@@ -35,6 +35,7 @@ from pylxd import exceptions as lxd_exceptions
 from nova.compute import utils as compute_utils
 
 from nova.virt.lxd import config
+from nova.virt.lxd import constants
 from nova.virt.lxd import image as container_image
 from nova.virt.lxd import migrate
 from nova.virt.lxd import operations as container_ops
@@ -196,14 +197,10 @@ class LXDDriver(driver.ComputeDriver):
             self.session.profile_create(container_profile, instance)
 
             # Create the container
-            container_config = {
-                'name': instance_name,
-                'profiles': [str(instance.name)],
-                'source': self.config.get_container_source(instance),
-                'devices': {}
-            }
-            self.session.container_init(
-                container_config, instance)
+            container_config = constants.container_config(instance)
+            container_config['source'].update(
+                self.config.get_container_source(instance))
+            self.session.container_init(container_config, instance)
 
             if configdrive.required_by(instance):
                 self._add_configdrive(instance, injected_files)

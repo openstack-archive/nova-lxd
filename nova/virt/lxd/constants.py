@@ -32,3 +32,12 @@ LXD_POWER_STATES = {
     400: power_state.CRASHED,
     401: power_state.NOSTATE
 }
+
+
+def container_config(instance):
+    return {
+        'name': instance.name,
+        'profiles': [str(instance.name)],
+        'source': {},
+        'devices': {}
+    }

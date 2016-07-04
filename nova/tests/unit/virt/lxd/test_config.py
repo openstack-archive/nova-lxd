@@ -39,21 +39,6 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         self.config = config.LXDContainerConfig()
 
     @stubs.annotated_data(
-        ('test_name', 'name', 'instance-00000001'),
-        ('test_source', 'source', {'type': 'image',
-                                   'alias': 'fake_image'}),
-        ('test_devices', 'devices', {})
-    )
-    def test_create_container(self, tag, key, expected):
-        """Tests the create_container methond on LXDContainerConfig.
-           Inspect that the correct dictionary is returned for a given
-           instance.
-        """
-        instance = stubs._fake_instance()
-        container_config = self.config.create_container(instance)
-        self.assertEqual(container_config[key], expected)
-
-    @stubs.annotated_data(
         ('test_memmoy', 'limits.memory', '512MB')
     )
     def test_create_config(self, tag, key, expected):
