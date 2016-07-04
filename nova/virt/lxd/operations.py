@@ -64,9 +64,6 @@ class LXDContainerOperations(object):
         self.firewall_driver = firewall.load_driver(
             default='nova.virt.firewall.NoopFirewallDriver')
 
-    def list_instances(self):
-        return self.session.container_list()
-
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
         """Reboot a instance on a LXD host
