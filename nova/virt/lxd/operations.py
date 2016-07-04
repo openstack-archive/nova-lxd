@@ -16,7 +16,6 @@
 
 
 import nova.conf
-from nova.virt import hardware
 import os
 import pwd
 import shutil
@@ -299,28 +298,6 @@ class LXDContainerOperations(object):
                                   '%(instance)s: %(ex)s'),
                               {'instance': instance.name,
                                'ex': ex}, instance=instance)
-
-    def get_info(self, instance):
-        """Get the current status of an instance, by name (not ID!)
-
-        :param instance: nova.objects.instance.Instance object
-
-        Returns a InstanceInfo object
-        """
-        LOG.debug('get_info called for instance', instance=instance)
-        try:
-            container_state = self.session.container_state(instance)
-            return hardware.InstanceInfo(state=container_state['state'],
-                                         max_mem_kb=container_state['max_mem'],
-                                         mem_kb=container_state['mem'],
-                                         num_cpu=instance.flavor.vcpus,
-                                         cpu_time_ns=0)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to get container info'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
 
     def container_attach_interface(self, instance, image_meta, vif):
         LOG.debug('container_attach_interface called for instance',

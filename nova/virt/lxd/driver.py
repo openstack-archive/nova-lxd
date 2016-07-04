@@ -46,6 +46,7 @@ from nova.virt.lxd import utils as container_utils
 from nova.compute import arch
 from nova.compute import hv_type
 from nova.compute import vm_mode
+from nova.virt import hardware
 from oslo_utils import units
 from oslo_serialization import jsonutils
 from nova import utils
@@ -125,7 +126,20 @@ class LXDDriver(driver.ComputeDriver):
             raise exception.HostNotFound(msg)
 
     def get_info(self, instance):
-        return self.container_ops.get_info(instance)
+        LOG.debug('get_info called for instance', instance=instance)
+        try:
+            container_state = self.session.container_state(instance)
+            return hardware.InstanceInfo(state=container_state['state'],
+                                         max_mem_kb=container_state['max_mem'],
+                                         mem_kb=container_state['mem'],
+                                         num_cpu=instance.flavor.vcpus,
+                                         cpu_time_ns=0)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to get container info'
+                              ' for %(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def instance_exists(self, instance):
         return instance.name in self.list_instances()
