@@ -67,28 +67,6 @@ class LXDContainerOperations(object):
     def list_instances(self):
         return self.session.container_list()
 
-    def reboot(self, context, instance, network_info, reboot_type,
-               block_device_info=None, bad_volumes_callback=None):
-        """Reboot a instance on a LXD host
-
-        :param instance: nova.objects.instance.Instance
-        :param network_info:
-           :py:meth:`~nova.network.manager.NetworkManager.get_instance_nw_info`
-        :param reboot_type: Either a HARD or SOFT reboot
-        :param block_device_info: Info pertaining to attached volumes
-        :param bad_volumes_callback: Function to handle any bad volumes
-            encountered
-        """
-        LOG.debug('reboot called for instance', instance=instance)
-        try:
-            self.session.container_reboot(instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Container reboot failed for '
-                                  '%(instance)s: %(ex)s'),
-                              {'instance': instance.name,
-                               'ex': ex}, instance=instance)
-
     def plug_vifs(self, instance, network_info):
         """Setup the container network on the host
 
