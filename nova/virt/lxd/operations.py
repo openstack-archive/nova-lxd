@@ -55,41 +55,6 @@ class LXDContainerOperations(object):
         self.firewall_driver = firewall.load_driver(
             default='nova.virt.firewall.NoopFirewallDriver')
 
-    def plug_vifs(self, instance, network_info):
-        """Setup the container network on the host
-
-         :param instance: nova instance object
-         :param network_info: instance network configuration
-         """
-        LOG.debug('plug_vifs called for instance', instance=instance)
-        try:
-            for viface in network_info:
-                self.vif_driver.plug(instance, viface)
-            self.start_firewall(instance, network_info)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to configure container network'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def unplug_vifs(self, instance, network_info):
-        """Unconfigure the LXD container network
-
-           :param instance: nova intance object
-           :param network_info: instance network confiugration
-        """
-        try:
-            for viface in network_info:
-                self.vif_driver.unplug(instance, viface)
-            self.stop_firewall(instance, network_info)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to remove container network'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
     def power_off(self, instance, timeout=0, retry_interval=0):
         """Power off an instance
 
