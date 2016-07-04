@@ -48,30 +48,6 @@ class SessionContainerTest(test.NoDBTestCase):
 
         self.session = session.LXDAPISession()
 
-    @stubs.annotated_data(
-        ('empty', [], []),
-        ('valid', ['test'], ['test']),
-    )
-    def test_container_list(self, tag, side_effect, expected):
-        """
-        container_list returns a list of LXD containers
-        found on an LXD host.
-        """
-        self.ml.container_list.return_value = side_effect
-        self.assertEqual(expected,
-                         self.session.container_list())
-
-    def test_container_list_fail(self):
-        """
-        container_list returns an exception.NovaException,
-        if pylxd raises an APIError.
-        """
-        self.ml.container_list.side_effect = (
-            lxd_exceptions.APIError('Fake', 500))
-        self.assertRaises(
-            exception.NovaException,
-            self.session.container_list)
-
     def test_container_update(self):
         """
         container_update updates the LXD container configuration,
