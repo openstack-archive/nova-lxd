@@ -47,21 +47,6 @@ class LXDTestContainerOps(test.NoDBTestCase):
         vif_patcher.start()
         self.addCleanup(vif_patcher.stop)
 
-    def test_reboot_container(self):
-        """Test the reboot method. Ensure that the proper
-           calls are made when rebooting a continer.
-        """
-        instance = stubs._fake_instance()
-        context = mock.Mock()
-        with test.nested(
-            mock.patch.object(session.LXDAPISession, 'container_reboot'),
-
-        ) as (container_reboot):
-            self.assertEqual(None,
-                             self.operations.reboot(context, instance, {},
-                                                    None, None, None))
-            self.assertTrue(container_reboot)
-
     def test_power_off(self):
         """Test the power_off method. Ensure that the proper
            calls are made when the container is powered

@@ -298,9 +298,15 @@ class LXDDriver(driver.ComputeDriver):
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
-        self.container_ops.reboot(context, instance, network_info,
-                                  reboot_type, block_device_info,
-                                  bad_volumes_callback)
+        LOG.debug('reboot called for instance', instance=instance)
+        try:
+            self.session.container_reboot(instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container reboot failed for '
+                                  '%(instance)s: %(ex)s'),
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def get_console_output(self, context, instance):
         LOG.debug('get_console_output called for instance', instance=instance)

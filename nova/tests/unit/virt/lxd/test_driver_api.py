@@ -447,20 +447,16 @@ class LXDTestDriver(test.NoDBTestCase):
                          mo.call_args_list)
         ms.assert_called_once_with('/fake/lxd/root')
 
-    def test_container_reboot(self):
+    @mock.patch.object(session.LXDAPISession, 'container_reboot')
+    def test_container_reboot(self, mock_container_reboot):
+        """Verify reboot method calls are correct."""
         instance = stubs._fake_instance()
         context = mock.Mock()
         network_info = mock.Mock()
         reboot_type = 'SOFT'
-        with test.nested(
-                mock.patch.object(self.connection.container_ops,
-                                  'reboot')
-        ) as (
-                reboot
-        ):
-            self.connection.reboot(context, instance,
-                                   network_info, reboot_type)
-            self.assertTrue(reboot)
+        self.connection.reboot(context, instance,
+                               network_info, reboot_type)
+        mock_container_reboot.assert_called_once_with(instance)
 
     def test_container_power_off(self):
         instance = stubs._fake_instance()
