@@ -39,21 +39,6 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         self.config = config.LXDContainerConfig()
 
     @stubs.annotated_data(
-        ('test_name', 'name', 'instance-00000001'),
-        ('test_source', 'source', {'type': 'image',
-                                   'alias': 'fake_image'}),
-        ('test_devices', 'devices', {})
-    )
-    def test_create_container(self, tag, key, expected):
-        """Tests the create_container methond on LXDContainerConfig.
-           Inspect that the correct dictionary is returned for a given
-           instance.
-        """
-        instance = stubs._fake_instance()
-        container_config = self.config.create_container(instance)
-        self.assertEqual(container_config[key], expected)
-
-    @stubs.annotated_data(
         ('test_memmoy', 'limits.memory', '512MB')
     )
     def test_create_config(self, tag, key, expected):
@@ -71,7 +56,8 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         network_info = fake_network.fake_get_instance_nw_info(self)
         mock_config_drive.return_value = False
 
-        container_profile = self.config.create_profile(instance, network_info)
+        container_profile = self.config.create_container_config(
+            instance, network_info)
         self.assertEqual(container_profile['name'], instance.name)
         self.assertEqual(container_profile['config'],
                          {'boot.autostart': 'True',
@@ -97,7 +83,8 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         instance = stubs._fake_instance()
         mock_config_drive.return_value = False
 
-        container_profile = self.config.create_profile(instance, None)
+        container_profile = self.config.create_container_config(
+            instance, None)
         self.assertEqual(len(container_profile['devices']), 1)
         self.assertEqual(container_profile['devices']['root'],
                          {'path': '/', 'size': '10GB', 'type': 'disk'})
@@ -109,7 +96,8 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         """Verify the LXD profile with both network and configdrive enabled."""
         instance = stubs._fake_instance()
         network_info = fake_network.fake_get_instance_nw_info(self)
-        container_profile = self.config.create_profile(instance, network_info)
+        container_profile = self.config.create_container_config(
+            instance, network_info)
         mock_configdrive.return_value = True
 
         self.assertEqual(len(container_profile['devices']), 3)
@@ -134,7 +122,8 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     def test_create_contianer_profile_configdrive_network(self, mock_config):
         """Verify the LXD profile with no network and configdrive enabled."""
         instance = stubs._fake_instance()
-        container_profile = self.config.create_profile(instance, None)
+        container_profile = self.config.create_container_config(
+            instance, None)
         mock_config.return_value = True
 
         self.assertEqual(len(container_profile['devices']), 2)

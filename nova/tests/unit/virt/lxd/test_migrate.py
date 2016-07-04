@@ -98,7 +98,7 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
 
         self.migrate._copy_container_profile(
             mock_instance, fake_network_info)
-        self.migrate.config.create_profile.assert_called_once_with(
+        self.migrate.config.create_container_config.assert_called_once_with(
             mock_instance, fake_network_info)
         self.migrate.session.profile_create.assert_called_once_with(
             mock.call.create_proile, mock_instance)

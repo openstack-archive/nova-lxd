@@ -43,33 +43,7 @@ class LXDContainerConfig(object):
         self.session = session.LXDAPISession()
         self.vif_driver = vif.LXDGenericDriver()
 
-    def create_container(self, instance):
-        """Create a LXD container dictionary so that we can
-           use it to initialize a container
-
-           :param instance: nova instance object
-        """
-        LOG.debug('create_container called for instance', instance=instance)
-
-        instance_name = instance.name
-        try:
-
-            # Fetch the container configuration from the current nova
-            # instance object
-            return {
-                'name': instance_name,
-                'profiles': [str(instance.name)],
-                'source': self.get_container_source(instance),
-                'devices': {}
-            }
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error('Failed to get container configuration'
-                          ' %(instance)s: %(ex)s',
-                          {'instance': instance_name, 'ex': ex},
-                          instance=instance)
-
-    def create_profile(self, instance, network_info):
+    def create_container_config(self, instance, network_info):
         """Create a LXD container profile configuration
 
         :param instance: nova instance object

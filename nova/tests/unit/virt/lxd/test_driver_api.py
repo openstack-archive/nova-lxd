@@ -191,7 +191,8 @@ class LXDTestDriver(test.NoDBTestCase):
             mock.patch.object(
                 container_image.LXDContainerImage, 'setup_image'),
             mock.patch.object(self.connection, 'plug_vifs'),
-            mock.patch.object(config.LXDContainerConfig, 'create_profile'),
+            mock.patch.object(config.LXDContainerConfig,
+                              'create_container_config'),
             mock.patch.object(session.LXDAPISession, 'profile_create'),
             mock.patch.object(session.LXDAPISession, 'container_init'),
             mock.patch.object(session.LXDAPISession, 'container_start')
@@ -261,7 +262,8 @@ class LXDTestDriver(test.NoDBTestCase):
                 mock.patch.object(
                     container_image.LXDContainerImage, 'setup_image'),
                 mock.patch.object(self.connection, 'plug_vifs'),
-                mock.patch.object(config.LXDContainerConfig, 'create_profile'),
+                mock.patch.object(config.LXDContainerConfig,
+                                    'create_container_config'),
                 mock.patch.object(session.LXDAPISession, 'profile_create'),
                 mock.patch.object(self.connection, '_add_configdrive'),
                 mock.patch.object(session.LXDAPISession, 'container_init'),
