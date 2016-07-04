@@ -37,7 +37,6 @@ from nova.virt import hardware
 from nova.virt.lxd import config
 from nova.virt.lxd import driver
 from nova.virt.lxd import image as container_image
-from nova.virt.lxd import operations as container_ops
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
 import stubs
@@ -55,7 +54,6 @@ class LXDTestConfig(test.NoDBTestCase):
 
 
 @ddt.ddt
-@mock.patch.object(container_ops, 'CONF', stubs.MockConf())
 @mock.patch.object(container_dir, 'CONF', stubs.MockConf())
 @mock.patch.object(driver, 'CONF', stubs.MockConf())
 class LXDTestDriver(test.NoDBTestCase):

@@ -38,7 +38,7 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
         self.context = 'fake_context'
         self.migrate.session = mock.MagicMock()
         self.migrate.config = mock.MagicMock()
-        self.migrate.operations = mock.MagicMock()
+        self.migrate.unplug_vifs = mock.MagicMock()
 
     @mock.patch.object(session.LXDAPISession, 'container_defined')
     def test_migrate_disk_and_power_off_different_host(
@@ -73,7 +73,7 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
         self.migrate.session.container_destroy.assert_called_once_with(
             mock_instance.name, mock_instance
         )
-        self.migrate.operations.unplug_vifs.assert_called_once_with(
+        self.migrate.unplug_vifs.assert_called_once_with(
             mock_instance, fake_network_info
         )
 

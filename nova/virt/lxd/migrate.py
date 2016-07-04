@@ -26,7 +26,6 @@ from oslo_utils import excutils
 from oslo_utils import fileutils
 
 from nova.virt.lxd import config
-from nova.virt.lxd import operations
 from nova.virt.lxd import utils as container_dir
 from nova.virt.lxd import session
 
@@ -45,8 +44,6 @@ class LXDContainerMigrate(object):
         self.config = config.LXDContainerConfig()
         self.container_dir = container_dir.LXDContainerDirectories()
         self.session = session.LXDAPISession()
-        self.operations = \
-            operations.LXDContainerOperations()
 
     #
     # migrate/resize
@@ -98,7 +95,7 @@ class LXDContainerMigrate(object):
             self.session.profile_delete(instance)
             self.session.container_destroy(instance.name,
                                            instance)
-            self.operations.unplug_vifs(instance, network_info)
+            self.unplug_vifs(instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.exception(_LE('Confirm migration failed for %(instance)s: '
@@ -134,7 +131,7 @@ class LXDContainerMigrate(object):
             self._container_init(migration['source_compute'], instance)
 
             # Step 3 - Start the network and contianer
-            self.operations.plug_vifs(instance, network_info)
+            self.plug_vifs(instance, network_info)
             self.session.container_start(instance.name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -266,3 +263,46 @@ class LXDContainerMigrate(object):
         container_config['source'] = \
             self.config.get_container_migrate(data, host, instance)
         self.session.container_init(container_config, instance, host)
+
+    def plug_vifs(self, instance, network_info):
+        """Setup the container network on the host
+
+         :param instance: nova instance object
+         :param network_info: instance network configuration
+         """
+        LOG.debug('plug_vifs called for instance', instance=instance)
+        try:
+            for viface in network_info:
+                self.vif_driver.plug(instance, viface)
+            self.start_firewall(instance, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to configure container network'
+                              ' for %(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
+
+    def unplug_vifs(self, instance, network_info):
+        """Unconfigure the LXD container network
+
+           :param instance: nova intance object
+           :param network_info: instance network confiugration
+        """
+        try:
+            for viface in network_info:
+                self.vif_driver.unplug(instance, viface)
+            self.stop_firewall(instance, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to remove container network'
+                              ' for %(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
+
+    def start_firewall(self, instance, network_info):
+        self.firewall_driver.setup_basic_filtering(instance, network_info)
+        self.firewall_driver.prepare_instance_filter(instance, network_info)
+        self.firewall_driver.apply_instance_filter(instance, network_info)
+
+    def stop_firewall(self, instance, network_info):
+        self.firewall_driver.unfilter_instance(instance, network_info)
