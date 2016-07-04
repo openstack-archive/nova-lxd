@@ -334,18 +334,3 @@ class LXDContainerOperations(object):
 
     def stop_firewall(self, instance, network_info):
         self.firewall_driver.unfilter_instance(instance, network_info)
-
-    def _uid_map(self, subuid_f):
-        LOG.debug('Checking for subuid')
-
-        line = None
-        with open(subuid_f, 'r') as fp:
-            name = pwd.getpwuid(os.getuid()).pw_name
-            for cline in fp:
-                if cline.startswith(name + ":"):
-                    line = cline
-                    break
-            if line is None:
-                raise ValueError("%s not found in %s" % (name, subuid_f))
-            toks = line.split(":")
-            return toks[1]
