@@ -23,7 +23,6 @@ import shutil
 
 from oslo_log import log as logging
 from oslo_utils import excutils
-from oslo_utils import units
 
 from nova import exception
 from nova import i18n
@@ -45,8 +44,6 @@ CONF = nova.conf.CONF
 CONF.import_opt('vif_plugging_timeout', 'nova.virt.driver')
 CONF.import_opt('vif_plugging_is_fatal', 'nova.virt.driver')
 LOG = logging.getLogger(__name__)
-
-MAX_CONSOLE_BYTES = 100 * units.Ki
 
 
 class LXDContainerOperations(object):
@@ -346,35 +343,6 @@ class LXDContainerOperations(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to get container info'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def get_console_output(self, context, instance):
-        """Get console output for an instance
-        :param context: security context
-        :param instance: nova.objects.instance.Instance
-        """
-        LOG.debug('get_console_output called for instance', instance=instance)
-        try:
-            console_log = self.container_dir.get_console_path(instance.name)
-            if not os.path.exists(console_log):
-                return ""
-            uid = pwd.getpwuid(os.getuid()).pw_uid
-            utils.execute('chown', '%s:%s' % (uid, uid),
-                          console_log, run_as_root=True)
-            utils.execute('chmod', '755',
-                          os.path.join(
-                              self.container_dir.get_container_dir(
-                                  instance.name), instance.name),
-                          run_as_root=True)
-            with open(console_log, 'rb') as fp:
-                log_data, remaning = utils.last_bytes(fp,
-                                                      MAX_CONSOLE_BYTES)
-                return log_data
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to get container output'
                               ' for %(instance)s: %(ex)s'),
                           {'instance': instance.name, 'ex': ex},
                           instance=instance)
