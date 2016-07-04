@@ -38,7 +38,6 @@ from nova.compute import utils as compute_utils
 from nova.virt.lxd import config
 from nova.virt.lxd import image as container_image
 from nova.virt.lxd import migrate
-from nova.virt.lxd import operations as container_ops
 from nova.virt.lxd import vif as lxd_vif
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_utils
@@ -101,7 +100,6 @@ class LXDDriver(driver.ComputeDriver):
         self.vif_driver = lxd_vif.LXDGenericDriver()
 
         self.config = config.LXDContainerConfig()
-        self.container_ops = container_ops.LXDContainerOperations()
         self.container_migrate = migrate.LXDContainerMigrate()
         self.container_dir = container_utils.LXDContainerDirectories()
         self.image = container_image.LXDContainerImage()
@@ -488,34 +486,125 @@ class LXDDriver(driver.ComputeDriver):
             power_on)
 
     def pause(self, instance):
-        self.container_ops.pause(instance)
+        LOG.debug('pause called for instance', instance=instance)
+        try:
+            self.session.container_pause(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to pause container'
+                              ' for %(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def unpause(self, instance):
-        self.container_ops.unpause(instance)
+        LOG.debug('unpause called for instance', instance=instance)
+        try:
+            self.session.container_unpause(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to unpause container'
+                              ' for %(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def suspend(self, context, instance):
-        self.container_ops.suspend(context, instance)
+        LOG.debug('suspend called for instance', instance=instance)
+        try:
+            self.session.container_pause(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container suspend failed for '
+                                  '%(instance)s: %(ex)s'),
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def resume(self, context, instance, network_info, block_device_info=None):
-        self.container_ops.resume(context, instance, network_info,
-                                  block_device_info)
+        LOG.debug('resume called for instance', instance=instance)
+        try:
+            self.session.container_unpause(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to resume container'
+                              ' for %(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
-        self.container_ops.rescue(context, instance, network_info,
-                                  image_meta, rescue_password)
+        LOG.debug('rescue called for instance', instance=instance)
+        try:
+            # Step 1 - Stop the old container
+            self.session.container_stop(instance.name, instance)
+
+            # Step 2 - Rename the broken contianer to be rescued
+            self.session.container_move(instance.name,
+                                        {'name': '%s-backup' % instance.name},
+                                        instance)
+
+            # Step 3 - Re use the old instance object and confiugre
+            #          the disk mount point and create a new container.
+            container_config = self.config.create_container(instance)
+            rescue_dir = self.container_dir.get_container_rescue(
+                instance.name + '-backup')
+            config = self.config.configure_disk_path(rescue_dir,
+                                                     'mnt', 'rescue', instance)
+            container_config['devices'].update(config)
+            self.session.container_init(container_config, instance)
+
+            # Step 4 - Start the rescue instance
+            self.session.container_start(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container rescue failed for '
+                                  '%(instance)s: %(ex)s'),
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def unrescue(self, instance, network_info):
-        return self.container_ops.unrescue(instance, network_info)
+        LOG.debug('unrescue called for instance', instance=instance)
+        try:
+            # Step 1 - Destory the rescue instance.
+            self.session.container_destroy(instance.name,
+                                           instance)
+
+            # Step 2 - Rename the backup container that
+            #          the user was working on.
+            self.session.container_move(instance.name + '-backup',
+                                        {'name': instance.name},
+                                        instance)
+
+            # Step 3 - Start the old contianer
+            self.session.container_start(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container unrescue failed for '
+                                  '%(instance)s: %(ex)s'),
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
-        self.container_ops.power_off(instance, timeout=0,
-                                     retry_interval=0)
+        LOG.debug('power_off called for instance', instance=instance)
+        try:
+            self.session.container_stop(instance.name,
+                                        instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to power_off container'
+                              ' for %(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
-        self.container_ops.power_on(context, instance, network_info,
-                                    block_device_info)
+        LOG.debug('power_on called for instance', instance=instance)
+        try:
+            self.session.container_start(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container power off for '
+                                  '%(instance)s: %(ex)s'),
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def soft_delete(self, instance):
         raise NotImplementedError()
