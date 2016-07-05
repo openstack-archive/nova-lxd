@@ -34,7 +34,7 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
     def setUp(self):
         super(LXDTestContainerMigrate, self).setUp()
 
-        self.migrate = migrate.LXDContainerMigrate()
+        self.migrate = migrate.LXDContainerMigrate(mock.MagicMock())
         self.context = 'fake_context'
         self.migrate.session = mock.MagicMock()
         self.migrate.config = mock.MagicMock()
@@ -83,7 +83,8 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
     def setUp(self):
         super(LXDTestLiveMigrate, self).setUp()
 
-        self.migrate = migrate.LXDContainerMigrate()
+        self.driver = mock.MagicMock()
+        self.migrate = migrate.LXDContainerMigrate(self.driver)
         self.context = 'fake_context'
         self.migrate.session = mock.MagicMock()
         self.migrate.config = mock.MagicMock()
@@ -98,7 +99,7 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
 
         self.migrate._copy_container_profile(
             mock_instance, fake_network_info)
-        self.migrate.config.create_profile.assert_called_once_with(
+        self.driver.create_profile.assert_called_once_with(
             mock_instance, fake_network_info)
         self.migrate.session.profile_create.assert_called_once_with(
             mock.call.create_proile, mock_instance)

@@ -25,7 +25,6 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import fileutils
 
-from nova.virt.lxd import config
 from nova.virt.lxd import utils as container_dir
 from nova.virt.lxd import session
 
@@ -40,8 +39,9 @@ LOG = logging.getLogger(__name__)
 
 class LXDContainerMigrate(object):
 
-    def __init__(self):
-        self.config = config.LXDContainerConfig()
+    def __init__(self, driver):
+        self.driver = driver
+
         self.session = session.LXDAPISession()
 
     #
@@ -67,7 +67,7 @@ class LXDContainerMigrate(object):
 
         try:
             if same_host:
-                container_profile = self.config.create_profile(instance,
+                container_profile = self.driver.create_profile(instance,
                                                                network_info)
                 self.session.profile_update(container_profile, instance)
             else:
@@ -247,7 +247,7 @@ class LXDContainerMigrate(object):
     def _copy_container_profile(self, instance, network_info):
         LOG.debug('_copy_cotontainer_profile called for instnace',
                   instance=instance)
-        container_profile = self.config.create_profile(instance,
+        container_profile = self.driver.create_profile(instance,
                                                        network_info)
         self.session.profile_create(container_profile, instance)
 
@@ -257,9 +257,9 @@ class LXDContainerMigrate(object):
         (state, data) = (self.session.container_migrate(instance.name,
                                                         CONF.my_ip,
                                                         instance))
-        container_config = self.config.create_container(instance)
+        container_config = self.driver.create_container(instance)
         container_config['source'] = \
-            self.config.get_container_migrate(data, host, instance)
+            self.driver.get_container_migrate(data, host, instance)
         self.session.container_init(container_config, instance, host)
 
     def plug_vifs(self, instance, network_info):

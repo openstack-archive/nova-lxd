@@ -34,7 +34,6 @@ from nova import test
 from nova.virt import fake
 from nova.virt import hardware
 
-from nova.virt.lxd import config
 from nova.virt.lxd import driver
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
@@ -187,7 +186,7 @@ class LXDTestDriver(test.NoDBTestCase):
             mock.patch.object(
                 self.connection, 'setup_image'),
             mock.patch.object(self.connection, 'plug_vifs'),
-            mock.patch.object(config.LXDContainerConfig, 'create_profile'),
+            mock.patch.object(self.connection, 'create_profile'),
             mock.patch.object(session.LXDAPISession, 'profile_create'),
             mock.patch.object(session.LXDAPISession, 'container_init'),
             mock.patch.object(session.LXDAPISession, 'container_start')
@@ -257,7 +256,7 @@ class LXDTestDriver(test.NoDBTestCase):
                 mock.patch.object(
                     self.connection, 'setup_image'),
                 mock.patch.object(self.connection, 'plug_vifs'),
-                mock.patch.object(config.LXDContainerConfig, 'create_profile'),
+                mock.patch.object(self.connection, 'create_profile'),
                 mock.patch.object(session.LXDAPISession, 'profile_create'),
                 mock.patch.object(self.connection, '_add_configdrive'),
                 mock.patch.object(session.LXDAPISession, 'container_init'),
