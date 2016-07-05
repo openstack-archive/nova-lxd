@@ -18,51 +18,37 @@ import os
 import nova.conf
 
 CONF = nova.conf.CONF
+BASE_DIR = os.path.join(
+    CONF.instances_path, CONF.image_cache_subdirectory_name)
 
 
-class LXDContainerDirectories(object):
+def get_instance_dir(instance):
+    return os.path.join(CONF.instances_path, instance)
 
-    def __init__(self):
-        self.base_dir = os.path.join(CONF.instances_path,
-                                     CONF.image_cache_subdirectory_name)
 
-    def get_base_dir(self):
-        return self.base_dir
+def get_container_rootfs_image(image_meta):
+    return os.path.join(BASE_DIR, '%s-rootfs.tar.gz' % image_meta.id)
 
-    def get_instance_dir(self, instance):
-        return os.path.join(CONF.instances_path,
-                            instance)
 
-    def get_container_rootfs_image(self, image_meta):
-        return os.path.join(self.base_dir,
-                            '%s-rootfs.tar.gz' % image_meta.id)
+def get_container_manifest_image(image_meta):
+    return os.path.join(BASE_DIR, '%s-manifest.tar' % image_meta.id)
 
-    def get_container_manifest_image(self, image_meta):
-        return os.path.join(self.base_dir,
-                            '%s-manifest.tar' % image_meta.id)
 
-    def get_container_configdrive(self, instance):
-        return os.path.join(CONF.instances_path,
-                            instance,
-                            'configdrive')
+def get_container_configdrive(instance):
+    return os.path.join(CONF.instances_path, instance, 'configdrive')
 
-    def get_console_path(self, instance):
-        return os.path.join('/var/log/lxd/',
-                            instance,
-                            'console.log')
 
-    def get_container_dir(self, instance):
-        return os.path.join(CONF.lxd.root_dir,
-                            'containers')
+def get_console_path(instance):
+    return os.path.join('/var/log/lxd/', instance, 'console.log')
 
-    def get_container_rootfs(self, instance):
-        return os.path.join(CONF.lxd.root_dir,
-                            'containers',
-                            instance,
-                            'rootfs')
 
-    def get_container_rescue(self, instance):
-        return os.path.join(CONF.lxd.root_dir,
-                            'containers',
-                            instance,
-                            'rootfs')
+def get_container_dir(instance):
+    return os.path.join(CONF.lxd.root_dir, 'containers')
+
+
+def get_container_rootfs(instance):
+    return os.path.join(CONF.lxd.root_dir, 'containers', instance, 'rootfs')
+
+
+def get_container_rescue(instance):
+    return os.path.join(CONF.lxd.root_dir, 'containers', instance, 'rootfs')

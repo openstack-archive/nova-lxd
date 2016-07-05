@@ -50,7 +50,6 @@ class LXDContainerImage(object):
 
     def __init__(self):
         self.client = session.LXDAPISession()
-        self.container_dir = container_dir.LXDContainerDirectories()
         self.lock_path = str(os.path.join(CONF.instances_path, 'locks'))
 
         self.container_image = None
@@ -66,9 +65,9 @@ class LXDContainerImage(object):
         LOG.debug('setup_image called for instance', instance=instance)
 
         self.container_image = \
-            self.container_dir.get_container_rootfs_image(image_meta)
+            container_dir.get_container_rootfs_image(image_meta)
         self.container_manifest = \
-            self.container_dir.get_container_manifest_image(image_meta)
+            container_dir.get_container_manifest_image(image_meta)
 
         with lockutils.lock(self.lock_path,
                             lock_file_prefix=('lxd-image-%s' %
@@ -78,7 +77,7 @@ class LXDContainerImage(object):
             if self.client.image_defined(instance):
                 return
 
-            base_dir = self.container_dir.get_base_dir()
+            base_dir = container_dir.get_base_dir()
             if not os.path.exists(base_dir):
                 fileutils.ensure_tree(base_dir)
 
@@ -174,10 +173,9 @@ class LXDContainerImage(object):
                 'creation_date': int(os.stat(self.container_image).st_ctime)
             }
 
-            metadata_yaml = (json.dumps(metadata, sort_keys=True,
-                                        indent=4, separators=(',', ': '),
-                                        ensure_ascii=False).encode('utf-8')
-                             + b"\n")
+            metadata_yaml = json.dumps(
+                metadata, sort_keys=True, indent=4, separators=(',', ': '),
+                ensure_ascii=False).encode('utf-8') + b"\n"
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to generate manifest for %(image)s: '

@@ -39,7 +39,6 @@ class LXDContainerConfig(object):
     """LXD configuration methods."""
 
     def __init__(self):
-        self.container_dir = container_dir.LXDContainerDirectories()
         self.session = session.LXDAPISession()
         self.vif_driver = vif.LXDGenericDriver()
 
@@ -96,7 +95,7 @@ class LXDContainerConfig(object):
             # the container
             if configdrive.required_by(instance):
                 configdrive_dir = \
-                    self.container_dir.get_container_configdrive(
+                    container_dir.get_container_configdrive(
                         instance.name)
                 config_drive = self.configure_disk_path(
                     configdrive_dir, 'var/lib/cloud/data',
@@ -136,7 +135,7 @@ class LXDContainerConfig(object):
 
             # Configure the console for the instance
             config['raw.lxc'] = 'lxc.console.logfile=%s\n' \
-                % self.container_dir.get_console_path(instance_name)
+                % container_dir.get_console_path(instance_name)
 
             return config
         except Exception as ex:

@@ -101,7 +101,6 @@ class LXDDriver(driver.ComputeDriver):
 
         self.config = config.LXDContainerConfig()
         self.container_migrate = migrate.LXDContainerMigrate()
-        self.container_dir = container_utils.LXDContainerDirectories()
         self.image = container_image.LXDContainerImage()
 
         # The pylxd client, initialized with init_host
@@ -195,7 +194,7 @@ class LXDDriver(driver.ComputeDriver):
 
         try:
             self.instance_dir = \
-                self.container_dir.get_instance_dir(instance_name)
+                container_utils.get_instance_dir(instance_name)
             if not os.path.exists(self.instance_dir):
                 fileutils.ensure_tree(self.instance_dir)
 
@@ -258,7 +257,7 @@ class LXDDriver(driver.ComputeDriver):
 
         # Copy the metadata info from the ISO into the container
         configdrive_dir = \
-            self.container_dir.get_container_configdrive(instance.name)
+            container_utils.get_container_configdrive(instance.name)
         with utils.tempdir() as tmpdir:
             mounted = False
             try:
@@ -311,13 +310,13 @@ class LXDDriver(driver.ComputeDriver):
 
             name = pwd.getpwuid(os.getuid()).pw_name
             configdrive_dir = \
-                self.container_dir.get_container_configdrive(instance.name)
+                container_utils.get_container_configdrive(instance.name)
             if os.path.exists(configdrive_dir):
                 utils.execute('chown', '-R', '%s:%s' % (name, name),
                               configdrive_dir, run_as_root=True)
                 shutil.rmtree(configdrive_dir)
 
-            container_dir = self.container_dir.get_instance_dir(instance.name)
+            container_dir = container_utils.get_instance_dir(instance.name)
             if os.path.exists(container_dir):
                 shutil.rmtree(container_dir)
         except Exception as ex:
@@ -342,7 +341,7 @@ class LXDDriver(driver.ComputeDriver):
     def get_console_output(self, context, instance):
         LOG.debug('get_console_output called for instance', instance=instance)
         try:
-            console_log = self.container_dir.get_console_path(instance.name)
+            console_log = container_utils.get_console_path(instance.name)
             if not os.path.exists(console_log):
                 return ""
             uid = pwd.getpwuid(os.getuid()).pw_uid
@@ -350,7 +349,7 @@ class LXDDriver(driver.ComputeDriver):
                           console_log, run_as_root=True)
             utils.execute('chmod', '755',
                           os.path.join(
-                              self.container_dir.get_container_dir(
+                              container_utils.get_container_dir(
                                   instance.name), instance.name),
                           run_as_root=True)
             with open(console_log, 'rb') as fp:
@@ -544,7 +543,7 @@ class LXDDriver(driver.ComputeDriver):
             # Step 3 - Re use the old instance object and confiugre
             #          the disk mount point and create a new container.
             container_config = self.config.create_container(instance)
-            rescue_dir = self.container_dir.get_container_rescue(
+            rescue_dir = container_utils.get_container_rescue(
                 instance.name + '-backup')
             config = self.config.configure_disk_path(rescue_dir,
                                                      'mnt', 'rescue', instance)

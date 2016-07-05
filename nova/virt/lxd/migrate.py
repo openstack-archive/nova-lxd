@@ -42,7 +42,6 @@ class LXDContainerMigrate(object):
 
     def __init__(self):
         self.config = config.LXDContainerConfig()
-        self.container_dir = container_dir.LXDContainerDirectories()
         self.session = session.LXDAPISession()
 
     #
@@ -112,8 +111,7 @@ class LXDContainerMigrate(object):
 
         try:
             # Ensure that the instance directory exists
-            instance_dir = \
-                self.container_dir.get_instance_dir(instance.name)
+            instance_dir = container_dir.get_instance_dir(instance.name)
             if not os.path.exists(instance_dir):
                 fileutils.ensure_tree(instance_dir)
 
