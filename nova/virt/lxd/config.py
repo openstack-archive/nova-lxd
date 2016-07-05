@@ -269,7 +269,10 @@ class LXDContainerConfig(object):
                      'hwaddr': str(cfg['mac_address']),
                      'parent': str(cfg['bridge']),
                      'type': 'nic'}
-
+                host_device = self.vif_driver.get_vif_devname(vifaddr)
+                if host_device:
+                    network_devices[str(cfg['bridge'])]['host_name'] = \
+                        host_device
                 # Set network device quotas
                 network_devices[str(cfg['bridge'])].update(
                     self.create_network_quota_config(instance)
