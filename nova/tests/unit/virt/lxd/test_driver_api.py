@@ -85,33 +85,6 @@ class LXDTestDriver(test.NoDBTestCase):
         self.assertTrue(
             self.connection.capabilities['supports_attach_interface'])
 
-    @mock.patch('nova.virt.lxd.driver.pylxd.Client')
-    def test_init_host(self, Client):
-        self.assertEqual(
-            True,
-            self.connection.init_host(None)
-        )
-
-    @mock.patch('nova.virt.lxd.driver.pylxd.Client')
-    def test_init_host_new_profile(self, Client):
-        self.ml.profile_list.return_value = []
-        self.assertEqual(
-            True,
-            self.connection.init_host(None)
-        )
-
-    @mock.patch('nova.virt.lxd.driver.pylxd.Client')
-    def test_init_host_fail(self, Client):
-        def side_effect():
-            raise lxdcore_exceptions.ClientConnectionFailed()
-        Client.side_effect = side_effect
-
-        self.assertRaises(
-            exception.HostNotFound,
-            self.connection.init_host,
-            None
-        )
-
     @stubs.annotated_data(
         ('running', {'state': 200, 'mem': 0, 'max_mem': 0},
          power_state.RUNNING),
