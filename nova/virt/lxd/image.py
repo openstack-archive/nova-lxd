@@ -77,7 +77,7 @@ class LXDContainerImage(object):
             if self.client.image_defined(instance):
                 return
 
-            base_dir = container_dir.get_base_dir()
+            base_dir = container_dir.BASE_DIR
             if not os.path.exists(base_dir):
                 fileutils.ensure_tree(base_dir)
 
