@@ -229,7 +229,7 @@ class LXDTestDriver(test.NoDBTestCase):
                 context, instance, image_meta)
             mock_plug_vif.assert_called_once_with(instance, network_info)
             mock_container_profile.assert_called_once_with(
-                instance, network_info)
+                instance, network_info, block_device_info)
             mock_profile_create.assert_called_once_with({}, instance)
             mock_container_init.assert_called_once_with(container_config,
                                                         instance)
@@ -301,7 +301,7 @@ class LXDTestDriver(test.NoDBTestCase):
                 context, instance, image_meta)
             mock_plug_vif.assert_called_once_with(instance, network_info)
             mock_container_profile.assert_called_once_with(
-                instance, network_info)
+                instance, network_info, block_device_info)
             mock_profile_create.assert_called_once_with({}, instance)
             mock_configdrive.assert_called_once_with(instance)
             mock_add_configdrive.assert_called_once_with(

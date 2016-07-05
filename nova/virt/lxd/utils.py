@@ -34,6 +34,10 @@ def get_container_manifest_image(image_meta):
     return os.path.join(BASE_DIR, '%s-manifest.tar' % image_meta.id)
 
 
+def get_container_storage(ephemeral, instance):
+    return os.path.join(CONF.instances_path, instance, 'storage', ephemeral)
+
+
 def get_container_configdrive(instance):
     return os.path.join(CONF.instances_path, instance, 'configdrive')
 

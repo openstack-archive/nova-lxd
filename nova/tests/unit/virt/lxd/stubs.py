@@ -38,7 +38,7 @@ class MockConf(mock.Mock):
         lxd_default = {
             'root_dir': '/fake/lxd/root',
             'timeout': 20,
-            'retry_interval': 2
+            'retry_interval': 2,
         }
         lxd_default.update(lxd_kwargs)
         self.lxd = mock.Mock(lxd_args, **lxd_default)
