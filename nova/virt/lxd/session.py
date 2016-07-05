@@ -28,14 +28,30 @@ from oslo_utils import excutils
 from pylxd.deprecated import api
 from pylxd.deprecated import exceptions as lxd_exceptions
 
-from nova.virt.lxd import constants
-
 _ = i18n._
 _LE = i18n._LE
 _LI = i18n._LI
 
 CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
+
+LXD_POWER_STATES = {
+    100: power_state.RUNNING,
+    101: power_state.RUNNING,
+    102: power_state.SHUTDOWN,
+    103: power_state.RUNNING,
+    104: power_state.SHUTDOWN,
+    105: power_state.NOSTATE,
+    106: power_state.NOSTATE,
+    107: power_state.SHUTDOWN,
+    108: power_state.CRASHED,
+    109: power_state.SUSPENDED,
+    110: power_state.SUSPENDED,
+    111: power_state.SUSPENDED,
+    200: power_state.RUNNING,
+    400: power_state.CRASHED,
+    401: power_state.NOSTATE
+}
 
 
 class LXDAPISession(object):
@@ -155,7 +171,7 @@ class LXDAPISession(object):
             client = self.get_session()
 
             (state, data) = client.container_state(instance.name)
-            state = constants.LXD_POWER_STATES[data['metadata']['status_code']]
+            state = LXD_POWER_STATES[data['metadata']['status_code']]
 
             container_state = self.container_info(instance)
             mem = int(container_state['memory']['usage']) >> 10
