@@ -68,7 +68,7 @@ class LXDContainerConfig(object):
                           {'instance': instance_name, 'ex': ex},
                           instance=instance)
 
-    def create_profile(self, instance, network_info):
+    def create_profile(self, instance, network_info, block_device_info):
         """Create a LXD container profile configuration
 
         :param instance: nova instance object
@@ -86,10 +86,23 @@ class LXDContainerConfig(object):
             # Restrict the size of the "/" disk
             config['devices'] = self.configure_container_root(instance)
 
-            if network_info:
-                config['devices'].update(self.create_network(instance_name,
-                                                             instance,
-                                                             network_info))
+            if instance.get('ephemeral_gb', 0) != 0:
+                ephemerals = block_device_info.get('ephemerals', [])
+
+                if ephemerals == []:
+                    ephemeral_src = container_dir.get_container_storage(
+                        ephemerals['virtual_name'], instance.name)
+                    config['devices'].update(
+                        self.configure_disk_path(
+                            ephemeral_src, '/mnt', ephemerals['virtual_name'],
+                            instance))
+                else:
+                    for idx, ephemerals in enumerate(ephemerals):
+                        ephemeral_src = container_dir.get_container_storage(
+                            ephemerals['virtual_name'], instance.name)
+                        config['devices'].update(self.configure_disk_path(
+                            ephemeral_src, '/mnt', ephemerals['virtual_name'],
+                            instance))
 
             # if a configdrive is required, setup the mount point for
             # the container
@@ -101,6 +114,11 @@ class LXDContainerConfig(object):
                     configdrive_dir, 'var/lib/cloud/data',
                     'configdrive', instance)
                 config['devices'].update(config_drive)
+
+            if network_info:
+                config['devices'].update(self.create_network(instance_name,
+                                                             instance,
+                                                             network_info))
 
             return config
         except Exception as ex:
@@ -173,13 +191,9 @@ class LXDContainerConfig(object):
         try:
             config = {}
             lxd_config = self.session.get_host_config(instance)
+            config.setdefault('root', {'type': 'disk', 'path': '/'})
             if str(lxd_config['storage']) in ['btrfs', 'zfs']:
-                config['root'] = {'path': '/',
-                                  'type': 'disk',
-                                  'size': '%sGB' % str(instance.root_gb)}
-            else:
-                config['root'] = {'path': '/',
-                                  'type': 'disk'}
+                config['root'].update({'size': '%sGB' % str(instance.root_gb)})
 
             # Set disk quotas
             config['root'].update(self.create_disk_quota_config(instance))

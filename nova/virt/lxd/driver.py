@@ -206,7 +206,8 @@ class LXDDriver(driver.ComputeDriver):
 
             # Create the container profile
             container_profile = self.config.create_profile(instance,
-                                                           network_info)
+                                                           network_info,
+                                                           block_device_info)
             self.session.profile_create(container_profile, instance)
 
             # Create the container
@@ -222,6 +223,8 @@ class LXDDriver(driver.ComputeDriver):
             if configdrive.required_by(instance):
                 self._add_configdrive(instance, injected_files)
 
+            self._add_ephemeral(block_device_info, instance)
+
             # Start the container
             self.session.container_start(instance_name, instance)
 
@@ -231,6 +234,27 @@ class LXDDriver(driver.ComputeDriver):
                               '%(instance)s: %(ex)s'),
                           {'instance': instance.name, 'ex': ex},
                           instance=instance)
+
+    def _add_ephemeral(self, block_device_info, instance):
+        if instance.get('ephemeral_gb', 0) != 0:
+            ephemerals = block_device_info.get('ephemerals', [])
+
+            root_dir = container_utils.get_container_rootfs(instance.name)
+            if ephemerals == []:
+                ephemeral_src = container_utils.get_container_storage(
+                    ephemerals['virtual_name'], instance.name)
+                fileutils.ensure_tree(ephemeral_src)
+                utils.execute('chown',
+                              os.stat(root_dir).st_uid,
+                              ephemeral_src, run_as_root=True)
+            else:
+                for id, ephx in enumerate(ephemerals):
+                    ephemeral_src = container_utils.get_container_storage(
+                        ephx['virtual_name'], instance.name)
+                    fileutils.ensure_tree(ephemeral_src)
+                    utils.execute('chown',
+                                  os.stat(root_dir).st_uid,
+                                  ephemeral_src, run_as_root=True)
 
     def _add_configdrive(self, instance, injected_files):
         """Configure the config drive for the container
@@ -309,15 +333,11 @@ class LXDDriver(driver.ComputeDriver):
                 self.unplug_vifs(instance, network_info)
 
             name = pwd.getpwuid(os.getuid()).pw_name
-            configdrive_dir = \
-                container_utils.get_container_configdrive(instance.name)
-            if os.path.exists(configdrive_dir):
-                utils.execute('chown', '-R', '%s:%s' % (name, name),
-                              configdrive_dir, run_as_root=True)
-                shutil.rmtree(configdrive_dir)
 
             container_dir = container_utils.get_instance_dir(instance.name)
             if os.path.exists(container_dir):
+                utils.execute('chown', '-R', '%s:%s' % (name, name),
+                              container_dir, run_as_root=True)
                 shutil.rmtree(container_dir)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
