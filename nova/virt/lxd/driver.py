@@ -89,8 +89,12 @@ MAX_CONSOLE_BYTES = 100 * units.Ki
 
 
 class LXDDriver(driver.ComputeDriver):
+    """A LXD driver for nova.
 
-    """LXD Lightervisor."""
+    LXD is a system container hypervisor. LXDDriver provides LXD
+    functionality to nova. For more information about LXD, see
+    http://www.ubuntu.com/cloud/lxd
+    """
 
     capabilities = {
         "has_imagecache": False,
@@ -102,29 +106,40 @@ class LXDDriver(driver.ComputeDriver):
     def __init__(self, virtapi):
         super(LXDDriver, self).__init__(virtapi)
 
+        self.client = None  # Initialized by init_host
         self.vif_driver = lxd_vif.LXDGenericDriver()
-
-        self.container_migrate = migrate.LXDContainerMigrate(self)
-
-        # The pylxd client, initialized with init_host
-        self.client = None
-
         self.firewall_driver = firewall.load_driver(
             default='nova.virt.firewall.NoopFirewallDriver')
 
-        # XXX: rockstar (1 Jul 2016) - This is temporary, until we can
-        # switch to the newer pylxd api.
+        # XXX: rockstar (5 Jul 2016) - These attributes are temporary. We
+        # will know our cleanup of nova-lxd is complete when these
+        # attributes are no longer needed.
         self.session = session.LXDAPISession()
-        self.lock_path = str(os.path.join(CONF.instances_path, 'locks'))
+        self.container_migrate = migrate.LXDContainerMigrate(self)
 
     def init_host(self, host):
+        """Initialize the driver on the host.
+
+        The pylxd Client is initialized. This initialization may raise
+        an exception if the LXD instance cannot be found.
+
+        The `host` argument is ignored here, as the LXD instance is
+        assumed to be on the same system as the compute worker
+        running this code. This is by (current) design.
+
+        See `nova.virt.driver.ComputerDriver.init_host for more
+        information.
+        """
         try:
             self.client = pylxd.Client()
-            return True
         except lxd_exceptions.ClientConnectionFailed as e:
             msg = _('Unable to connect to LXD daemon: %s') % e
             raise exception.HostNotFound(msg)
 
+    # XXX: rockstar (5 July 2016) - The methods and code below this line
+    # have not been through the cleanup process. We know the cleanup process
+    # is complete when there is no more code below this comment, and the
+    # comment can be removed.
     def get_info(self, instance):
         LOG.debug('get_info called for instance', instance=instance)
         try:
@@ -455,11 +470,12 @@ class LXDDriver(driver.ComputeDriver):
             retry_interval)
 
     def snapshot(self, context, instance, image_id, update_task_state):
+        lock_path = str(os.path.join(CONF.instances_path, 'locks'))
         try:
             if not self.session.container_defined(instance.name, instance):
                 raise exception.InstanceNotFound(instance_id=instance.name)
 
-            with lockutils.lock(self.lock_path,
+            with lockutils.lock(lock_path,
                                 lock_file_prefix=('lxd-snapshot-%s' %
                                                   instance.name),
                                 external=True):
