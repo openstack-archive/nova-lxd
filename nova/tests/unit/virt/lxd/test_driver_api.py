@@ -36,7 +36,6 @@ from nova.virt import hardware
 
 from nova.virt.lxd import config
 from nova.virt.lxd import driver
-from nova.virt.lxd import image as container_image
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
 import stubs
@@ -186,7 +185,7 @@ class LXDTestDriver(test.NoDBTestCase):
             mock.patch('os.path.exists'),
             mock.patch('oslo_utils.fileutils.ensure_tree'),
             mock.patch.object(
-                container_image.LXDContainerImage, 'setup_image'),
+                self.connection, 'setup_image'),
             mock.patch.object(self.connection, 'plug_vifs'),
             mock.patch.object(config.LXDContainerConfig, 'create_profile'),
             mock.patch.object(session.LXDAPISession, 'profile_create'),
@@ -256,7 +255,7 @@ class LXDTestDriver(test.NoDBTestCase):
                 mock.patch('os.path.exists'),
                 mock.patch('oslo_utils.fileutils.ensure_tree'),
                 mock.patch.object(
-                    container_image.LXDContainerImage, 'setup_image'),
+                    self.connection, 'setup_image'),
                 mock.patch.object(self.connection, 'plug_vifs'),
                 mock.patch.object(config.LXDContainerConfig, 'create_profile'),
                 mock.patch.object(session.LXDAPISession, 'profile_create'),
