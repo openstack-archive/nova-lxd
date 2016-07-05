@@ -772,21 +772,10 @@ class LXDAPISession(object):
                     ' %(reason)s') % {'instance': instance.name,
                                       'ex': ex}
             LOG.error(msg)
-
-    def get_host_config(self, instance):
-        LOG.debug('host_config called for instance', instance=instance)
-        try:
-            client = self.get_session()
-            return client.host_config()['environment']
-        except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD %(instance)s:'
-                    ' %(reason)s') % {'instance': instance.name,
-                                      'ex': ex}
-            LOG.error(msg)
-
     #
     # Migrate methods
     #
+
     def container_migrate(self, instance_name, host, instance):
         """Initialize a container migration for LXD
 

@@ -108,6 +108,7 @@ class LXDDriver(driver.ComputeDriver):
 
         # The pylxd client, initialized with init_host
         self.client = None
+        self.lxd_config = None
 
         self.firewall_driver = firewall.load_driver(
             default='nova.virt.firewall.NoopFirewallDriver')
@@ -120,6 +121,11 @@ class LXDDriver(driver.ComputeDriver):
     def init_host(self, host):
         try:
             self.client = pylxd.Client()
+
+            # (zulcss) - Cache the LXD server configuration
+            # and host information so that we can
+            # re-use it when it is needed.
+            self.lxd_config = self.client.host_info
             return True
         except lxd_exceptions.ClientConnectionFailed as e:
             msg = _('Unable to connect to LXD daemon: %s') % e
@@ -1319,9 +1325,9 @@ class LXDDriver(driver.ComputeDriver):
                   instance=instance)
         try:
             config = {}
-            lxd_config = self.session.get_host_config(instance)
             config.setdefault('root', {'type': 'disk', 'path': '/'})
-            if str(lxd_config['storage']) in ['btrfs', 'zfs']:
+            if str(self.lxd_config['environment']['storage']) in \
+                    ['btrfs', 'zfs']:
                 config['root'].update({'size': '%sGB' % str(instance.root_gb)})
 
             # Set disk quotas
