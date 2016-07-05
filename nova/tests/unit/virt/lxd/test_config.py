@@ -70,8 +70,10 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         instance = stubs._fake_instance()
         network_info = fake_network.fake_get_instance_nw_info(self)
         mock_config_drive.return_value = False
+        block_device_info = mock.Mock()
 
-        container_profile = self.config.create_profile(instance, network_info)
+        container_profile = self.config.create_profile(
+            instance, network_info, block_device_info)
         self.assertEqual(container_profile['name'], instance.name)
         self.assertEqual(container_profile['config'],
                          {'boot.autostart': 'True',
@@ -96,8 +98,10 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         """Verify the LXD profile without network configuration."""
         instance = stubs._fake_instance()
         mock_config_drive.return_value = False
+        block_device_info = mock.Mock()
 
-        container_profile = self.config.create_profile(instance, None)
+        container_profile = self.config.create_profile(
+            instance, None, block_device_info)
         self.assertEqual(len(container_profile['devices']), 1)
         self.assertEqual(container_profile['devices']['root'],
                          {'path': '/', 'size': '10GB', 'type': 'disk'})
@@ -109,7 +113,9 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         """Verify the LXD profile with both network and configdrive enabled."""
         instance = stubs._fake_instance()
         network_info = fake_network.fake_get_instance_nw_info(self)
-        container_profile = self.config.create_profile(instance, network_info)
+        block_device_info = mock.Mock()
+        container_profile = self.config.create_profile(
+            instance, network_info, block_device_info)
         mock_configdrive.return_value = True
 
         self.assertEqual(len(container_profile['devices']), 3)
@@ -134,7 +140,9 @@ class LXDTestContainerConfig(test.NoDBTestCase):
     def test_create_contianer_profile_configdrive_network(self, mock_config):
         """Verify the LXD profile with no network and configdrive enabled."""
         instance = stubs._fake_instance()
-        container_profile = self.config.create_profile(instance, None)
+        block_device_info = mock.Mock()
+        container_profile = self.config.create_profile(
+            instance, None, block_device_info)
         mock_config.return_value = True
 
         self.assertEqual(len(container_profile['devices']), 2)
@@ -143,10 +151,89 @@ class LXDTestContainerConfig(test.NoDBTestCase):
                           'path': 'var/lib/cloud/data',
                           'source': '/fake/instances/path/'
                                     'instance-00000001/configdrive',
-                          'type': 'disk'},
+                          'type': 'disk'}
                          )
         self.assertEqual(container_profile['devices']['root'],
                          {'path': '/', 'size': '10GB', 'type': 'disk'})
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    def test_create_container_profile_with_ephemeral_and_network(self):
+        """Verify the LXD profile with ephemeral drive is enabled."""
+        instance = stubs._fake_instance()
+        instance.ephemeral_gb = 1
+        network_info = fake_network.fake_get_instance_nw_info(self)
+        block_device_info = {'ephemerals': [{'virtual_name': 'ephemeral0'}]}
+        container_profile = self.config.create_profile(
+            instance, network_info, block_device_info)
+        self.assertEqual(len(container_profile['devices']), 3)
+        self.assertEqual(container_profile['devices']['root'],
+                         {'path': '/', 'size': '10GB', 'type': 'disk'})
+        self.assertEqual(container_profile['devices']['fake_br1'],
+                         {'hwaddr': 'DE:AD:BE:EF:00:01',
+                          'nictype': 'bridged',
+                          'parent': 'fake_br1',
+                          'type': 'nic'})
+        self.assertEqual(container_profile['devices']['ephemeral0'],
+                         {'optional': 'True',
+                          'path': '/mnt',
+                          'source': '/fake/instances/path/'
+                                    'instance-00000001/storage/ephemeral0',
+                          'type': 'disk'}
+                         )
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_create_container_profile_with_ephemeral_and_configdrive(
+            self, mock_configdrive):
+        """Verify container profile configuration with ephemeral and
+           configdrive.
+        """
+        instance = stubs._fake_instance()
+        instance.ephemeral_gb = 1
+        network_info = fake_network.fake_get_instance_nw_info(self)
+        block_device_info = {'ephemerals': [{'virtual_name': 'ephemeral0'}]}
+        mock_configdrive.return_value = True
+        container_profile = self.config.create_profile(
+            instance, network_info, block_device_info)
+        self.assertEqual(len(container_profile['devices']), 4)
+        self.assertEqual(container_profile['devices']['root'],
+                         {'path': '/', 'size': '10GB', 'type': 'disk'})
+        self.assertEqual(container_profile['devices']['fake_br1'],
+                         {'hwaddr': 'DE:AD:BE:EF:00:01',
+                          'nictype': 'bridged',
+                          'parent': 'fake_br1',
+                          'type': 'nic'})
+        self.assertEqual(container_profile['devices']['ephemeral0'],
+                         {'optional': 'True',
+                          'path': '/mnt',
+                          'source': '/fake/instances/path/'
+                                    'instance-00000001/storage/ephemeral0',
+                          'type': 'disk'}
+                         )
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_config',
+                       mock.Mock(return_value={'storage': 'zfs'}))
+    def test_create_container_profile_with_ephemeral_and_no_network(self):
+        """Verify container profile configuration with ephemeral and
+            without network.
+        """
+        instance = stubs._fake_instance()
+        instance.ephemeral_gb = 1
+        block_device_info = {'ephemerals': [{'virtual_name': 'ephemeral0'}]}
+        container_profile = self.config.create_profile(
+            instance, None, block_device_info)
+        self.assertEqual(len(container_profile['devices']), 2)
+        self.assertEqual(container_profile['devices']['root'],
+                         {'path': '/', 'size': '10GB', 'type': 'disk'})
+        self.assertEqual(container_profile['devices']['ephemeral0'],
+                         {'optional': 'True',
+                          'path': '/mnt',
+                          'source': '/fake/instances/path/'
+                          'instance-00000001/storage/ephemeral0',
+                          'type': 'disk'}
+                         )
 
     def test_create_network(self):
         instance = stubs._fake_instance()

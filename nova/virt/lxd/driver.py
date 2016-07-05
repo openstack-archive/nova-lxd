@@ -40,6 +40,7 @@ from nova.virt.lxd import image as container_image
 from nova.virt.lxd import migrate
 from nova.virt.lxd import vif as lxd_vif
 from nova.virt.lxd import session
+from nova.virt.lxd import storage
 from nova.virt.lxd import utils as container_utils
 
 from nova.compute import arch
@@ -73,6 +74,9 @@ lxd_opts = [
     cfg.BoolOpt('allow_live_migrate',
                 default=False,
                 help='Determine wheter to allow live migration'),
+    cfg.StrOpt('storage_driver',
+               default='fs',
+               help='Storage driver to use')
 ]
 
 CONF = cfg.CONF
@@ -102,6 +106,7 @@ class LXDDriver(driver.ComputeDriver):
         self.config = config.LXDContainerConfig()
         self.container_migrate = migrate.LXDContainerMigrate()
         self.image = container_image.LXDContainerImage()
+        self.storage = storage.LXDStorageDriver(CONF.lxd.storage_driver)
 
         # The pylxd client, initialized with init_host
         self.client = None
@@ -206,7 +211,8 @@ class LXDDriver(driver.ComputeDriver):
 
             # Create the container profile
             container_profile = self.config.create_profile(instance,
-                                                           network_info)
+                                                           network_info,
+                                                           block_device_info)
             self.session.profile_create(container_profile, instance)
 
             # Create the container
@@ -221,6 +227,8 @@ class LXDDriver(driver.ComputeDriver):
 
             if configdrive.required_by(instance):
                 self._add_configdrive(instance, injected_files)
+
+            self.storage.create_storage(block_device_info, instance)
 
             # Start the container
             self.session.container_start(instance_name, instance)
@@ -309,15 +317,11 @@ class LXDDriver(driver.ComputeDriver):
                 self.unplug_vifs(instance, network_info)
 
             name = pwd.getpwuid(os.getuid()).pw_name
-            configdrive_dir = \
-                container_utils.get_container_configdrive(instance.name)
-            if os.path.exists(configdrive_dir):
-                utils.execute('chown', '-R', '%s:%s' % (name, name),
-                              configdrive_dir, run_as_root=True)
-                shutil.rmtree(configdrive_dir)
 
             container_dir = container_utils.get_instance_dir(instance.name)
             if os.path.exists(container_dir):
+                utils.execute('chown', '-R', '%s:%s' % (name, name),
+                              container_dir, run_as_root=True)
                 shutil.rmtree(container_dir)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
