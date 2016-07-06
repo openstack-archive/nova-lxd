@@ -190,10 +190,14 @@ class LXDDriverTest(test.NoDBTestCase):
     @mock.patch('pwd.getpwuid')
     @mock.patch('shutil.rmtree')
     @mock.patch.object(driver.utils, 'execute')
-    def test_cleanup(self, execute, rmtree, getpwuid):
+    @mock.patch('nova.virt.driver.block_device_info_get_ephemerals')
+    def test_cleanup(self, ephemerals, execute, rmtree, getpwuid):
         pwuid = mock.Mock()
         pwuid.pw_name = 'user'
         getpwuid.return_value = pwuid
+        block_device_info = mock.Mock()
+        empeheral = mock.Mock()
+        ephemerals.return_value = empeheral
 
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
@@ -205,7 +209,7 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.vif_driver = mock.Mock()
         lxd_driver.firewall_driver = mock.Mock()
 
-        lxd_driver.cleanup(ctx, instance, network_info)
+        lxd_driver.cleanup(ctx, instance, network_info, block_device_info)
 
         lxd_driver.vif_driver.unplug.assert_called_once_with(
             instance, network_info[0])

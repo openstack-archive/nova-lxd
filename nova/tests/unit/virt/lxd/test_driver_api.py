@@ -71,16 +71,6 @@ class LXDTestDriver(test.NoDBTestCase):
         self.assertTrue(
             self.connection.capabilities['supports_attach_interface'])
 
-    @mock.patch('os.path.exists', mock.Mock(return_value=True))
-    @mock.patch('shutil.rmtree')
-    @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
-    @mock.patch.object(driver.utils, 'execute')
-    def test_cleanup(self, mr, mu):
-        instance = stubs.MockInstance()
-        self.assertEqual(
-            None,
-            self.connection.cleanup({}, instance, [], [], None, None, None))
-
     @mock.patch('six.moves.builtins.open')
     @mock.patch.object(driver.utils, 'execute')
     @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
