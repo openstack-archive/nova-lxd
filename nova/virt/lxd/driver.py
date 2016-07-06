@@ -40,7 +40,6 @@ from oslo_utils import fileutils
 import pylxd
 from pylxd import exceptions as lxd_exceptions
 from nova.compute import utils as compute_utils
-from oslo_concurrency import processutils
 
 from nova.virt.lxd import migrate
 from nova.virt.lxd import vif as lxd_vif
@@ -1072,7 +1071,7 @@ class LXDDriver(driver.ComputeDriver):
                             instance=instance)
                 try:
                     # Compress the manifest using tar
-                    target_tarball = tarfile.open(container_manifest, "w:")
+                    target_tarball = tarfile.open(container_manifest, "w:gz")
                     metadata_file = tarfile.TarInfo()
                     metadata_file.size = len(metadata_yaml)
                     metadata_file.name = "metadata.yaml"
@@ -1086,18 +1085,6 @@ class LXDDriver(driver.ComputeDriver):
                                   {'image': instance.name, 'ex': ex},
                                   instance=instance)
 
-                try:
-                    # Compress the manifest further using xz
-                    with fileutils.remove_path_on_error(container_manifest):
-                        utils.execute('xz', '-9', container_manifest,
-                                      check_exit_code=[0, 1])
-                except processutils.ProcessExecutionError as ex:
-                    with excutils.save_and_reraise_exception:
-                        LOG.error(
-                            _LE('Failed to compress manifest for %(image)s:'
-                                ' %(ex)s'), {'image': instance.image_ref,
-                                             'ex': ex}, instance=instance)
-
                 # Upload the image to the local LXD image store
                 headers = {}
 
@@ -1108,7 +1095,7 @@ class LXDDriver(driver.ComputeDriver):
                 upload_path = os.path.join(tmpdir, "upload")
                 body = open(upload_path, 'wb+')
 
-                for name, path in [("metadata", (container_manifest + '.xz')),
+                for name, path in [("metadata", (container_manifest)),
                                    ("rootfs", container_image)]:
                     filename = os.path.basename(path)
                     body.write(bytearray("--%s\r\n" % boundary, "utf-8"))
@@ -1136,7 +1123,7 @@ class LXDDriver(driver.ComputeDriver):
 
                 # Setup the LXD alias for the image
                 try:
-                    with open((container_manifest + '.xz'), 'rb') as meta_fd:
+                    with open((container_manifest), 'rb') as meta_fd:
                         with open(container_image, "rb") as rootfs_fd:
                             fingerprint = hashlib.sha256(
                                 meta_fd.read() + rootfs_fd.read()).hexdigest()
