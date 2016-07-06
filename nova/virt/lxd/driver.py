@@ -44,6 +44,7 @@ from nova.compute import utils as compute_utils
 from nova.virt.lxd import migrate
 from nova.virt.lxd import vif as lxd_vif
 from nova.virt.lxd import session
+from nova.virt.lxd.storage import zfs
 from nova.virt.lxd import utils as container_utils
 
 from nova.compute import arch
@@ -252,25 +253,34 @@ class LXDDriver(driver.ComputeDriver):
                           instance=instance)
 
     def _add_ephemeral(self, block_device_info, instance):
+        LOG.debug('Creating ephemeral storage for instance', instance=instance)
         if instance.get('ephemeral_gb', 0) != 0:
             ephemerals = block_device_info.get('ephemerals', [])
 
-            root_dir = container_utils.get_container_rootfs(instance.name)
             if ephemerals == []:
-                ephemeral_src = container_utils.get_container_storage(
-                    ephemerals['virtual_name'], instance.name)
-                fileutils.ensure_tree(ephemeral_src)
-                utils.execute('chown',
-                              os.stat(root_dir).st_uid,
-                              ephemeral_src, run_as_root=True)
+                self._ensure_ephemeral(ephemerals, instance)
             else:
                 for id, ephx in enumerate(ephemerals):
-                    ephemeral_src = container_utils.get_container_storage(
-                        ephx['virtual_name'], instance.name)
-                    fileutils.ensure_tree(ephemeral_src)
-                    utils.execute('chown',
-                                  os.stat(root_dir).st_uid,
-                                  ephemeral_src, run_as_root=True)
+                    self._ensure_ephemeral(ephx, instance)
+
+    def _ensure_ephemeral(self, ephemeral, instance):
+        storage_driver = self.client.host_info
+        if str(storage_driver['environment']['storage']) == 'zfs':
+            zfs.create_storage(ephemeral, instance, storage_driver)
+        else:
+            # no storage specified
+            root_dir = container_utils.get_container_rootfs(instance.name)
+            ephemeral_src = container_utils.get_container_storage(
+                ephemeral['virtual_name'], instance.name)
+            fileutils.ensure_tree(ephemeral_src)
+            utils.execute('chown',
+                          os.stat(root_dir).st_uid,
+                          ephemeral_src, run_as_root=True)
+
+    def _remove_ephemeral(self, ephemeral, instance):
+        storage_driver = self.client.host_info
+        if str(storage_driver['environment']['storage']) == 'zfs':
+            zfs.remove_storage(ephemeral, instance, storage_driver)
 
     def _add_configdrive(self, instance, injected_files):
         """Configure the config drive for the container
@@ -348,8 +358,18 @@ class LXDDriver(driver.ComputeDriver):
             if destroy_vifs:
                 self.unplug_vifs(instance, network_info)
 
-            name = pwd.getpwuid(os.getuid()).pw_name
+            # Remove ZFS ephemeral storage if ephemeral storage
+            # exists.
+            if instance.get('ephemeral_gb', 0) != 0:
+                ephemerals = block_device_info.get('ephemerals', [])
 
+                if ephemerals == []:
+                    self._remove_ephemeral(ephemerals, instance)
+            else:
+                for id, ephx in enumerate(ephemerals):
+                    self._remove_ephemeral(ephx, instance)
+
+            name = pwd.getpwuid(os.getuid()).pw_name
             container_dir = container_utils.get_instance_dir(instance.name)
             if os.path.exists(container_dir):
                 utils.execute('chown', '-R', '%s:%s' % (name, name),

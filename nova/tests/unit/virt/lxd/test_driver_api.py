@@ -314,9 +314,11 @@ class LXDTestDriver(test.NoDBTestCase):
     @mock.patch.object(driver.utils, 'execute')
     def test_cleanup(self, mr, mu):
         instance = stubs.MockInstance()
+        block_device_info = mock.Mock()
         self.assertEqual(
             None,
-            self.connection.cleanup({}, instance, [], [], None, None, None))
+            self.connection.cleanup({}, instance, [],
+                                    block_device_info, None, None, None))
 
     @mock.patch('six.moves.builtins.open')
     @mock.patch.object(driver.utils, 'execute')
