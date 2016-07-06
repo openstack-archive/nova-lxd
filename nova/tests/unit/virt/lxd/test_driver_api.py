@@ -12,12 +12,10 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import collections
 import inspect
 import json
 import os
 import platform
-from pylxd import exceptions as lxdcore_exceptions
 
 import ddt
 import mock
@@ -27,19 +25,14 @@ from oslo_config import cfg
 
 from nova.compute import arch
 from nova.compute import hv_type
-from nova.compute import power_state
 from nova.compute import vm_mode
-from nova import exception
 from nova import test
 from nova.virt import fake
-from nova.virt import hardware
 
 from nova.virt.lxd import driver
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
 import stubs
-
-MockContainer = collections.namedtuple('Container', ['name'])
 
 
 class LXDTestConfig(test.NoDBTestCase):
@@ -70,13 +63,6 @@ class LXDTestDriver(test.NoDBTestCase):
         self.driver = driver.LXDDriver(mock.MagicMock())
         self.driver.container_migrate = mock.MagicMock()
 
-        mock_client = mock.Mock()
-        mock_client.containers.all.return_value = [
-            MockContainer('mock-instance-1'),
-            MockContainer('mock-instance-2'),
-        ]
-        self.connection.client = mock_client
-
     def test_capabilities(self):
         self.assertFalse(self.connection.capabilities['has_imagecache'])
         self.assertFalse(self.connection.capabilities['supports_recreate'])
@@ -84,59 +70,6 @@ class LXDTestDriver(test.NoDBTestCase):
             self.connection.capabilities['supports_migrate_to_same_host'])
         self.assertTrue(
             self.connection.capabilities['supports_attach_interface'])
-
-    @stubs.annotated_data(
-        ('running', {'state': 200, 'mem': 0, 'max_mem': 0},
-         power_state.RUNNING),
-        ('shutdown', {'state': 102, 'mem': 0, 'max_mem': 0},
-         power_state.SHUTDOWN),
-        ('crashed', {'state': 108, 'mem': 0, 'max_mem': 0},
-         power_state.CRASHED),
-        ('suspend', {'state': 109, 'mem': 0, 'max_mem': 0},
-         power_state.SUSPENDED),
-        ('no_state', {'state': 401, 'mem': 0, 'max_mem': 0},
-         power_state.NOSTATE),
-    )
-    def test_get_info(self, tag, side_effect, expected):
-        instance = stubs._fake_instance()
-        with mock.patch.object(session.LXDAPISession,
-                               "container_state",
-                               ) as state:
-            state.return_value = side_effect
-            info = self.connection.get_info(instance)
-            self.assertEqual(dir(hardware.InstanceInfo(state=expected,
-                                                       num_cpu=2)), dir(info))
-
-    @stubs.annotated_data(
-        (True, 'mock-instance-1'),
-        (False, 'fake-instance'),
-    )
-    def test_instance_exists(self, expected, name):
-        self.assertEqual(
-            expected,
-            self.connection.instance_exists(stubs.MockInstance(name=name)))
-
-    def test_estimate_instance_overhead(self):
-        self.assertEqual(
-            {'memory_mb': 0},
-            self.connection.estimate_instance_overhead(mock.Mock()))
-
-    def test_list_instances(self):
-        self.assertEqual(['mock-instance-1', 'mock-instance-2'],
-                         self.connection.list_instances())
-
-    def test_list_instances_fail(self):
-        mock_response = mock.Mock()
-        mock_response.json.return_value = {
-            'error': 'Fake',
-        }
-
-        self.connection.client.containers.all.side_effect = (
-            lxdcore_exceptions.LXDAPIException(mock_response))
-        self.assertRaises(
-            exception.NovaException,
-            self.connection.list_instances
-        )
 
     @mock.patch('nova.virt.configdrive.required_by')
     def test_spawn(self, mock_configdrive):

@@ -126,7 +126,7 @@ class LXDDriver(driver.ComputeDriver):
         assumed to be on the same system as the compute worker
         running this code. This is by (current) design.
 
-        See `nova.virt.driver.ComputerDriver.init_host for more
+        See `nova.virt.driver.ComputeDriver.init_host` for more
         information.
         """
         try:
@@ -135,29 +135,37 @@ class LXDDriver(driver.ComputeDriver):
             msg = _('Unable to connect to LXD daemon: %s') % e
             raise exception.HostNotFound(msg)
 
+    def cleanup_host(self, host):
+        """Clean up the host.
+
+        `nova.virt.ComputeDriver` defines this method. It is overridden
+        here to be explicit that there is nothing to be done, as
+        `init_host` does not create any resources that would need to be
+        cleaned up.
+
+        See `nova.virt.driver.ComputeDriver.cleanup_host` for more
+        information.
+        """
+
+    def get_info(self, instance):
+        """Return an InstanceInfo object for the instance."""
+        container = self.client.containers.get(instance.name)
+        state = container.state()
+        power_state = session.LXD_POWER_STATES[state.status_code]
+        mem_kb = state.memory['usage'] >> 10
+        max_mem_kb = state.memory['usage_peak'] >> 10
+        return hardware.InstanceInfo(
+            state=power_state, max_mem_kb=max_mem_kb, mem_kb=mem_kb,
+            num_cpu=instance.flavor.vcpus, cpu_time_ns=0)
+
+    def list_instances(self):
+        """Return a list of all instance names."""
+        return [c.name for c in self.client.containers.all()]
+
     # XXX: rockstar (5 July 2016) - The methods and code below this line
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
     # comment can be removed.
-    def get_info(self, instance):
-        LOG.debug('get_info called for instance', instance=instance)
-        try:
-            container_state = self.session.container_state(instance)
-            return hardware.InstanceInfo(state=container_state['state'],
-                                         max_mem_kb=container_state['max_mem'],
-                                         mem_kb=container_state['mem'],
-                                         num_cpu=instance.flavor.vcpus,
-                                         cpu_time_ns=0)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to get container info'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def instance_exists(self, instance):
-        return instance.name in self.list_instances()
-
     def plug_vifs(self, instance, network_info):
         """Plug VIFs into networks."""
         for vif in network_info:
@@ -174,21 +182,6 @@ class LXDDriver(driver.ComputeDriver):
             except exception.NovaException:
                 pass
         self.firewall_driver.unfilter_instance(instance, network_info)
-
-    def estimate_instance_overhead(self, instance_info):
-        return {'memory_mb': 0}
-
-    def list_instances(self):
-        try:
-            return [c.name for c in self.client.containers.all()]
-        except lxd_exceptions.LXDAPIException as ex:
-            msg = _('Failed to communicate with LXD API: %(reason)s') \
-                % {'reason': ex}
-            LOG.error(msg)
-            raise exception.NovaException(msg)
-
-    def list_instance_uuids(self):
-        raise NotImplementedError()
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
