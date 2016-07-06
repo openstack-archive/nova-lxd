@@ -62,6 +62,7 @@ from nova.virt import firewall
 _ = i18n._
 _LW = i18n._LW
 _LE = i18n._LE
+_LI = i18n._LI
 
 lxd_opts = [
     cfg.StrOpt('root_dir',
@@ -239,7 +240,10 @@ class LXDDriver(driver.ComputeDriver):
             if configdrive.required_by(instance):
                 self._add_configdrive(instance, injected_files)
 
-            self._add_ephemeral(block_device_info, instance)
+            ephemerals = driver.block_device_info_get_ephemerals(
+                block_device_info)
+            for ephx in ephemerals:
+                self._create_ephemeral(ephx, instance)
 
             # Start the container
             self.session.container_start(instance_name, instance)
@@ -251,26 +255,48 @@ class LXDDriver(driver.ComputeDriver):
                           {'instance': instance.name, 'ex': ex},
                           instance=instance)
 
-    def _add_ephemeral(self, block_device_info, instance):
-        if instance.get('ephemeral_gb', 0) != 0:
-            ephemerals = block_device_info.get('ephemerals', [])
+    def _create_ephemeral(self, storage, instance):
+        LOG.debug('_create_ephemeral called for instance', instance=instance)
 
-            root_dir = container_utils.get_container_rootfs(instance.name)
-            if ephemerals == []:
-                ephemeral_src = container_utils.get_container_storage(
-                    ephemerals['virtual_name'], instance.name)
-                fileutils.ensure_tree(ephemeral_src)
-                utils.execute('chown',
-                              os.stat(root_dir).st_uid,
-                              ephemeral_src, run_as_root=True)
-            else:
-                for id, ephx in enumerate(ephemerals):
-                    ephemeral_src = container_utils.get_container_storage(
-                        ephx['virtual_name'], instance.name)
-                    fileutils.ensure_tree(ephemeral_src)
-                    utils.execute('chown',
-                                  os.stat(root_dir).st_uid,
-                                  ephemeral_src, run_as_root=True)
+        lxd_config = self.client.host_info
+        storage_driver = str(lxd_config['environment']['storage'])
+
+        storage_dir = container_utils.get_container_storage(
+            storage['virtual_name'], instance.name)
+        container_root = container_utils.get_container_rootfs(instance.name)
+
+        if storage_driver == 'zfs':
+            zfs_pool = str(lxd_config['config']['storage.zfs_pool_name'])
+
+            # zfs create -o mountpoint=%s, -o quota=%sG <pool>
+            utils.execute(
+                'zfs', 'create',
+                '-o', 'mountpoint=%s' % storage_dir,
+                '-o', 'quota=%sG' % instance.ephemeral_gb,
+                '%s/%s-ephemeral' % (str(zfs_pool), instance.name),
+                run_as_root=True)
+        else:
+            # Undetected storage backend
+            fileutils.ensure_tree(storage_dir)
+
+        utils.execute('chown',
+                      os.stat(container_root).st_uid,
+                      storage_dir, run_as_root=True)
+
+    def _destroy_ephemeral(self, storage, instance):
+        LOG.debug('_destroy_ephemeral called for instance', instance=instance)
+
+        lxd_config = self.client.host_info
+        storage_driver = str(lxd_config['environment']['storage'])
+
+        if storage_driver == 'zfs':
+            zfs_pool = str(lxd_config['config']['storage.zfs_pool_name'])
+
+            # zfs destroy <pool>
+            utils.execute(
+                'zfs', 'destroy',
+                '%s/%s-ephemeral' % (str(zfs_pool), instance.name),
+                run_as_root=True)
 
     def _add_configdrive(self, instance, injected_files):
         """Configure the config drive for the container
@@ -348,8 +374,14 @@ class LXDDriver(driver.ComputeDriver):
             if destroy_vifs:
                 self.unplug_vifs(instance, network_info)
 
-            name = pwd.getpwuid(os.getuid()).pw_name
+            # Remove ZFS ephemeral storage if ephemeral storage
+            # exists.
+            ephemerals = driver.block_device_info_get_ephemerals(
+                block_device_info)
+            for ephx in ephemerals:
+                self._destroy_ephemeral(ephx, instance)
 
+            name = pwd.getpwuid(os.getuid()).pw_name
             container_dir = container_utils.get_instance_dir(instance.name)
             if os.path.exists(container_dir):
                 utils.execute('chown', '-R', '%s:%s' % (name, name),

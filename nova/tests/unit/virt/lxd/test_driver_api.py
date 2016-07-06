@@ -162,7 +162,8 @@ class LXDTestDriver(test.NoDBTestCase):
             mock.patch.object(self.connection, 'create_profile'),
             mock.patch.object(session.LXDAPISession, 'profile_create'),
             mock.patch.object(session.LXDAPISession, 'container_init'),
-            mock.patch.object(session.LXDAPISession, 'container_start')
+            mock.patch.object(session.LXDAPISession, 'container_start'),
+            mock.patch('nova.virt.driver.block_device_info_get_ephemerals')
 
         ) as (
             mock_container_defined,
@@ -173,7 +174,8 @@ class LXDTestDriver(test.NoDBTestCase):
             mock_container_profile,
             mock_profile_create,
             mock_container_init,
-            mock_container_start
+            mock_container_start,
+            mock_get_ephemerals
         ):
             mock_container_defined.return_value = False
             mock_path_exists.return_value = False
@@ -233,7 +235,8 @@ class LXDTestDriver(test.NoDBTestCase):
                 mock.patch.object(session.LXDAPISession, 'profile_create'),
                 mock.patch.object(self.connection, '_add_configdrive'),
                 mock.patch.object(session.LXDAPISession, 'container_init'),
-                mock.patch.object(session.LXDAPISession, 'container_start')
+                mock.patch.object(session.LXDAPISession, 'container_start'),
+                mock.patch('nova.virt.driver.block_device_info_get_ephemerals')
 
         ) as (
                 mock_container_defined,
@@ -245,7 +248,8 @@ class LXDTestDriver(test.NoDBTestCase):
                 mock_profile_create,
                 mock_add_configdrive,
                 mock_container_init,
-                mock_container_start
+                mock_container_start,
+                mock_get_ephemerals
         ):
             mock_container_defined.return_value = False
             mock_path_exists.return_value = False
@@ -312,11 +316,15 @@ class LXDTestDriver(test.NoDBTestCase):
     @mock.patch('shutil.rmtree')
     @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
     @mock.patch.object(driver.utils, 'execute')
-    def test_cleanup(self, mr, mu):
+    @mock.patch('nova.virt.driver.block_device_info_get_ephemerals')
+    def test_cleanup(self, mr, mu, mbd):
         instance = stubs.MockInstance()
+        instance.ephemeral_gb = 0
+        block_device_info = mock.Mock()
         self.assertEqual(
             None,
-            self.connection.cleanup({}, instance, [], [], None, None, None))
+            self.connection.cleanup({}, instance, [],
+                                    block_device_info, None, None, None))
 
     @mock.patch('six.moves.builtins.open')
     @mock.patch.object(driver.utils, 'execute')
