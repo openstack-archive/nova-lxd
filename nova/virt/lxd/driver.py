@@ -176,6 +176,10 @@ class LXDDriver(driver.ComputeDriver):
         information.
         """
 
+        lxd_config = self.client.host_info
+        storage_driver = str(lxd_config['environment']['storage'])
+        container_root = container_utils.get_container_rootfs(instance.name)
+
         try:
             self.client.containers.get(instance.name)
             raise exception.InstanceExists(name=instance.name)
@@ -223,9 +227,28 @@ class LXDDriver(driver.ComputeDriver):
         container = self.client.containers.create(container_config, wait=True)
         container.start()
 
-        # XXX: rockstar (6 Jul 2016) - _add_ephemeral is only used here,
-        # and hasn't really been audited. It may need a cleanup.
-        self._add_ephemeral(block_device_info, instance)
+        ephemerals = driver.block_device_info_get_ephemerals(
+            block_device_info)
+        for ephx in ephemerals:
+            storage_dir = container_utils.get_container_storage(
+                ephx['virtual_name'], instance.name)
+            if storage_driver == 'zfs':
+                zfs_pool = str(lxd_config['config']['storage.zfs_pool_name'])
+
+                # zfs create -o mountpoint=%s, -o quota=%sG <pool>
+                utils.execute(
+                    'zfs', 'create',
+                    '-o', 'mountpoint=%s' % storage_dir,
+                    '-o', 'quota=%sG' % instance.ephemeral_gb,
+                    '%s/%s-ephemeral' % (str(zfs_pool), instance.name),
+                    run_as_root=True)
+            else:
+                # Undetected storage backend
+                fileutils.ensure_tree(storage_dir)
+
+            utils.execute('chown',
+                          os.stat(container_root).st_uid,
+                          storage_dir, run_as_root=True)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
@@ -252,6 +275,9 @@ class LXDDriver(driver.ComputeDriver):
         See `nova.virt.driver.ComputeDriver.cleanup` for more
         information.
         """
+        lxd_config = self.client.host_info
+        storage_driver = str(lxd_config['environment']['storage'])
+
         if destroy_vifs:
             for vif in network_info:
                 try:
@@ -259,6 +285,19 @@ class LXDDriver(driver.ComputeDriver):
                 except exception.NovaException:
                     pass
             self.firewall_driver.unfilter_instance(instance, network_info)
+
+        # Remove ephemeral storage if ephemeral storage exists
+        ephemerals = driver.block_device_info_get_ephemerals(
+            block_device_info)
+        for ephx in ephemerals:
+            if storage_driver == 'zfs':
+                zfs_pool = str(lxd_config['config']['storage.zfs_pool_name'])
+
+                # zfs destroy <pool>
+                utils.execute(
+                    'zfs', 'destroy',
+                    '%s/%s-ephemeral' % (str(zfs_pool), instance.name),
+                    run_as_root=True)
 
         name = pwd.getpwuid(os.getuid()).pw_name
 
@@ -273,27 +312,6 @@ class LXDDriver(driver.ComputeDriver):
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
     # comment can be removed.
-    def _add_ephemeral(self, block_device_info, instance):
-        if instance.get('ephemeral_gb', 0) != 0:
-            ephemerals = block_device_info.get('ephemerals', [])
-
-            root_dir = container_utils.get_container_rootfs(instance.name)
-            if ephemerals == []:
-                ephemeral_src = container_utils.get_container_storage(
-                    ephemerals['virtual_name'], instance.name)
-                fileutils.ensure_tree(ephemeral_src)
-                utils.execute('chown',
-                              os.stat(root_dir).st_uid,
-                              ephemeral_src, run_as_root=True)
-            else:
-                for id, ephx in enumerate(ephemerals):
-                    ephemeral_src = container_utils.get_container_storage(
-                        ephx['virtual_name'], instance.name)
-                    fileutils.ensure_tree(ephemeral_src)
-                    utils.execute('chown',
-                                  os.stat(root_dir).st_uid,
-                                  ephemeral_src, run_as_root=True)
-
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
         LOG.debug('reboot called for instance', instance=instance)

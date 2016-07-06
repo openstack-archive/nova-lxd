@@ -114,6 +114,7 @@ class LXDDriverTest(test.NoDBTestCase):
         admin_password = mock.Mock()
         network_info = [mock.Mock()]
         block_device_info = mock.Mock()
+        lxd_config = mock.Mock(return_vaue={'environment': {'storage': 'zfs'}})
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
