@@ -71,31 +71,6 @@ class LXDTestDriver(test.NoDBTestCase):
         self.assertTrue(
             self.connection.capabilities['supports_attach_interface'])
 
-    def test_destroy(self):
-        instance = stubs._fake_instance()
-        context = mock.Mock()
-        network_info = mock.Mock()
-        with test.nested(
-                mock.patch.object(session.LXDAPISession,
-                                  'profile_delete'),
-                mock.patch.object(session.LXDAPISession,
-                                  'container_destroy'),
-                mock.patch.object(self.connection,
-                                  'cleanup'),
-        ) as (
-            mock_profile_delete,
-            mock_container_destroy,
-            mock_container_cleanup
-        ):
-            self.assertEqual(None,
-                             self.connection.destroy(context, instance,
-                                                     network_info))
-            mock_profile_delete.assert_called_once_with(instance)
-            mock_container_destroy.assert_called_once_with(instance.name,
-                                                           instance)
-            mock_container_cleanup.assert_called_once_with(context, instance,
-                                                           network_info, None)
-
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('shutil.rmtree')
     @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))

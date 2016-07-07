@@ -234,27 +234,52 @@ class LXDDriver(driver.ComputeDriver):
         # and hasn't really been audited. It may need a cleanup.
         self._add_ephemeral(block_device_info, instance)
 
+    def destroy(self, context, instance, network_info, block_device_info=None,
+                destroy_disks=True, migrate_data=None):
+        """Destroy a running instance.
+
+        Since the profile and the instance are created on `spawn`, it is
+        safe to delete them together.
+
+        See `nova.virt.driver.ComputeDriver.destroy` for more
+        information.
+        """
+        self.client.profiles.get(instance.name).delete()
+        container = self.client.containers.get(instance.name)
+        if container.status == 'Running':
+            container.stop(wait=True)
+        container.delete(wait=True)
+
+        self.cleanup(context, instance, network_info, block_device_info)
+
+    def cleanup(self, context, instance, network_info, block_device_info=None,
+                destroy_disks=True, migrate_data=None, destroy_vifs=True):
+        """Clean up the filesystem around the container.
+
+        See `nova.virt.driver.ComputeDriver.cleanup` for more
+        information.
+        """
+        if destroy_vifs:
+            for vif in network_info:
+                try:
+                    self.vif_driver.unplug(instance, vif)
+                except exception.NovaException:
+                    pass
+            self.firewall_driver.unfilter_instance(instance, network_info)
+
+        name = pwd.getpwuid(os.getuid()).pw_name
+
+        container_dir = container_utils.get_instance_dir(instance.name)
+        if os.path.exists(container_dir):
+            utils.execute(
+                'chown', '-R', '{}:{}'.format(name, name),
+                container_dir, run_as_root=True)
+            shutil.rmtree(container_dir)
+
     # XXX: rockstar (5 July 2016) - The methods and code below this line
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
     # comment can be removed.
-    def plug_vifs(self, instance, network_info):
-        """Plug VIFs into networks."""
-        for vif in network_info:
-            self.vif_driver.plug(instance, vif)
-        self.firewall_driver.setup_basic_filtering(instance, network_info)
-        self.firewall_driver.prepare_instance_filter(instance, network_info)
-        self.firewall_driver.apply_instance_filter(instance, network_info)
-
-    def unplug_vifs(self, instance, network_info):
-        """Unplug VIFs from networks."""
-        for vif in network_info:
-            try:
-                self.vif_driver.unplug(instance, vif)
-            except exception.NovaException:
-                pass
-        self.firewall_driver.unfilter_instance(instance, network_info)
-
     def _add_ephemeral(self, block_device_info, instance):
         if instance.get('ephemeral_gb', 0) != 0:
             ephemerals = block_device_info.get('ephemerals', [])
@@ -329,42 +354,6 @@ class LXDDriver(driver.ComputeDriver):
             finally:
                 if mounted:
                     utils.execute('umount', tmpdir, run_as_root=True)
-
-    def destroy(self, context, instance, network_info, block_device_info=None,
-                destroy_disks=True, migrate_data=None):
-        LOG.debug('destroy called for instance', instance=instance)
-        try:
-            self.session.profile_delete(instance)
-            self.session.container_destroy(instance.name,
-                                           instance)
-            self.cleanup(context, instance, network_info, block_device_info)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to remove container'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def cleanup(self, context, instance, network_info, block_device_info=None,
-                destroy_disks=True, migrate_data=None, destroy_vifs=True):
-        LOG.debug('cleanup called for instance', instance=instance)
-        try:
-            if destroy_vifs:
-                self.unplug_vifs(instance, network_info)
-
-            name = pwd.getpwuid(os.getuid()).pw_name
-
-            container_dir = container_utils.get_instance_dir(instance.name)
-            if os.path.exists(container_dir):
-                utils.execute('chown', '-R', '%s:%s' % (name, name),
-                              container_dir, run_as_root=True)
-                shutil.rmtree(container_dir)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Container cleanup failed for '
-                                  '%(instance)s: %(ex)s'),
-                              {'instance': instance.name,
-                               'ex': ex}, instance=instance)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):

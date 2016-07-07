@@ -23,6 +23,7 @@ from nova.tests.unit import fake_instance
 from pylxd import exceptions as lxdcore_exceptions
 
 from nova.virt.lxd import driver
+from nova.virt.lxd import utils
 
 MockResponse = collections.namedtuple('Response', ['status_code'])
 
@@ -137,6 +138,13 @@ class LXDDriverTest(test.NoDBTestCase):
             instance, network_info[0])
         lxd_driver.create_profile.assert_called_once_with(
             instance, network_info, block_device_info)
+        fd = lxd_driver.firewall_driver
+        fd.setup_basic_filtering.assert_called_once_with(
+            instance, network_info)
+        fd.prepare_instance_filter.assert_called_once_with(
+            instance, network_info)
+        fd.apply_instance_filter.assert_called_once_with(
+            instance, network_info)
 
     def test_spawn_already_exists(self):
         """InstanceExists is raised if the container already exists."""
@@ -155,3 +163,56 @@ class LXDDriverTest(test.NoDBTestCase):
             lxd_driver.spawn,
             ctx, instance, image_meta, injected_files, admin_password,
             None, None)
+
+    def test_destroy(self):
+        mock_profile = mock.Mock()
+        mock_container = mock.Mock()
+        mock_container.status = 'Running'
+        self.client.profiles.get.return_value = mock_profile
+        self.client.containers.get.return_value = mock_container
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        network_info = [mock.Mock()]
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+        lxd_driver.cleanup = mock.Mock()  # There is a separate cleanup test
+
+        lxd_driver.destroy(ctx, instance, network_info)
+
+        lxd_driver.cleanup.assert_called_once_with(
+            ctx, instance, network_info, None)
+        lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
+        mock_profile.delete.assert_called_once_with()
+        lxd_driver.client.containers.get.assert_called_once_with(instance.name)
+        mock_container.stop.assert_called_once_with(wait=True)
+        mock_container.delete.assert_called_once_with(wait=True)
+
+    @mock.patch('os.path.exists', mock.Mock(return_value=True))
+    @mock.patch('pwd.getpwuid')
+    @mock.patch('shutil.rmtree')
+    @mock.patch.object(driver.utils, 'execute')
+    def test_cleanup(self, execute, rmtree, getpwuid):
+        pwuid = mock.Mock()
+        pwuid.pw_name = 'user'
+        getpwuid.return_value = pwuid
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        network_info = [mock.Mock()]
+        instance_dir = utils.get_instance_dir(instance.name)
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+        lxd_driver.vif_driver = mock.Mock()
+        lxd_driver.firewall_driver = mock.Mock()
+
+        lxd_driver.cleanup(ctx, instance, network_info)
+
+        lxd_driver.vif_driver.unplug.assert_called_once_with(
+            instance, network_info[0])
+        lxd_driver.firewall_driver.unfilter_instance.assert_called_once_with(
+            instance, network_info)
+        execute.assert_called_once_with(
+            'chown', '-R', 'user:user', instance_dir, run_as_root=True)
+        rmtree.assert_called_once_with(instance_dir)
