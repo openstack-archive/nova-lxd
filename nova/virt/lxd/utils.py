@@ -38,10 +38,6 @@ def get_container_storage(ephemeral, instance):
     return os.path.join(CONF.instances_path, instance, 'storage', ephemeral)
 
 
-def get_container_configdrive(instance):
-    return os.path.join(CONF.instances_path, instance, 'configdrive')
-
-
 def get_console_path(instance):
     return os.path.join('/var/log/lxd/', instance, 'console.log')
 
