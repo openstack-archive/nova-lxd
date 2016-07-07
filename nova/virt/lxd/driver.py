@@ -39,7 +39,6 @@ from oslo_log import log as logging
 from oslo_utils import fileutils
 import pylxd
 from pylxd import exceptions as lxd_exceptions
-from nova.compute import utils as compute_utils
 
 from nova.virt.lxd import migrate
 from nova.virt.lxd import vif as lxd_vif
@@ -162,8 +161,7 @@ class LXDDriver(driver.ComputeDriver):
         """Return a list of all instance names."""
         return [c.name for c in self.client.containers.all()]
 
-    # XXX: rockstar (6 Jul 2016) - nova-lxd does not currently have support
-    # for `ComputeDriver.rebuild`. It certainly should.
+    # XXX: rockstar (6 Jul 2016) - nova-lxd does not support `rebuild`
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
@@ -276,6 +274,65 @@ class LXDDriver(driver.ComputeDriver):
                 container_dir, run_as_root=True)
             shutil.rmtree(container_dir)
 
+    def reboot(self, context, instance, network_info, reboot_type,
+               block_device_info=None, bad_volumes_callback=None):
+        """Reboot the container.
+
+        Nova *should* not execute this on a stopped container, but
+        the documentation specifically says that if it is called, the
+        container should always return to a 'Running' state.
+
+        See `nova.virt.driver.ComputeDriver.cleanup` for more
+        information.
+        """
+        container = self.client.containers.get(instance.name)
+        container.restart(force=True, wait=True)
+
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support
+    # `get_console_pool_info`
+
+    def get_console_output(self, context, instance):
+        """Get the output of the container console.
+
+        See `nova.virt.driver.ComputeDriver.get_console_output` for more
+        information.
+        """
+        console_path = container_utils.get_console_path(instance.name)
+        container_path = os.path.join(
+            container_utils.get_container_dir(instance.name),
+            instance.name)
+        if not os.path.exists(console_path):
+            return ''
+        uid = pwd.getpwuid(os.getuid()).pw_uid
+        utils.execute(
+            'chown', '%s:%s' % (uid, uid), console_path, run_as_root=True)
+        utils.execute('chmod', '755', container_path, run_as_root=True)
+        with open(console_path, 'rb') as f:
+            log_data, _ = utils.last_bytes(f, MAX_CONSOLE_BYTES)
+            return log_data
+
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `get_vnc_console`
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support
+    # `get_spice_console`
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `get_rdp_console`
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support
+    # `get_serial_console`
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `get_mks_console`
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `get_diagnostics`
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support
+    # `get_instance_diagnostics`
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support
+    # `get_all_bw_counters`
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support
+    # `get_all_volume_usage`
+
+    def get_host_ip_addr(self):
+        return CONF.my_ip
+
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `attach_volume`
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `detach_volume`
+    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `swap_volume`
+
     # XXX: rockstar (5 July 2016) - The methods and code below this line
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
@@ -354,75 +411,6 @@ class LXDDriver(driver.ComputeDriver):
             finally:
                 if mounted:
                     utils.execute('umount', tmpdir, run_as_root=True)
-
-    def reboot(self, context, instance, network_info, reboot_type,
-               block_device_info=None, bad_volumes_callback=None):
-        LOG.debug('reboot called for instance', instance=instance)
-        try:
-            self.session.container_reboot(instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Container reboot failed for '
-                                  '%(instance)s: %(ex)s'),
-                              {'instance': instance.name,
-                               'ex': ex}, instance=instance)
-
-    def get_console_output(self, context, instance):
-        LOG.debug('get_console_output called for instance', instance=instance)
-        try:
-            console_log = container_utils.get_console_path(instance.name)
-            if not os.path.exists(console_log):
-                return ""
-            uid = pwd.getpwuid(os.getuid()).pw_uid
-            utils.execute('chown', '%s:%s' % (uid, uid),
-                          console_log, run_as_root=True)
-            utils.execute('chmod', '755',
-                          os.path.join(
-                              container_utils.get_container_dir(
-                                  instance.name), instance.name),
-                          run_as_root=True)
-            with open(console_log, 'rb') as fp:
-                log_data, remaning = utils.last_bytes(fp,
-                                                      MAX_CONSOLE_BYTES)
-                return log_data
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to get container output'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def get_diagnostics(self, instance):
-        raise NotImplementedError()
-
-    def get_instance_diagnostics(self, instance):
-        raise NotImplementedError()
-
-    def get_all_bw_counters(self, instances):
-        raise NotImplementedError()
-
-    def get_all_volume_usage(self, context, compute_host_bdms):
-        raise NotImplementedError()
-
-    def get_host_ip_addr(self):
-        ips = compute_utils.get_machine_ips()
-        if CONF.my_ip not in ips:
-            LOG.warn(_LW('my_ip address (%(my_ip)s) was not found on '
-                         'any of the interfaces: %(ifaces)s'),
-                     {'my_ip': CONF.my_ip, 'ifaces': ", ".join(ips)})
-        return CONF.my_ip
-
-    def attach_volume(self, context, connection_info, instance, mountpoint,
-                      disk_bus=None, device_type=None, encryption=None):
-        raise NotImplementedError()
-
-    def detach_volume(self, connection_info, instance, mountpoint,
-                      encryption=None):
-        raise NotImplementedError()
-
-    def swap_volume(self, old_connection_info, new_connection_info,
-                    instance, mountpoint, resize_to):
-        raise NotImplementedError()
 
     def attach_interface(self, instance, image_meta, vif):
         LOG.debug('container_attach_interface called for instance',

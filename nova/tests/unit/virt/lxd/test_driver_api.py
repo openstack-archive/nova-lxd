@@ -71,45 +71,6 @@ class LXDTestDriver(test.NoDBTestCase):
         self.assertTrue(
             self.connection.capabilities['supports_attach_interface'])
 
-    @mock.patch('os.path.exists', mock.Mock(return_value=True))
-    @mock.patch('shutil.rmtree')
-    @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
-    @mock.patch.object(driver.utils, 'execute')
-    def test_cleanup(self, mr, mu):
-        instance = stubs.MockInstance()
-        self.assertEqual(
-            None,
-            self.connection.cleanup({}, instance, [], [], None, None, None))
-
-    @mock.patch('six.moves.builtins.open')
-    @mock.patch.object(driver.utils, 'execute')
-    @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
-    @mock.patch('os.getuid', mock.Mock())
-    @mock.patch('os.path.exists', mock.Mock(return_value=True))
-    def test_get_console_output(self, me, mo):
-        instance = stubs.MockInstance()
-        mo.return_value.__enter__.return_value = six.BytesIO(b'fake contents')
-        self.assertEqual(b'fake contents',
-                         self.connection.get_console_output({}, instance))
-        calls = [
-            mock.call('chown', '1234:1234',
-                      '/var/log/lxd/fake-uuid/console.log',
-                      run_as_root=True),
-            mock.call('chmod', '755',
-                      '/fake/lxd/root/containers/fake-uuid',
-                      run_as_root=True)
-        ]
-        self.assertEqual(calls, me.call_args_list)
-
-    @mock.patch.object(driver.compute_utils, 'get_machine_ips')
-    @stubs.annotated_data(
-        ('found', ['1.2.3.4']),
-        ('not-found', ['4.3.2.1']),
-    )
-    def test_get_host_ip_addr(self, tag, return_value, mi):
-        mi.return_value = return_value
-        self.assertEqual('1.2.3.4', self.connection.get_host_ip_addr())
-
     @mock.patch('socket.gethostname', mock.Mock(return_value='fake_hostname'))
     @mock.patch('os.statvfs', return_value=mock.Mock(f_blocks=131072000,
                                                      f_bsize=8192,
@@ -178,17 +139,6 @@ class LXDTestDriver(test.NoDBTestCase):
                           mock.call('/proc/meminfo')],
                          mo.call_args_list)
         ms.assert_called_once_with('/fake/lxd/root')
-
-    @mock.patch.object(session.LXDAPISession, 'container_reboot')
-    def test_container_reboot(self, mock_container_reboot):
-        """Verify reboot method calls are correct."""
-        instance = stubs._fake_instance()
-        context = mock.Mock()
-        network_info = mock.Mock()
-        reboot_type = 'SOFT'
-        self.connection.reboot(context, instance,
-                               network_info, reboot_type)
-        mock_container_reboot.assert_called_once_with(instance)
 
     def test_container_power_off(self):
         instance = stubs._fake_instance()

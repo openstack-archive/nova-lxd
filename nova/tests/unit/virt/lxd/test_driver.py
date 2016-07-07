@@ -21,6 +21,7 @@ from nova import test
 from nova.compute import power_state
 from nova.tests.unit import fake_instance
 from pylxd import exceptions as lxdcore_exceptions
+import six
 
 from nova.virt.lxd import driver
 from nova.virt.lxd import utils
@@ -47,6 +48,7 @@ class LXDDriverTest(test.NoDBTestCase):
         self.CONF_patcher = mock.patch('nova.virt.lxd.driver.CONF')
         self.CONF = self.CONF_patcher.start()
         self.CONF.instances_path = '/path/to/instances'
+        self.CONF.my_ip = '0.0.0.0'
 
     def tearDown(self):
         super(LXDDriverTest, self).tearDown()
@@ -216,3 +218,48 @@ class LXDDriverTest(test.NoDBTestCase):
         execute.assert_called_once_with(
             'chown', '-R', 'user:user', instance_dir, run_as_root=True)
         rmtree.assert_called_once_with(instance_dir)
+
+    def test_reboot(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.reboot(ctx, instance, None, None)
+
+        self.client.containers.get.assert_called_once_with(instance.name)
+
+    @mock.patch('pwd.getpwuid', mock.Mock(return_value=mock.Mock(pw_uid=1234)))
+    @mock.patch('os.getuid', mock.Mock())
+    @mock.patch('os.path.exists', mock.Mock(return_value=True))
+    @mock.patch('six.moves.builtins.open')
+    @mock.patch.object(driver.utils, 'execute')
+    def test_get_console_output(self, execute, _open):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        expected_calls = [
+            mock.call(
+                'chown', '1234:1234', '/var/log/lxd/{}/console.log'.format(
+                    instance.name),
+                run_as_root=True),
+            mock.call(
+                'chmod', '755', '/var/lib/lxd/containers/{}'.format(
+                    instance.name),
+                run_as_root=True),
+        ]
+        _open.return_value.__enter__.return_value = six.BytesIO(b'output')
+
+        lxd_driver = driver.LXDDriver(None)
+
+        contents = lxd_driver.get_console_output(context, instance)
+
+        self.assertEqual(b'output', contents)
+        self.assertEqual(expected_calls, execute.call_args_list)
+
+    def test_get_host_ip_addr(self):
+        lxd_driver = driver.LXDDriver(None)
+
+        result = lxd_driver.get_host_ip_addr()
+
+        self.assertEqual('0.0.0.0', result)
