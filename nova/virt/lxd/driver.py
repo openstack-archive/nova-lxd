@@ -162,6 +162,78 @@ class LXDDriver(driver.ComputeDriver):
         """Return a list of all instance names."""
         return [c.name for c in self.client.containers.all()]
 
+    # TODO: rockstar (6 Jul 2016) - nova-lxd does not currently have support
+    # for `ComputeDriver.rebuild`. It certainly should.
+
+    def spawn(self, context, instance, image_meta, injected_files,
+              admin_password, network_info=None, block_device_info=None):
+        """Create a new lxd container as a nova instance.
+
+        Creating a new container requires a number of steps. First, the
+        image is fetched from glance, if needed. Next, the network is
+        connected. A profile is created in LXD, and then the container
+        is created and started.
+
+        See `nova.virt.driver.ComputeDriver.spawn` for more
+        information.
+        """
+
+        try:
+            self.client.containers.get(instance.name)
+            raise exception.InstanceExists(name=instance.name)
+        except lxd_exceptions.LXDAPIException as e:
+            if e.response.status_code != 404:
+                raise  # Re-raise the exception if it wasn't NotFound
+
+        instance_dir = container_utils.get_instance_dir(instance.name)
+        if not os.path.exists(instance_dir):
+            fileutils.ensure_tree(instance_dir)
+
+        # Fetch image from glance
+        # XXX: rockstar (6 Jul 2016) - The use of setup_image here is
+        # a little strange. setup_image is nat a driver required method,
+        # and is only called in this one place. It may be a candidate for
+        # refactoring.
+        self.setup_image(context, instance, image_meta)
+
+        # Plug in the network
+        for vif in network_info:
+            self.vif_driver.plug(instance, vif)
+        self.firewall_driver.setup_basic_filtering(instance, network_info)
+        self.firewall_driver.prepare_instance_filter(instance, network_info)
+        self.firewall_driver.apply_instance_filter(instance, network_info)
+
+        # Create the profile
+        # XXX: rockstar (6 Jul 2016) - create_profile should remove the
+        # indirection, as it is only called here.
+        profile_data = self.create_profile(
+            instance, network_info, block_device_info)
+        profile = self.client.profiles.create(
+            profile_data['name'], profile_data['config'],
+            profile_data['devices'])
+
+        # Create the container
+        container_config = {
+            'name': instance.name,
+            'profiles': [profile.name],
+            'source': {
+                'type': 'image',
+                'alias': instance.image_ref,
+            },
+        }
+        LOG.debug(container_config)
+        container = self.client.containers.create(container_config, wait=True)
+        container.start()
+
+        # XXX: rockstar (6 Jul 2016) - _add_configdrive is only used here,
+        # and hasn't really been audited. It may need a cleanup.
+        if configdrive.required_by(instance):
+            self._add_configdrive(instance, injected_files)
+
+        # XXX: rockstar (6 Jul 2016) - _add_ephemeral is only used here,
+        # and hasn't really been audited. It may need a cleanup.
+        self._add_ephemeral(block_device_info, instance)
+
     # XXX: rockstar (5 July 2016) - The methods and code below this line
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
@@ -182,67 +254,6 @@ class LXDDriver(driver.ComputeDriver):
             except exception.NovaException:
                 pass
         self.firewall_driver.unfilter_instance(instance, network_info)
-
-    def spawn(self, context, instance, image_meta, injected_files,
-              admin_password, network_info=None, block_device_info=None):
-        msg = ('Spawning container '
-               'network_info=%(network_info)s '
-               'image_meta=%(image_meta)s '
-               'instance=%(instance)s '
-               'block_device_info=%(block_device_info)s' %
-               {'network_info': network_info,
-                'instance': instance,
-                'image_meta': image_meta,
-                'block_device_info': block_device_info})
-
-        LOG.debug(msg, instance=instance)
-
-        instance_name = instance.name
-
-        if self.session.container_defined(instance_name, instance):
-            raise exception.InstanceExists(name=instance.name)
-
-        try:
-            self.instance_dir = \
-                container_utils.get_instance_dir(instance_name)
-            if not os.path.exists(self.instance_dir):
-                fileutils.ensure_tree(self.instance_dir)
-
-            # Fetch the image from glance
-            self.setup_image(context, instance, image_meta)
-
-            # Plugin the network
-            self.plug_vifs(instance, network_info)
-
-            # Create the container profile
-            container_profile = self.create_profile(
-                instance, network_info, block_device_info)
-            self.session.profile_create(container_profile, instance)
-
-            # Create the container
-            container_config = {
-                'name': instance_name,
-                'profiles': [str(instance.name)],
-                'source': self.get_container_source(instance),
-                'devices': {}
-            }
-            self.session.container_init(
-                container_config, instance)
-
-            if configdrive.required_by(instance):
-                self._add_configdrive(instance, injected_files)
-
-            self._add_ephemeral(block_device_info, instance)
-
-            # Start the container
-            self.session.container_start(instance_name, instance)
-
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Faild to start container '
-                              '%(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
 
     def _add_ephemeral(self, block_device_info, instance):
         if instance.get('ephemeral_gb', 0) != 0:
@@ -1014,6 +1025,7 @@ class LXDDriver(driver.ComputeDriver):
         container_manifest = \
             container_utils.get_container_manifest_image(image_meta)
 
+        print(lock_path)
         with lockutils.lock(lock_path,
                             lock_file_prefix=('lxd-image-%s' %
                                               instance.image_ref),
