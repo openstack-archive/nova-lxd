@@ -20,6 +20,7 @@ from nova import exception
 from nova import test
 from nova.compute import power_state
 from nova.tests.unit import fake_instance
+from oslo_utils import fileutils
 from pylxd import exceptions as lxdcore_exceptions
 
 from nova.virt.lxd import driver
@@ -30,6 +31,8 @@ MockResponse = collections.namedtuple('Response', ['status_code'])
 MockContainer = collections.namedtuple('Container', ['name'])
 MockContainerState = collections.namedtuple(
     'ContainerState', ['status_code', 'memory'])
+
+TEST_INSTANCE_PATH = '/test/instances'
 
 
 class LXDDriverTest(test.NoDBTestCase):
@@ -125,11 +128,13 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.firewall_driver = mock.Mock()
         lxd_driver.create_profile = mock.Mock(return_value={
             'name': instance.name, 'config': {}, 'devices': {}})
+        fileutils.ensure_tree = mock.Mock()
 
         lxd_driver.spawn(
             ctx, instance, image_meta, injected_files, admin_password,
             network_info, block_device_info)
 
+        fileutils.ensure_tree(TEST_INSTANCE_PATH)
         lxd_driver.setup_image.assert_called_once_with(
             ctx, instance, image_meta)
         lxd_driver.vif_driver.plug.assert_called_once_with(
