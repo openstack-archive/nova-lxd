@@ -24,6 +24,8 @@ from pylxd import exceptions as lxdcore_exceptions
 
 from nova.virt.lxd import driver
 
+MockResponse = collections.namedtuple('Response', ['status_code'])
+
 MockContainer = collections.namedtuple('Container', ['name'])
 MockContainerState = collections.namedtuple(
     'ContainerState', ['status_code', 'memory'])
@@ -41,9 +43,14 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client = mock.Mock()
         self.Client.return_value = self.client
 
+        self.CONF_patcher = mock.patch('nova.virt.lxd.driver.CONF')
+        self.CONF = self.CONF_patcher.start()
+        self.CONF.instances_path = '/path/to/instances'
+
     def tearDown(self):
         super(LXDDriverTest, self).tearDown()
         self.Client_patcher.stop()
+        self.CONF_patcher.stop()
 
     def test_init_host(self):
         """init_host initializes the pylxd Client."""
@@ -93,3 +100,58 @@ class LXDDriverTest(test.NoDBTestCase):
         instances = lxd_driver.list_instances()
 
         self.assertEqual(['mock-instance-1', 'mock-instance-2'], instances)
+
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_spawn(self, required_by):
+        def container_get(*args, **kwargs):
+            raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
+        self.client.containers.get.side_effect = container_get
+        required_by.return_value = False
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        image_meta = mock.Mock()
+        injected_files = mock.Mock()
+        admin_password = mock.Mock()
+        network_info = [mock.Mock()]
+        block_device_info = mock.Mock()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+        # XXX: rockstar (6 Jul 2016) - There are a number of XXX comments
+        # related to these calls in spawn. They require some work before we
+        # can take out these mocks and follow the real codepaths.
+        lxd_driver.setup_image = mock.Mock()
+        lxd_driver.vif_driver = mock.Mock()
+        lxd_driver.firewall_driver = mock.Mock()
+        lxd_driver.create_profile = mock.Mock(return_value={
+            'name': instance.name, 'config': {}, 'devices': {}})
+
+        lxd_driver.spawn(
+            ctx, instance, image_meta, injected_files, admin_password,
+            network_info, block_device_info)
+
+        lxd_driver.setup_image.assert_called_once_with(
+            ctx, instance, image_meta)
+        lxd_driver.vif_driver.plug.assert_called_once_with(
+            instance, network_info[0])
+        lxd_driver.create_profile.assert_called_once_with(
+            instance, network_info, block_device_info)
+
+    def test_spawn_already_exists(self):
+        """InstanceExists is raised if the container already exists."""
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        image_meta = mock.Mock()
+        injected_files = mock.Mock()
+        admin_password = mock.Mock()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        self.assertRaises(
+            exception.InstanceExists,
+
+            lxd_driver.spawn,
+            ctx, instance, image_meta, injected_files, admin_password,
+            None, None)
