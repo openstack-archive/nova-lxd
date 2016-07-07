@@ -19,7 +19,6 @@ import nova.conf
 from nova import exception
 from nova import i18n
 from nova.objects import migrate_data as migrate_data_obj
-from nova.virt import configdrive
 
 from oslo_log import log as logging
 from oslo_utils import excutils
@@ -114,12 +113,6 @@ class LXDContainerMigrate(object):
             instance_dir = container_dir.get_instance_dir(instance.name)
             if not os.path.exists(instance_dir):
                 fileutils.ensure_tree(instance_dir)
-
-            if configdrive.required_by(instance):
-                configdrive_dir = \
-                    self.container_dir.get_container_configdrive(
-                        instance.name)
-                fileutils.ensure_tree(configdrive_dir)
 
             # Step 1 - Setup the profile on the dest host
             self._copy_container_profile(instance, network_info)

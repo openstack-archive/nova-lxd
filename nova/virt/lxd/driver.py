@@ -28,8 +28,6 @@ import tarfile
 import tempfile
 import uuid
 
-from nova.api.metadata import base as instance_metadata
-from nova.virt import configdrive
 from nova import image
 from nova import exception
 from nova import i18n
@@ -225,11 +223,6 @@ class LXDDriver(driver.ComputeDriver):
         container = self.client.containers.create(container_config, wait=True)
         container.start()
 
-        # XXX: rockstar (6 Jul 2016) - _add_configdrive is only used here,
-        # and hasn't really been audited. It may need a cleanup.
-        if configdrive.required_by(instance):
-            self._add_configdrive(instance, injected_files)
-
         # XXX: rockstar (6 Jul 2016) - _add_ephemeral is only used here,
         # and hasn't really been audited. It may need a cleanup.
         self._add_ephemeral(block_device_info, instance)
@@ -275,60 +268,6 @@ class LXDDriver(driver.ComputeDriver):
                     utils.execute('chown',
                                   os.stat(root_dir).st_uid,
                                   ephemeral_src, run_as_root=True)
-
-    def _add_configdrive(self, instance, injected_files):
-        """Configure the config drive for the container
-
-        :param instance: nova instance object
-        :param injected_files: instance injected files
-        """
-        LOG.debug('add_configdrive called for instance', instance=instance)
-
-        extra_md = {}
-        inst_md = instance_metadata.InstanceMetadata(instance,
-                                                     content=injected_files,
-                                                     extra_md=extra_md)
-        # Create the ISO image so we can inject the contents of the ISO
-        # into the container
-        iso_path = os.path.join(self.instance_dir, 'configdirve.iso')
-        with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
-            try:
-                cdb.make_drive(iso_path)
-            except Exception as e:
-                with excutils.save_and_reraise_exception():
-                    LOG.error(_LE('Creating config drive failed with error: '
-                                  '%s'), e, instance=instance)
-
-        # Copy the metadata info from the ISO into the container
-        configdrive_dir = \
-            container_utils.get_container_configdrive(instance.name)
-        with utils.tempdir() as tmpdir:
-            mounted = False
-            try:
-                _, err = utils.execute('mount',
-                                       '-o',
-                                       'loop,uid=%d,gid=%d' % (os.getuid(),
-                                                               os.getgid()),
-                                       iso_path, tmpdir,
-                                       run_as_root=True)
-                mounted = True
-
-                # Copy and adjust the files from the ISO so that we
-                # dont have the ISO mounted during the life cycle of the
-                # instance and the directory can be removed once the instance
-                # is terminated
-                for ent in os.listdir(tmpdir):
-                    shutil.copytree(os.path.join(tmpdir, ent),
-                                    os.path.join(configdrive_dir, ent))
-                utils.execute('chmod', '-R', '775', configdrive_dir,
-                              run_as_root=True)
-                utils.execute('chown', '-R', '%s:%s'
-                              % (self._uid_map('/etc/subuid').rstrip(),
-                                 self._uid_map('/etc/subgid').rstrip()),
-                              configdrive_dir, run_as_root=True)
-            finally:
-                if mounted:
-                    utils.execute('umount', tmpdir, run_as_root=True)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
@@ -1241,21 +1180,9 @@ class LXDDriver(driver.ComputeDriver):
                             ephemeral_src, '/mnt', ephemerals['virtual_name'],
                             instance))
 
-            # if a configdrive is required, setup the mount point for
-            # the container
-            if configdrive.required_by(instance):
-                configdrive_dir = \
-                    container_utils.get_container_configdrive(
-                        instance.name)
-                config_drive = self.configure_disk_path(
-                    configdrive_dir, 'var/lib/cloud/data',
-                    'configdrive', instance)
-                config['devices'].update(config_drive)
-
             if network_info:
-                config['devices'].update(self.create_network(instance_name,
-                                                             instance,
-                                                             network_info))
+                config['devices'].update(self.create_network(
+                    instance_name, instance, network_info))
 
             return config
         except Exception as ex:

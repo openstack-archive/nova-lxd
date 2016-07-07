@@ -101,12 +101,10 @@ class LXDDriverTest(test.NoDBTestCase):
 
         self.assertEqual(['mock-instance-1', 'mock-instance-2'], instances)
 
-    @mock.patch('nova.virt.configdrive.required_by')
-    def test_spawn(self, required_by):
+    def test_spawn(self):
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
         self.client.containers.get.side_effect = container_get
-        required_by.return_value = False
 
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
