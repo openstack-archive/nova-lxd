@@ -13,7 +13,9 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import collections
+import os
 
+import fixtures
 import mock
 from nova import context
 from nova import exception
@@ -47,6 +49,9 @@ class LXDDriverTest(test.NoDBTestCase):
         self.CONF_patcher = mock.patch('nova.virt.lxd.driver.CONF')
         self.CONF = self.CONF_patcher.start()
         self.CONF.instances_path = '/path/to/instances'
+
+        self.tempdir = self.useFixture(fixtures.TempDir()).path
+        self.flags(instances_path=self.tempdir)
 
     def tearDown(self):
         super(LXDDriverTest, self).tearDown()
@@ -102,7 +107,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
         self.assertEqual(['mock-instance-1', 'mock-instance-2'], instances)
 
-    def test_spawn(self):
+    @mock.patch('oslo_utils.fileutils.ensure_tree')
+    def test_spawn(self, mock_fileutils):
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
         self.client.containers.get.side_effect = container_get
@@ -130,6 +136,8 @@ class LXDDriverTest(test.NoDBTestCase):
             ctx, instance, image_meta, injected_files, admin_password,
             network_info, block_device_info)
 
+        mock_fileutils.assert_called_once_with(
+            os.path.join(self.tempdir, instance.name))
         lxd_driver.setup_image.assert_called_once_with(
             ctx, instance, image_meta)
         lxd_driver.vif_driver.plug.assert_called_once_with(
