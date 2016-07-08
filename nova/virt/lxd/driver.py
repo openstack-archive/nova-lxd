@@ -956,25 +956,18 @@ class LXDDriver(driver.ComputeDriver):
 
             try:
                 # Inspect image for the correct format
-                try:
-                    # grab the disk format of the image
-                    img_meta = IMAGE_API.get(context, instance.image_ref)
-                    disk_format = img_meta.get('disk_format')
-                    if not disk_format:
-                        reason = _('Bad image format')
-                        raise exception.ImageUnacceptable(
-                            image_id=instance.image_ref, reason=reason)
+                img_meta = IMAGE_API.get(context, instance.image_ref)
+                disk_format = img_meta.get('disk_format')
+                if not disk_format:
+                    reason = _('Bad image format')
+                    raise exception.ImageUnacceptable(
+                        image_id=instance.image_ref, reason=reason)
 
-                    if disk_format not in ['raw', 'root-tar']:
-                        reason = _(
-                            'nova-lxd does not support images in %s format. '
-                            'You should upload an image in raw or root-tar '
-                            'format.') % disk_format
-                        raise exception.ImageUnacceptable(
-                            image_id=instance.image_ref, reason=reason)
-                except Exception as ex:
-                    reason = _('Bad Image format: %(ex)s') \
-                        % {'ex': ex}
+                if disk_format not in ['raw', 'root-tar']:
+                    reason = _(
+                        'nova-lxd does not support images in %s format. '
+                        'You should upload an image in raw or root-tar '
+                        'format.') % disk_format
                     raise exception.ImageUnacceptable(
                         image_id=instance.image_ref, reason=reason)
 
