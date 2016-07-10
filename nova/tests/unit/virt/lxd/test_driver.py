@@ -19,6 +19,7 @@ from nova import context
 from nova import exception
 from nova import test
 from nova.compute import power_state
+from nova.network import model as network_model
 from nova.tests.unit import fake_instance
 from pylxd import exceptions as lxdcore_exceptions
 import six
@@ -261,3 +262,63 @@ class LXDDriverTest(test.NoDBTestCase):
         result = lxd_driver.get_host_ip_addr()
 
         self.assertEqual('0.0.0.0', result)
+
+    def test_attach_interface(self):
+        expected = {
+            'hwaddr': '00:11:22:33:44:55',
+            'parent': 'qbr0123456789a',
+            'nictype': 'bridged',
+            'type': 'nic',
+        }
+
+        container = mock.Mock()
+        container.expanded_devices = {
+            'eth0': {
+                'name': 'eth0',
+                'nictype': 'bridged',
+                'parent': 'lxdbr0',
+                'type': 'nic'
+            },
+            'root': {
+                'path': '/',
+                'type': 'disk'
+            },
+        }
+        self.client.containers.get.return_value = container
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        image_meta = None
+        vif = {
+            'id': '0123456789abcdef',
+            'type': network_model.VIF_TYPE_OVS,
+            'address': '00:11:22:33:44:55',
+            'network': {
+                'bridge': 'fakebr'}}
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.attach_interface(instance, image_meta, vif)
+
+        self.assertTrue('eth1' in container.expanded_devices)
+        self.assertEqual(expected, container.expanded_devices['eth1'])
+        container.save.assert_called_once_with(wait=True)
+
+    def test_detach_interface(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        vif = {
+            'id': '0123456789abcdef',
+            'type': network_model.VIF_TYPE_OVS,
+            'address': '00:11:22:33:44:55',
+            'network': {
+                'bridge': 'fakebr'}}
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.vif_driver = mock.Mock()
+
+        lxd_driver.detach_interface(instance, vif)
+
+        lxd_driver.vif_driver.unplug.assert_called_once_with(
+            instance, vif)

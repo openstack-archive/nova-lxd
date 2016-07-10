@@ -326,6 +326,35 @@ class LXDDriver(driver.ComputeDriver):
     # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `detach_volume`
     # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `swap_volume`
 
+    def attach_interface(self, instance, image_meta, vif):
+        self.vif_driver.plug(instance, vif)
+        self.firewall_driver.setup_basic_filtering(instance, vif)
+
+        container = self.client.containers.get(instance.name)
+
+        interfaces = []
+        for key, val in container.expanded_devices.items():
+            if key.startswith('eth'):
+                interfaces.append(key)
+        net_device = 'eth{}'.format(len(interfaces))
+
+        network_config = self.vif_driver.get_config(instance, vif)
+        config_update = {
+            net_device: {
+                'nictype': 'bridged',
+                'hwaddr': vif['address'],
+                'parent': network_config['bridge'],
+                'type': 'nic',
+            }
+        }
+        container.expanded_devices.update(config_update)
+        container.save(wait=True)
+
+    def detach_interface(self, instance, vif):
+        self.vif_driver.unplug(instance, vif)
+        # XXX: rockstar (10 Jul 2016) - Does the interface also need to be
+        # remaved from the instance?
+
     # XXX: rockstar (5 July 2016) - The methods and code below this line
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
@@ -350,34 +379,6 @@ class LXDDriver(driver.ComputeDriver):
                     utils.execute('chown',
                                   os.stat(root_dir).st_uid,
                                   ephemeral_src, run_as_root=True)
-
-    def attach_interface(self, instance, image_meta, vif):
-        LOG.debug('container_attach_interface called for instance',
-                  instance=instance)
-        try:
-            self.vif_driver.plug(instance, vif)
-            self.firewall_driver.setup_basic_filtering(instance, vif)
-
-            container_config = self.create_container(instance)
-            container_network = self.create_container_net_device(
-                instance, vif)
-            container_config['devices'].update(container_network)
-            self.session.container_update(container_config, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                self.vif_driver.unplug(instance, vif)
-                LOG.error(_LE('Failed to configure network'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def detach_interface(self, instance, vif):
-        LOG.debug('container_defatch_interface called for instance',
-                  instance=instance)
-        try:
-            self.vif_driver.unplug(instance, vif)
-        except exception.NovaException:
-            pass
 
     def migrate_disk_and_power_off(self, context, instance, dest,
                                    flavor, network_info,
@@ -1460,49 +1461,3 @@ class LXDDriver(driver.ComputeDriver):
                               '%(instance)s: %(ex)s'),
                           {'instance': instance.name, 'ex': ex},
                           instance=instance)
-
-    def create_container_net_device(self, instance, vif):
-        """Translate nova network object into a LXD interface
-
-        :param instance: nova instance object
-        :param vif: network instaance object
-        """
-        LOG.debug('create_container_net_device called for instance',
-                  insance=instance)
-        try:
-            network_config = self.vif_driver.get_config(instance, vif)
-
-            config = {}
-            config[self.get_network_device(instance)] = {
-                'nictype': 'bridged',
-                'hwaddr': str(vif['address']),
-                'parent': str(network_config['bridge']),
-                'type': 'nic'}
-
-            return config
-        except Exception as ex:
-            LOG.error(_LE('Failed to configure network for '
-                          '%(instance)s: %(ex)s'),
-                      {'instance': instance.name, 'ex': ex},
-                      instance=instance)
-
-    def get_network_device(self, instance):
-        """Try to detect which network interfaces are available in a contianer
-
-        :param instance: nova instance object
-        """
-        LOG.debug('get_network_device called for instance', instance=instance)
-        data = self.session.container_info(instance)
-        lines = open('/proc/%s/net/dev' % data['init']).readlines()
-        interfaces = []
-        for line in lines[2:]:
-            if line.find(':') < 0:
-                continue
-            face, _ = line.split(':')
-            if 'eth' in face:
-                interfaces.append(face.strip())
-
-        if len(interfaces) == 1:
-            return 'eth1'
-        else:
-            return 'eth%s' % int(len(interfaces) - 1)
