@@ -322,6 +322,42 @@ class LXDDriver(driver.ComputeDriver):
     def get_host_ip_addr(self):
         return CONF.my_ip
 
+    def pause(self, instance):
+        """Pause container
+
+        See `nova.virt.driver.ComputeDriver.pause` for more
+        information.
+        """
+        container = self.client.containers.get(instance.name)
+        container.freeze(instance.name, wait=True)
+
+    def unpause(self, instance):
+        """Unpause container
+
+        See `nova.virt.driver.ComputeDriver.unpause` for more
+        information.
+        """
+        container = self.client.containers.get(instance.name)
+        container.unfreeze(instance.name, wait=True)
+
+    def suspend(self, context, instance):
+        """Suspend container
+
+        See `nova.virt.driver.ComputeDriver.suspend` for more
+        information.
+        """
+        container = self.client.containers.get(instance.name)
+        container.freeze(instance.name, wait=True)
+
+    def resume(self, context, instance, network_info, block_device_info=None):
+        """Resume contanier
+
+        See `nova.virt.driver.ComputeDriver.resume` for more
+        information.
+        """
+        container = self.client.containers.get(instance.name)
+        container.unfreeze(instance.name, wait=True)
+
     # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `attach_volume`
     # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `detach_volume`
     # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `swap_volume`
@@ -440,50 +476,6 @@ class LXDDriver(driver.ComputeDriver):
         return self.container_migrate.finish_revert_migration(
             context, instance, network_info, block_device_info,
             power_on)
-
-    def pause(self, instance):
-        LOG.debug('pause called for instance', instance=instance)
-        try:
-            self.session.container_pause(instance.name, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to pause container'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def unpause(self, instance):
-        LOG.debug('unpause called for instance', instance=instance)
-        try:
-            self.session.container_unpause(instance.name, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to unpause container'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def suspend(self, context, instance):
-        LOG.debug('suspend called for instance', instance=instance)
-        try:
-            self.session.container_pause(instance.name, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Container suspend failed for '
-                                  '%(instance)s: %(ex)s'),
-                              {'instance': instance.name,
-                               'ex': ex}, instance=instance)
-
-    def resume(self, context, instance, network_info, block_device_info=None):
-        LOG.debug('resume called for instance', instance=instance)
-        try:
-            self.session.container_unpause(instance.name, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to resume container'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):

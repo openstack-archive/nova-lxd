@@ -261,3 +261,47 @@ class LXDDriverTest(test.NoDBTestCase):
         result = lxd_driver.get_host_ip_addr()
 
         self.assertEqual('0.0.0.0', result)
+
+    def test_pause(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.pause(instance)
+
+        self.client.containers.get.assert_called_once_with(instance.name)
+
+    def test_unpause(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.unpause(instance)
+
+        self.client.containers.get.assert_called_once_with(instance.name)
+
+    def test_suspend(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.suspend(ctx, instance)
+
+        self.client.containers.get.assert_called_once_with(instance.name)
+
+    def test_resume(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.resume(ctx, instance, None, None)
+
+        self.client.containers.get.assert_called_once_with(instance.name)
