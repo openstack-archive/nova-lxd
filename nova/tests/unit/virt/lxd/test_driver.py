@@ -346,3 +346,44 @@ class LXDDriverTest(test.NoDBTestCase):
             instance, vif)
         self.assertEqual(['root'], sorted(container.expanded_devices.keys()))
         container.save.assert_called_once_with(wait=True)
+
+    def test_migrate_disk_and_power_off(self):
+        container = mock.Mock()
+        self.client.containers.get.return_value = container
+        profile = mock.Mock()
+        self.client.profiles.get.return_value = profile
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        dest = '0.0.0.0'
+        flavor = mock.Mock()
+        network_info = []
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.migrate_disk_and_power_off(
+            ctx, instance, dest, flavor, network_info)
+
+        profile.save.assert_called_once_with()
+        container.stop.assert_called_once_with(wait=True)
+
+    def test_migrate_disk_and_power_off_different_host(self):
+        """Migrating to a different host only shuts down the container."""
+        container = mock.Mock()
+        self.client.containers.get.return_value = container
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        dest = '0.0.0.1'
+        flavor = mock.Mock()
+        network_info = []
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.migrate_disk_and_power_off(
+            ctx, instance, dest, flavor, network_info)
+
+        self.assertEqual(0, self.client.profiles.get.call_count)
+        container.stop.assert_called_once_with(wait=True)

@@ -200,8 +200,7 @@ class LXDDriver(driver.ComputeDriver):
         self.firewall_driver.apply_instance_filter(instance, network_info)
 
         # Create the profile
-        # XXX: rockstar (6 Jul 2016) - create_profile should remove the
-        # indirection, as it is only called here.
+        # XXX: rockstar (6 Jul 2016) - create_profile is legacy code.
         profile_data = self.create_profile(
             instance, network_info, block_device_info)
         profile = self.client.profiles.create(
@@ -362,6 +361,25 @@ class LXDDriver(driver.ComputeDriver):
         del container.expanded_devices[to_remove]
         container.save(wait=True)
 
+    def migrate_disk_and_power_off(
+            self, context, instance, dest, flavor, network_info,
+            block_device_info=None, timeout=0, retry_interval=0):
+
+        if CONF.my_ip == dest:
+            # Make sure that the profile for the container is up-to-date to
+            # the actual state of the container.
+            # XXX: rockstar (6 Jul 2016) - create_profile is legacy code.
+            profile_config = self.create_profile(
+                instance, network_info, block_device_info)
+
+            profile = self.client.profiles.get(instance.name)
+            profile.devices = profile_config['devices']
+            profile.config = profile_config['config']
+            profile.save()
+        container = self.client.containers.get(instance.name)
+        container.stop(wait=True)
+        return ''
+
     # XXX: rockstar (5 July 2016) - The methods and code below this line
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
@@ -386,15 +404,6 @@ class LXDDriver(driver.ComputeDriver):
                     utils.execute('chown',
                                   os.stat(root_dir).st_uid,
                                   ephemeral_src, run_as_root=True)
-
-    def migrate_disk_and_power_off(self, context, instance, dest,
-                                   flavor, network_info,
-                                   block_device_info=None,
-                                   timeout=0, retry_interval=0):
-        return self.container_migrate.migrate_disk_and_power_off(
-            context, instance, dest, flavor,
-            network_info, block_device_info, timeout,
-            retry_interval)
 
     def snapshot(self, context, instance, image_id, update_task_state):
         lock_path = str(os.path.join(CONF.instances_path, 'locks'))
