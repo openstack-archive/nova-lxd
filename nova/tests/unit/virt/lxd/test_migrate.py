@@ -41,24 +41,6 @@ class LXDTestContainerMigrate(test.NoDBTestCase):
         self.migrate.unplug_vifs = mock.MagicMock()
 
     @mock.patch.object(session.LXDAPISession, 'container_defined')
-    def test_migrate_disk_and_power_off_different_host(
-            self, mock_container_defined):
-        """Verify that conianer stops when Nova starts to
-           migrate an instance to a different host.
-        """
-        mock_instance = fake_instance.fake_instance_obj(self.context)
-        self.migrate.migrate_disk_and_power_off(
-            mock.sentinel.context, mock_instance,
-            mock.sentinel.dest, mock.sentinel.flavor,
-            mock.sentinel.network_info,
-            mock.sentinel.block_device_info,
-            mock.sentinel.timeout, mock.sentinel.retry_interval)
-        mock_container_defined.return_value = True
-        self.migrate.session.container_stop.assert_called_once_with(
-            mock_instance.name, mock_instance
-        )
-
-    @mock.patch.object(session.LXDAPISession, 'container_defined')
     def test_confirm_migration(self, mock_contaienr_defined):
         """Verify that the correct migration container calls
            are made.

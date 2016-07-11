@@ -47,40 +47,6 @@ class LXDContainerMigrate(object):
     # migrate/resize
     #
 
-    def migrate_disk_and_power_off(self, context, instance, dest,
-                                   flavor, network_info,
-                                   block_device_info=None, timeout=0,
-                                   retry_interval=0):
-        LOG.debug("migrate_disk_and_power_off called", instance=instance)
-
-        same_host = False
-        if CONF.my_ip == dest:
-            same_host = True
-            LOG.debug('Migration target is the source host')
-        else:
-            LOG.debug('Migration target host: %s' % dest)
-
-        if not self.session.container_defined(instance.name, instance):
-            msg = _('Instance is not found.')
-            raise exception.NovaException(msg)
-
-        try:
-            if same_host:
-                container_profile = self.driver.create_profile(instance,
-                                                               network_info)
-                self.session.profile_update(container_profile, instance)
-            else:
-                self.session.container_stop(instance.name, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('failed to resize container '
-                              '%(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-        # disk_info is not used
-        return ""
-
     def confirm_migration(self, migration, instance, network_info):
         LOG.debug("confirm_migration called", instance=instance)
 
