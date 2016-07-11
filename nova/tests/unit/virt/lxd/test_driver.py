@@ -50,6 +50,13 @@ class LXDDriverTest(test.NoDBTestCase):
         self.CONF.instances_path = '/path/to/instances'
         self.CONF.my_ip = '0.0.0.0'
 
+        self.name = 'volume-00000001'
+        self.location = '10.0.2.15:3260'
+        self.iqn = 'iqn.2010-10.org.openstack:%s' % self.name
+        self.vol = {'id': 1, 'name': self.name}
+        self.uuid = '875a8070-d0b9-4949-8b31-104d125c9a64'
+        self.user = 'foo'
+
     def tearDown(self):
         super(LXDDriverTest, self).tearDown()
         self.Client_patcher.stop()
@@ -261,3 +268,100 @@ class LXDDriverTest(test.NoDBTestCase):
         result = lxd_driver.get_host_ip_addr()
 
         self.assertEqual('0.0.0.0', result)
+
+    def _iscsi_connection(self, volume, location, iqn, auth=False,
+                          transport=None):
+        dev_name = 'ip-%s-iscsi-%s-lun-1' % (location, iqn)
+        if transport is not None:
+            dev_name = 'pci-0000:00:00.0-' + dev_name
+        dev_path = '/dev/disk/by-path/%s' % (dev_name)
+        ret = {
+            'driver_volume_type': 'iscsi',
+            'data': {
+                'volume_id': volume['id'],
+                'target_portal': location,
+                'target_iqn': iqn,
+                'target_lun': 1,
+                'device_path': dev_path,
+                'qos_specs': {
+                    'total_bytes_sec': '102400',
+                    'read_iops_sec': '200',
+                }
+            }
+        }
+        if auth:
+            ret['data']['auth_method'] = 'CHAP'
+            ret['data']['auth_username'] = 'foo'
+            ret['data']['auth_password'] = 'bar'
+        return ret
+
+    @mock.patch('os.readlink')
+    def test_attach_volume(self, readlink):
+        mock_profile = mock.Mock()
+        self.client.profiles.get.return_value = mock_profile
+        readlink.return_value = '/dev/sdc'
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        connection_info = self._iscsi_connection(self.vol, self.location,
+                                                 self.iqn, auth=True)
+        mountpoint = mock.Mock()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.connector.connect_volume = mock.MagicMock()
+        lxd_driver.attach_volume(ctx, connection_info, instance,
+                                 mountpoint, None, None, None)
+
+        lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
+        lxd_driver.connector.connect_volume.asert_called_once_with(
+            connection_info['data'])
+
+    def test_detatch_volume(self):
+        mock_profile = mock.Mock()
+        mock_profile.devices = {
+            'eth0': {
+                'name': 'eth0',
+                'nictype': 'bridged',
+                'parent': 'lxdbr0',
+                'type': 'nic'
+            },
+            'root': {
+                'path': '/',
+                'type': 'disk'
+            },
+            1: {
+                'path': '/dev/sdc',
+                'type': 'unix-block'
+            },
+        }
+
+        expected = {
+            'eth0': {
+                'name': 'eth0',
+                'nictype': 'bridged',
+                'parent': 'lxdbr0',
+                'type': 'nic'
+            },
+            'root': {
+                'path': '/',
+                'type': 'disk'
+            },
+        }
+
+        self.client.profiles.get.return_value = mock_profile
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        connection_info = self._iscsi_connection(self.vol, self.location,
+                                                 self.iqn, auth=True)
+        mountpoint = mock.Mock()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.connector.disconnect_volume = mock.MagicMock()
+        lxd_driver.detach_volume(connection_info, instance, mountpoint, None)
+
+        lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
+
+        self.assertEqual(expected, mock_profile.devices)
