@@ -355,8 +355,6 @@ class LXDTestDriverNoops(test.NoDBTestCase):
         'get_instance_diagnostics',
         'get_all_bw_counters',
         'get_all_volume_usage',
-        'attach_volume',
-        'detach_volume',
         'soft_delete',
         'check_instance_shared_storage_local',
         'check_instance_shared_storage_remote',
