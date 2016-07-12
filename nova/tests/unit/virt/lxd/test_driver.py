@@ -34,6 +34,32 @@ MockContainerState = collections.namedtuple(
     'ContainerState', ['status_code', 'memory'])
 
 
+def fake_connection_info(volume, location, iqn, auth=False, transport=None):
+    dev_name = 'ip-%s-iscsi-%s-lun-1' % (location, iqn)
+    if transport is not None:
+        dev_name = 'pci-0000:00:00.0-' + dev_name
+    dev_path = '/dev/disk/by-path/%s' % (dev_name)
+    ret = {
+        'driver_volume_type': 'iscsi',
+        'data': {
+            'volume_id': volume['id'],
+            'target_portal': location,
+            'target_iqn': iqn,
+            'target_lun': 1,
+            'device_path': dev_path,
+            'qos_specs': {
+                'total_bytes_sec': '102400',
+                'read_iops_sec': '200',
+            }
+        }
+    }
+    if auth:
+        ret['data']['auth_method'] = 'CHAP'
+        ret['data']['auth_username'] = 'foo'
+        ret['data']['auth_password'] = 'bar'
+    return ret
+
+
 class LXDDriverTest(test.NoDBTestCase):
     """Tests for nova.virt.lxd.driver.LXDDriver."""
 
@@ -346,3 +372,80 @@ class LXDDriverTest(test.NoDBTestCase):
             instance, vif)
         self.assertEqual(['root'], sorted(container.expanded_devices.keys()))
         container.save.assert_called_once_with(wait=True)
+
+    @mock.patch('os.readlink')
+    def test_attach_volume(self, readlink):
+        profile = mock.Mock()
+        self.client.profiles.get.return_value = profile
+        readlink.return_value = '/dev/sdc'
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        connection_info = fake_connection_info(
+            {'id': 1, 'name': 'volume-00000001'},
+            '10.0.2.15:3260', 'iqn.2010-10.org.openstack:volume-00000001',
+            auth=True)
+        mountpoint = mock.Mock()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.storage_driver.connect_volume = mock.MagicMock()
+        lxd_driver.attach_volume(
+            ctx, connection_info, instance, mountpoint, None, None, None)
+
+        lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
+        lxd_driver.storage_driver.connect_volume.assert_called_once_with(
+            connection_info['data'])
+        profile.save.assert_called_once_with()
+
+    def test_detach_volume(self):
+        profile = mock.Mock()
+        profile.devices = {
+            'eth0': {
+                'name': 'eth0',
+                'nictype': 'bridged',
+                'parent': 'lxdbr0',
+                'type': 'nic'
+            },
+            'root': {
+                'path': '/',
+                'type': 'disk'
+            },
+            1: {
+                'path': '/dev/sdc',
+                'type': 'unix-block'
+            },
+        }
+
+        expected = {
+            'eth0': {
+                'name': 'eth0',
+                'nictype': 'bridged',
+                'parent': 'lxdbr0',
+                'type': 'nic'
+            },
+            'root': {
+                'path': '/',
+                'type': 'disk'
+            },
+        }
+
+        self.client.profiles.get.return_value = profile
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        connection_info = fake_connection_info(
+            {'id': 1, 'name': 'volume-00000001'},
+            '10.0.2.15:3260', 'iqn.2010-10.org.openstack:volume-00000001',
+            auth=True)
+        mountpoint = mock.Mock()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.storage_driver.disconnect_volume = mock.MagicMock()
+        lxd_driver.detach_volume(connection_info, instance, mountpoint, None)
+
+        lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
+
+        self.assertEqual(expected, profile.devices)
+        profile.save.assert_called_once_with()
