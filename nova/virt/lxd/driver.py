@@ -32,6 +32,7 @@ from nova import image
 from nova import exception
 from nova import i18n
 from nova.virt import driver
+from os_brick.initiator import connector
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import fileutils
@@ -106,6 +107,12 @@ class LXDDriver(driver.ComputeDriver):
         self.vif_driver = lxd_vif.LXDGenericDriver()
         self.firewall_driver = firewall.load_driver(
             default='nova.virt.firewall.NoopFirewallDriver')
+
+        self.storage_driver = connector.InitiatorConnector.factory(
+            'ISCSI', utils.get_root_helper(),
+            use_multipath=CONF.libvirt.iscsi_use_multipath,
+            device_scan_attempts=CONF.libvirt.num_iscsi_scan_tries,
+            transport='default')
 
         # XXX: rockstar (5 Jul 2016) - These attributes are temporary. We
         # will know our cleanup of nova-lxd is complete when these
@@ -321,8 +328,59 @@ class LXDDriver(driver.ComputeDriver):
     def get_host_ip_addr(self):
         return CONF.my_ip
 
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `attach_volume`
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `detach_volume`
+    def attach_volume(self, context, connection_info, instance, mountpoint,
+                      disk_bus=None, device_type=None, encryption=None):
+        """Attach block device to a nova instance.
+
+        Attaching a block device to a container requires a couple of steps.
+        First os_brick connects the cinder volume to the host. Next,
+        the block device is added to the containers profile. Next, the
+        apparmor profile for the container is updated to allow mounting
+        'ext4' block devices. Finally, the profile is saved.
+
+        The block device must be formatted as ext4 in order to mount
+        the block device inside the container.
+
+        See `nova.virt.driver.ComputeDriver.attach_volume' for
+        more information/
+        """
+        profile = self.client.profiles.get(instance.name)
+
+        device_info = self.storage_driver.connect_volume(
+            connection_info['data'])
+        disk = os.readlink(device_info['path']).rpartition("/")[2]
+        vol_id = connection_info['data']['volume_id']
+
+        disk_device = {
+            vol_id: {
+                'path': '/dev/%s' % disk,
+                'type': 'unix-block'
+            }
+        }
+
+        profile.devices.update(disk_device)
+        # XXX zulcss - (July 10, 2016) - fused is currently not supported.
+        profile.config.update({'raw.apparmor': 'mount fstype=ext4,'})
+        profile.save()
+
+    def detach_volume(self, connection_info, instance, mountpoint,
+                      encryption=None):
+        """Detach block device from a nova instance.
+
+        First the volume id is deleted from the profile, and the
+        profile is saved. The os-brick disconnects the volume
+        from the host.
+
+        See `nova.virt.driver.Computedriver.detach_volume` for
+        more information.
+        """
+        profile = self.client.profiles.get(instance.name)
+        vol_id = connection_info['data']['volume_id']
+        del profile.devices[vol_id]
+        profile.save()
+
+        self.storage_driver.disconnect_volume(connection_info['data'], None)
+
     # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `swap_volume`
 
     def attach_interface(self, instance, image_meta, vif):
