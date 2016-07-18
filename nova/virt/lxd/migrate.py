@@ -87,7 +87,7 @@ class LXDContainerMigrate(object):
             #          generate the container config
             self._container_init(migration['source_compute'], instance)
 
-            # Step 3 - Start the network and contianer
+            # Step 3 - Start the network and container
             self.plug_vifs(instance, network_info)
             self.session.container_start(instance.name, instance)
         except Exception as ex:

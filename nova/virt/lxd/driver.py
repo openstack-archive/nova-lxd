@@ -599,7 +599,7 @@ class LXDDriver(driver.ComputeDriver):
             # Step 1 - Stop the old container
             self.session.container_stop(instance.name, instance)
 
-            # Step 2 - Rename the broken contianer to be rescued
+            # Step 2 - Rename the broken container to be rescued
             self.session.container_move(instance.name,
                                         {'name': '%s-backup' % instance.name},
                                         instance)
@@ -636,7 +636,7 @@ class LXDDriver(driver.ComputeDriver):
                                         {'name': instance.name},
                                         instance)
 
-            # Step 3 - Start the old contianer
+            # Step 3 - Start the old container
             self.session.container_start(instance.name, instance)
         except Exception as ex:
             with excutils.save_and_reraise_exception():

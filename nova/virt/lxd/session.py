@@ -115,7 +115,7 @@ class LXDAPISession(object):
         :return: an update LXD configuration dictionary
 
         """
-        LOG.debug('container_update called fo instance', instance=instance)
+        LOG.debug('container_update called for instance', instance=instance)
         try:
             client = self.get_session()
 
@@ -599,7 +599,7 @@ class LXDAPISession(object):
         :param operation_id: The operation to wait for.
         :param instance: nova instace object
         """
-        LOG.debug('wait_for_contianer for instance', instance=instance)
+        LOG.debug('wait_for_container for instance', instance=instance)
         try:
             client = self.get_session(host=host)
             if not client.wait_container_operation(operation_id, 200, -1):

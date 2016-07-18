@@ -266,7 +266,7 @@ class SessionContainerTest(test.NoDBTestCase):
     )
     def test_container_stop_fail(self, tag, side_effect, expected):
         """
-        contianer_stop stops a container on a given LXD host.
+        container_stop stops a container on a given LXD host.
         Verifty that we raise an exception.NovaException when there is an
         APIError.
         """
@@ -383,7 +383,7 @@ class SessionContainerTest(test.NoDBTestCase):
     )
     def test_container_pause_fail(self, tag, side_effect, expected):
         """
-        container_pause pauses a contianer on a LXD host. Verify
+        container_pause pauses a container on a LXD host. Verify
         that an exception.NovaException is raised when there
         is an APIError.
         """

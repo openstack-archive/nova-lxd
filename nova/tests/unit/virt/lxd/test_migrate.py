@@ -74,7 +74,7 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
 
     def test_copy_container_profile(self):
         """Verify the correct calls are made
-           when a host needs to copy a contianer profile.
+           when a host needs to copy a container profile.
         """
         mock_instance = fake_instance.fake_instance_obj(self.context)
         fake_network_info = fake_network.fake_get_instance_nw_info
