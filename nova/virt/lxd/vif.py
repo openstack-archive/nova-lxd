@@ -100,6 +100,10 @@ class LXDGenericDriver(object):
         else:
             return self.get_config_ovs_bridge(instance, vif)
 
+    def get_config_tap(self, instance, vif):
+        conf = {'mac_address': vif['address']}
+        return conf
+
     def plug(self, instance, vif):
         vif_type = vif['type']
 
@@ -173,6 +177,9 @@ class LXDGenericDriver(object):
                                           v2_name, iface_id,
                                           vif['address'], instance.name)
 
+    def plug_tap(self, instance, vif):
+        pass
+
     def unplug(self, instance, vif):
         vif_type = vif['type']
 
@@ -220,4 +227,7 @@ class LXDGenericDriver(object):
         pass
 
     def unplug_bridge(self, instance, vif):
+        pass
+
+    def unplug_tap(self, instance, vif):
         pass
