@@ -403,14 +403,24 @@ class LXDDriver(driver.ComputeDriver):
         net_device = 'eth{}'.format(len(interfaces))
 
         network_config = self.vif_driver.get_config(instance, vif)
-        config_update = {
-            net_device: {
-                'nictype': 'bridged',
-                'hwaddr': vif['address'],
-                'parent': network_config['bridge'],
-                'type': 'nic',
+        if 'bridge' in network_config:
+            config_update = {
+                net_device: {
+                    'nictype': 'bridged',
+                    'hwaddr': vif['address'],
+                    'parent': network_config['bridge'],
+                    'type': 'nic',
+                }
             }
-        }
+        else:
+            config_update = {
+                net_device: {
+                    'nictype': 'p2p',
+                    'hwaddr': vif['address'],
+                    'type': 'nic',
+                }
+            }
+
         container.expanded_devices.update(config_update)
         container.save(wait=True)
 
@@ -1411,17 +1421,26 @@ class LXDDriver(driver.ComputeDriver):
 
             for vifaddr in network_info:
                 cfg = self.vif_driver.get_config(instance, vifaddr)
-                network_devices[str(cfg['bridge'])] = \
-                    {'nictype': 'bridged',
-                     'hwaddr': str(cfg['mac_address']),
-                     'parent': str(cfg['bridge']),
-                     'type': 'nic'}
+                if 'bridge' in cfg:
+                    key = str(cfg['bridge'])
+                    network_devices[key] = {
+                        'nictype': 'bridged',
+                        'hwaddr': str(cfg['mac_address']),
+                        'parent': str(cfg['bridge']),
+                        'type': 'nic'
+                    }
+                else:
+                    key = 'unbridged'
+                    network_devices[key] = {
+                        'nictype': 'p2p',
+                        'hwaddr': str(cfg['mac_address']),
+                        'type': 'nic'
+                    }
                 host_device = self.vif_driver.get_vif_devname(vifaddr)
                 if host_device:
-                    network_devices[str(cfg['bridge'])]['host_name'] = \
-                        host_device
+                    network_devices[key]['host_name'] = host_device
                 # Set network device quotas
-                network_devices[str(cfg['bridge'])].update(
+                network_devices[key].update(
                     self.create_network_quota_config(instance)
                 )
                 return network_devices
