@@ -231,6 +231,63 @@ class LXDDriverTest(test.NoDBTestCase):
 
         self.assertEqual(expected_calls, execute.call_args_list)
 
+    @mock.patch('os.stat')
+    @mock.patch('nova.virt.lxd.driver.container_utils.get_container_dir')
+    @mock.patch.object(driver.utils, 'execute')
+    @mock.patch('nova.virt.driver.block_device_info_get_ephemerals')
+    def test_add_ephemerals_with_btrfs(
+            self, block_device_info_get_ephemerals, execute,
+            get_container_dir, stat):
+        ctx = context.get_admin_context()
+        block_device_info_get_ephemerals.return_value = [
+            {'virtual_name': 'ephemerals0'}]
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance.ephemeral_gb = 1
+        block_device_info = mock.Mock()
+        lxd_config = {'environment': {'storage': 'btrfs'}}
+        get_container_dir.return_value = '/path'
+        stat.return_value.st_uid = 1234
+        profile = mock.Mock()
+        profile.devices = {
+            'root': {
+                'path': '/',
+                'type': 'disk',
+                'size': '1G'
+            },
+            'ephemerals0': {
+                'optional': 'True',
+                'path': '/mnt',
+                'source': '/path/fake_path',
+                'type': 'disk'
+
+            }
+        }
+        self.client.profiles.get.return_value = profile
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+        lxd_driver._add_ephemeral(block_device_info, lxd_config, instance)
+
+        block_device_info_get_ephemerals.assert_called_once_with(
+            block_device_info)
+        profile.save.assert_called_once_with()
+
+        expected_calls = [
+            mock.call(
+                'btrfs', 'subvolume', 'create',
+                '/path/instance-00000001/ephemerals0',
+                run_as_root=True),
+            mock.call(
+                'btrfs', 'qgroup', 'limit', '1g',
+                '/path/instance-00000001/ephemerals0', run_as_root=True),
+            mock.call(
+                'chown', 1234, '/path/instance-00000001/ephemerals0',
+                run_as_root=True)
+        ]
+        self.assertEqual(expected_calls, execute.call_args_list)
+        self.assertEqual(profile.devices['ephemerals0']['source'],
+                         '/path/instance-00000001/ephemerals0')
+
     def test_destroy(self):
         mock_profile = mock.Mock()
         mock_container = mock.Mock()

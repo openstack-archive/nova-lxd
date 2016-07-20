@@ -479,9 +479,28 @@ class LXDDriver(driver.ComputeDriver):
                         '-o', 'quota=%sG' % instance.ephemeral_gb,
                               '%s/%s-ephemeral' % (zfs_pool, instance.name),
                         run_as_root=True)
+                elif storage_driver == 'btrfs':
+                    # We re-use the same btrfs subvolumes that LXD uses,
+                    # so the ephemeral storage path is updated in the profile
+                    # before the container starts.
+                    storage_dir = os.path.join(
+                        container_utils.get_container_dir(instance.name),
+                        instance.name, ephemeral['virtual_name'])
+                    profile = self.client.profiles.get(instance.name)
+                    storage_name = ephemeral['virtual_name']
+                    profile.devices[storage_name]['source'] = storage_dir
+                    profile.save()
+
+                    utils.execute(
+                        'btrfs', 'subvolume', 'create', storage_dir,
+                        run_as_root=True)
+                    utils.execute(
+                        'btrfs', 'qgroup', 'limit',
+                        '%sg' % instance.ephemeral_gb, storage_dir,
+                        run_as_root=True)
                 else:
                     reason = _('Unsupport LXD storage detected. Supported'
-                               ' storage drivers is zfs.')
+                               ' storage drivers are zfs and btrfs.')
                     raise exception.NovaException(reason)
 
                 utils.execute(
