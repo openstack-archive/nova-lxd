@@ -145,7 +145,7 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
 
     def test_live_migration_not_allowed(self):
         """Verify an exception is raised when live migration is not allowed."""
-        self.flags(allow_live_migrate=False,
+        self.flags(allow_live_migration=False,
                    group='lxd')
         self.assertRaises(exception.MigrationPreCheckError,
                           self.migrate.check_can_live_migrate_source,
@@ -157,7 +157,7 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
         """Verify live-migration is allowed when the allow_lvie_migrate
            flag is True.
         """
-        self.flags(allow_live_migrate=True,
+        self.flags(allow_live_migration=True,
                    group='lxd')
         self.assertEqual(mock.sentinel.dest_check_data,
                          self.migrate.check_can_live_migrate_source(

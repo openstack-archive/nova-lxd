@@ -72,7 +72,7 @@ lxd_opts = [
                default=2,
                help='How often to retry in seconds when a'
                     'request does conflict'),
-    cfg.BoolOpt('allow_live_migrate',
+    cfg.BoolOpt('allow_live_migration',
                 default=False,
                 help='Determine wheter to allow live migration'),
 ]
@@ -759,8 +759,10 @@ class LXDDriver(driver.ComputeDriver):
             context, instance, src_compute_info, dst_compute_info,
             block_migration, disk_over_commit)
 
-    def check_can_live_migrate_destination_cleanup(self, context,
-                                                   dest_check_data):
+    def cleanup_live_migration_destination_check(
+            self, context, dest_check_data):
+        # XXX: rockstar (20 Jul 2016) - This method was renamed in newton,
+        # See https://github.com/openstack/nova/commit/3b62698235364057ec0c6811cc89ac85511876d2
         self.container_migrate.check_can_live_migrate_destination_cleanup(
             context, dest_check_data)
 
