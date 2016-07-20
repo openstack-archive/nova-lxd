@@ -144,6 +144,10 @@ class LXDDriverTest(test.NoDBTestCase):
         network_info = [mock.Mock()]
         block_device_info = mock.Mock()
 
+        # NOTE: mock out fileutils to ensure that unit tests don't try
+        #       to manipulate the filesystem (breaks in package builds).
+        driver.fileutils = mock.Mock()
+
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
         # XXX: rockstar (6 Jul 2016) - There are a number of XXX comments
