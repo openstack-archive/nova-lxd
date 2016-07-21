@@ -622,3 +622,59 @@ class LXDDriverTest(test.NoDBTestCase):
 
         self.assertEqual(expected, profile.devices)
         profile.save.assert_called_once_with()
+
+    def test_pause(self):
+        container = mock.Mock()
+        self.client.containers.get.return_value = container
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.pause(instance)
+
+        self.client.containers.get.assert_called_once_with(instance.name)
+        container.freeze.assert_called_once_with(instance.name, wait=True)
+
+    def test_unpause(self):
+        container = mock.Mock()
+        self.client.containers.get.return_value = container
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.unpause(instance)
+
+        self.client.containers.get.assert_called_once_with(instance.name)
+        container.unfreeze.assert_called_once_with(instance.name, wait=True)
+
+    def test_suspend(self):
+        container = mock.Mock()
+        self.client.containers.get.return_value = container
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.suspend(ctx, instance)
+
+        self.client.containers.get.assert_called_once_with(instance.name)
+        container.freeze.assert_called_once_with(instance.name, wait=True)
+
+    def test_resume(self):
+        container = mock.Mock()
+        self.client.containers.get.return_value = container
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.resume(ctx, instance, None, None)
+
+        self.client.containers.get.assert_called_once_with(instance.name)
+        container.unfreeze.assert_called_once_with(instance.name, wait=True)
