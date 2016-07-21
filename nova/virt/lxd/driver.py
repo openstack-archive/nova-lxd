@@ -493,6 +493,351 @@ class LXDDriver(driver.ComputeDriver):
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
     # comment can be removed.
+
+    #
+    # ComputeDriver implementation methods
+    #
+    def snapshot(self, context, instance, image_id, update_task_state):
+        lock_path = str(os.path.join(CONF.instances_path, 'locks'))
+        try:
+            if not self.session.container_defined(instance.name, instance):
+                raise exception.InstanceNotFound(instance_id=instance.name)
+
+            with lockutils.lock(lock_path,
+                                lock_file_prefix=('lxd-snapshot-%s' %
+                                                  instance.name),
+                                external=True):
+
+                update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
+
+                # We have to stop the container before we can publish the
+                # image to the local store
+                self.session.container_stop(instance.name,
+                                            instance)
+                fingerprint = self._save_lxd_image(instance,
+                                                   image_id)
+                self.session.container_start(instance.name, instance)
+
+                update_task_state(task_state=task_states.IMAGE_UPLOADING,
+                                  expected_state=task_states.IMAGE_PENDING_UPLOAD)  # noqa
+                self._save_glance_image(context, instance, image_id,
+                                        fingerprint)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to create snapshot for %(instance)s: '
+                              '%(ex)s'), {'instance': instance.name, 'ex': ex},
+                          instance=instance)
+
+    def post_interrupted_snapshot_cleanup(self, context, instance):
+        pass
+
+    def finish_migration(self, context, migration, instance, disk_info,
+                         network_info, image_meta, resize_instance,
+                         block_device_info=None, power_on=True):
+        return self.container_migrate.finish_migration(
+            context, migration, instance, disk_info,
+            network_info, image_meta, resize_instance,
+            block_device_info, power_on)
+
+    def confirm_migration(self, migration, instance, network_info):
+        return self.container_migrate.confirm_migration(migration,
+                                                        instance,
+                                                        network_info)
+
+    def finish_revert_migration(self, context, instance, network_info,
+                                block_device_info=None, power_on=True):
+        return self.container_migrate.finish_revert_migration(
+            context, instance, network_info, block_device_info,
+            power_on)
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `resume_state_on_host_boot`
+
+    def rescue(self, context, instance, network_info, image_meta,
+               rescue_password):
+        LOG.debug('rescue called for instance', instance=instance)
+        try:
+            # Step 1 - Stop the old container
+            self.session.container_stop(instance.name, instance)
+
+            # Step 2 - Rename the broken container to be rescued
+            self.session.container_move(instance.name,
+                                        {'name': '%s-backup' % instance.name},
+                                        instance)
+
+            # Step 3 - Re use the old instance object and confiugre
+            #          the disk mount point and create a new container.
+            container_config = self.create_container(instance)
+            rescue_dir = container_utils.get_container_rescue(
+                instance.name + '-backup')
+            config = self.configure_disk_path(
+                rescue_dir, 'mnt', 'rescue', instance)
+            container_config['devices'].update(config)
+            self.session.container_init(container_config, instance)
+
+            # Step 4 - Start the rescue instance
+            self.session.container_start(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container rescue failed for '
+                                  '%(instance)s: %(ex)s'),
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `set_bootable`
+
+    def unrescue(self, instance, network_info):
+        LOG.debug('unrescue called for instance', instance=instance)
+        try:
+            # Step 1 - Destory the rescue instance.
+            self.session.container_destroy(instance.name,
+                                           instance)
+
+            # Step 2 - Rename the backup container that
+            #          the user was working on.
+            self.session.container_move(instance.name + '-backup',
+                                        {'name': instance.name},
+                                        instance)
+
+            # Step 3 - Start the old container
+            self.session.container_start(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container unrescue failed for '
+                                  '%(instance)s: %(ex)s'),
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
+
+    def power_off(self, instance, timeout=0, retry_interval=0):
+        LOG.debug('power_off called for instance', instance=instance)
+        try:
+            self.session.container_stop(instance.name,
+                                        instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Failed to power_off container'
+                              ' for %(instance)s: %(ex)s'),
+                          {'instance': instance.name, 'ex': ex},
+                          instance=instance)
+
+    def power_on(self, context, instance, network_info,
+                 block_device_info=None):
+        LOG.debug('power_on called for instance', instance=instance)
+        try:
+            self.session.container_start(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Container power off for '
+                                  '%(instance)s: %(ex)s'),
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `trigger_crash_dump`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `soft_delete`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `restore`
+
+    def get_available_resource(self, nodename):
+        LOG.debug('In get_available_resource')
+
+        local_cpu_info = self._get_cpuinfo()
+        cpu_topology = local_cpu_info['topology']
+        vcpus = (int(cpu_topology['cores']) *
+                 int(cpu_topology['sockets']) *
+                 int(cpu_topology['threads']))
+
+        local_memory_info = self._get_memory_mb_usage()
+        local_disk_info = self._get_fs_info(CONF.lxd.root_dir)
+
+        data = {
+            'vcpus': vcpus,
+            'memory_mb': local_memory_info['total'] / units.Mi,
+            'memory_mb_used': local_memory_info['used'] / units.Mi,
+            'local_gb': local_disk_info['total'] / units.Gi,
+            'local_gb_used': local_disk_info['used'] / units.Gi,
+            'vcpus_used': 0,
+            'hypervisor_type': 'lxd',
+            'hypervisor_version': '011',
+            'cpu_info': jsonutils.dumps(local_cpu_info),
+            'hypervisor_hostname': socket.gethostname(),
+            'supported_instances':
+                [(arch.I686, hv_type.LXD, vm_mode.EXE),
+                    (arch.X86_64, hv_type.LXD, vm_mode.EXE),
+                    (arch.I686, hv_type.LXC, vm_mode.EXE),
+                    (arch.X86_64, hv_type.LXC, vm_mode.EXE)],
+            'numa_topology': None,
+        }
+
+        return data
+
+    def pre_live_migration(self, context, instance, block_device_info,
+                           network_info, disk_info, migrate_data=None):
+        self.container_migrate.pre_live_migration(
+            context, instance, block_device_info, network_info,
+            disk_info, migrate_data)
+
+    def live_migration(self, context, instance, dest,
+                       post_method, recover_method, block_migration=False,
+                       migrate_data=None):
+        self.container_migrate.live_migration(
+            context, instance, dest, post_method,
+            recover_method, block_migration,
+            migrate_data)
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `live_migration_force_complete`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `live_migration_abort`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `rollback_live_migration_at_destination`
+
+    def post_live_migration(self, context, instance, block_device_info,
+                            migrate_data=None):
+        self.container_migrate.post_live_migration(
+            context, instance, block_device_info, migrate_data)
+
+    def post_live_migration_at_source(self, context, instance, network_info):
+        return self.container_migrate.post_live_migration_at_snurce(
+            context, instance, network_info)
+
+    def post_live_migration_at_destination(self, context, instance,
+                                           network_info,
+                                           block_migration=False,
+                                           block_device_info=None):
+        self.container_migrate.post_live_migration_at_destination(
+            context, instance, network_info, block_migration,
+            block_device_info)
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `check_instance_shared_storage_local`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not
+    # check_instance_shared_storage_remote`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `check_instance_shared_storage_cleanup`
+
+    def check_can_live_migrate_destination(self, context, instance,
+                                           src_compute_info, dst_compute_info,
+                                           block_migration=False,
+                                           disk_over_commit=False):
+        return self.container_migrate.check_can_live_migrate_destination(
+            context, instance, src_compute_info, dst_compute_info,
+            block_migration, disk_over_commit)
+
+    def cleanup_live_migration_destination_check(
+            self, context, dest_check_data):
+        # XXX: rockstar (20 Jul 2016) - This method was renamed in newton,
+        # NOQA See https://github.com/openstack/nova/commit/3b62698235364057ec0c6811cc89ac85511876d2
+        self.container_migrate.check_can_live_migrate_destination_cleanup(
+            context, dest_check_data)
+
+    def check_can_live_migrate_source(self, context, instance,
+                                      dest_check_data, block_device_info=None):
+        self.container_migrate.check_can_live_migrate_source(
+            context, instance, dest_check_data,
+            block_device_info
+        )
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `get_instance_disk_info`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `refresh_security_group_rules`
+
+    def refresh_instance_security_rules(self, instance):
+        return self.firewall_driver.refresh_instance_security_rules(
+            instance)
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `reset_network`
+
+    def ensure_filtering_rules_for_instance(self, instance, network_info):
+        return self.firewall_driver.ensure_filtering_rules_for_instance(
+            instance, network_info)
+
+    def filter_defer_apply_on(self):
+        return self.firewall_driver.filter_defer_apply_on()
+
+    def filter_defer_apply_off(self):
+        return self.firewall_driver.filter_defer_apply_off()
+
+    def unfilter_instance(self, instance, network_info):
+        return self.firewall_driver.unfilter_instance(
+            instance, network_info)
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `set_admin_password`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `inject_file`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `change_instance_metadata`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `inject_network_info`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `poll_rebooting_instances`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `host_power_action`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `host_power_action`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `set_host_enabled`
+
+    def get_host_uptime(self):
+        out, err = utils.execute('env', 'LANG=C', 'uptime')
+        return out
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `plug_vifs`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `unplug_vifs`
+
+    def get_host_cpu_stats(self):
+        cpuinfo = self._get_cpu_info()
+        return {
+            'kernel': int(psutil.cpu_times()[2]),
+            'idle': int(psutil.cpu_times()[3]),
+            'user': int(psutil.cpu_times()[0]),
+            'iowait': int(psutil.cpu_times()[4]),
+            'frequency': cpuinfo.get('cpu mhz', 0)
+        }
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `block_stats`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `add_to_aggregate`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `remove_from_aggregate`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `undo_aggregate_operation`
+
+    def get_volume_connector(self, instance):
+        return {'ip': CONF.my_block_storage_ip,
+                'initiator': 'fake',
+                'host': 'fakehost'}
+
+    def get_available_nodes(self, refresh=False):
+        hostname = socket.gethostname()
+        return [hostname]
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `volume_snapshot_create`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `volume_snapshot_delete`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `default_root_device_name`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `default_device_names_for_instance`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `get_device_name_for_instance`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `quiesce`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `unquiesce`
+
+    #
+    # LXDDriver "private" implementation methods
+    #
     def _add_ephemeral(self, block_device_info, lxd_config, instance):
         ephemeral_storage = driver.block_device_info_get_ephemerals(
             block_device_info)
@@ -557,342 +902,6 @@ class LXDDriver(driver.ComputeDriver):
                         'zfs', 'destroy',
                         '%s/%s-ephemeral' % (zfs_pool, instance.name),
                         run_as_root=True)
-
-    def snapshot(self, context, instance, image_id, update_task_state):
-        lock_path = str(os.path.join(CONF.instances_path, 'locks'))
-        try:
-            if not self.session.container_defined(instance.name, instance):
-                raise exception.InstanceNotFound(instance_id=instance.name)
-
-            with lockutils.lock(lock_path,
-                                lock_file_prefix=('lxd-snapshot-%s' %
-                                                  instance.name),
-                                external=True):
-
-                update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
-
-                # We have to stop the container before we can publish the
-                # image to the local store
-                self.session.container_stop(instance.name,
-                                            instance)
-                fingerprint = self._save_lxd_image(instance,
-                                                   image_id)
-                self.session.container_start(instance.name, instance)
-
-                update_task_state(task_state=task_states.IMAGE_UPLOADING,
-                                  expected_state=task_states.IMAGE_PENDING_UPLOAD)  # noqa
-                self._save_glance_image(context, instance, image_id,
-                                        fingerprint)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to create snapshot for %(instance)s: '
-                              '%(ex)s'), {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def post_interrupted_snapshot_cleanup(self, context, instance):
-        pass
-
-    def finish_migration(self, context, migration, instance, disk_info,
-                         network_info, image_meta, resize_instance,
-                         block_device_info=None, power_on=True):
-        return self.container_migrate.finish_migration(
-            context, migration, instance, disk_info,
-            network_info, image_meta, resize_instance,
-            block_device_info, power_on)
-
-    def confirm_migration(self, migration, instance, network_info):
-        return self.container_migrate.confirm_migration(migration,
-                                                        instance,
-                                                        network_info)
-
-    def finish_revert_migration(self, context, instance, network_info,
-                                block_device_info=None, power_on=True):
-        return self.container_migrate.finish_revert_migration(
-            context, instance, network_info, block_device_info,
-            power_on)
-
-    def rescue(self, context, instance, network_info, image_meta,
-               rescue_password):
-        LOG.debug('rescue called for instance', instance=instance)
-        try:
-            # Step 1 - Stop the old container
-            self.session.container_stop(instance.name, instance)
-
-            # Step 2 - Rename the broken container to be rescued
-            self.session.container_move(instance.name,
-                                        {'name': '%s-backup' % instance.name},
-                                        instance)
-
-            # Step 3 - Re use the old instance object and confiugre
-            #          the disk mount point and create a new container.
-            container_config = self.create_container(instance)
-            rescue_dir = container_utils.get_container_rescue(
-                instance.name + '-backup')
-            config = self.configure_disk_path(
-                rescue_dir, 'mnt', 'rescue', instance)
-            container_config['devices'].update(config)
-            self.session.container_init(container_config, instance)
-
-            # Step 4 - Start the rescue instance
-            self.session.container_start(instance.name, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Container rescue failed for '
-                                  '%(instance)s: %(ex)s'),
-                              {'instance': instance.name,
-                               'ex': ex}, instance=instance)
-
-    def unrescue(self, instance, network_info):
-        LOG.debug('unrescue called for instance', instance=instance)
-        try:
-            # Step 1 - Destory the rescue instance.
-            self.session.container_destroy(instance.name,
-                                           instance)
-
-            # Step 2 - Rename the backup container that
-            #          the user was working on.
-            self.session.container_move(instance.name + '-backup',
-                                        {'name': instance.name},
-                                        instance)
-
-            # Step 3 - Start the old container
-            self.session.container_start(instance.name, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Container unrescue failed for '
-                                  '%(instance)s: %(ex)s'),
-                              {'instance': instance.name,
-                               'ex': ex}, instance=instance)
-
-    def power_off(self, instance, timeout=0, retry_interval=0):
-        LOG.debug('power_off called for instance', instance=instance)
-        try:
-            self.session.container_stop(instance.name,
-                                        instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to power_off container'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def power_on(self, context, instance, network_info,
-                 block_device_info=None):
-        LOG.debug('power_on called for instance', instance=instance)
-        try:
-            self.session.container_start(instance.name, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Container power off for '
-                                  '%(instance)s: %(ex)s'),
-                              {'instance': instance.name,
-                               'ex': ex}, instance=instance)
-
-    def soft_delete(self, instance):
-        raise NotImplementedError()
-
-    def get_available_resource(self, nodename):
-        LOG.debug('In get_available_resource')
-
-        local_cpu_info = self._get_cpuinfo()
-        cpu_topology = local_cpu_info['topology']
-        vcpus = (int(cpu_topology['cores']) *
-                 int(cpu_topology['sockets']) *
-                 int(cpu_topology['threads']))
-
-        local_memory_info = self._get_memory_mb_usage()
-        local_disk_info = self._get_fs_info(CONF.lxd.root_dir)
-
-        data = {
-            'vcpus': vcpus,
-            'memory_mb': local_memory_info['total'] / units.Mi,
-            'memory_mb_used': local_memory_info['used'] / units.Mi,
-            'local_gb': local_disk_info['total'] / units.Gi,
-            'local_gb_used': local_disk_info['used'] / units.Gi,
-            'vcpus_used': 0,
-            'hypervisor_type': 'lxd',
-            'hypervisor_version': '011',
-            'cpu_info': jsonutils.dumps(local_cpu_info),
-            'hypervisor_hostname': socket.gethostname(),
-            'supported_instances':
-                [(arch.I686, hv_type.LXD, vm_mode.EXE),
-                    (arch.X86_64, hv_type.LXD, vm_mode.EXE),
-                    (arch.I686, hv_type.LXC, vm_mode.EXE),
-                    (arch.X86_64, hv_type.LXC, vm_mode.EXE)],
-            'numa_topology': None,
-        }
-
-        return data
-
-    def pre_live_migration(self, context, instance, block_device_info,
-                           network_info, disk_info, migrate_data=None):
-        self.container_migrate.pre_live_migration(
-            context, instance, block_device_info, network_info,
-            disk_info, migrate_data)
-
-    def live_migration(self, context, instance, dest,
-                       post_method, recover_method, block_migration=False,
-                       migrate_data=None):
-        self.container_migrate.live_migration(
-            context, instance, dest, post_method,
-            recover_method, block_migration,
-            migrate_data)
-
-    def post_live_migration(self, context, instance, block_device_info,
-                            migrate_data=None):
-        self.container_migrate.post_live_migration(
-            context, instance, block_device_info, migrate_data)
-
-    def post_live_migration_at_destination(self, context, instance,
-                                           network_info,
-                                           block_migration=False,
-                                           block_device_info=None):
-        self.container_migrate.post_live_migration_at_destination(
-            context, instance, network_info, block_migration,
-            block_device_info)
-
-    def check_instance_shared_storage_local(self, context, instance):
-        raise NotImplementedError()
-
-    def check_instance_shared_storage_remote(self, context, data):
-        raise NotImplementedError()
-
-    def check_instance_shared_storage_cleanup(self, context, data):
-        pass
-
-    def check_can_live_migrate_destination(self, context, instance,
-                                           src_compute_info, dst_compute_info,
-                                           block_migration=False,
-                                           disk_over_commit=False):
-        return self.container_migrate.check_can_live_migrate_destination(
-            context, instance, src_compute_info, dst_compute_info,
-            block_migration, disk_over_commit)
-
-    def cleanup_live_migration_destination_check(
-            self, context, dest_check_data):
-        # XXX: rockstar (20 Jul 2016) - This method was renamed in newton,
-        # NOQA See https://github.com/openstack/nova/commit/3b62698235364057ec0c6811cc89ac85511876d2
-        self.container_migrate.check_can_live_migrate_destination_cleanup(
-            context, dest_check_data)
-
-    def post_live_migration_at_source(self, context, instance, network_info):
-        return self.container_migrate.post_live_migration_at_snurce(
-            context, instance, network_info)
-
-    def check_can_live_migrate_source(self, context, instance,
-                                      dest_check_data, block_device_info=None):
-        self.container_migrate.check_can_live_migrate_source(
-            context, instance, dest_check_data,
-            block_device_info
-        )
-
-    def get_instance_disk_info(self, instance,
-                               block_device_info=None):
-        raise NotImplementedError()
-
-    def refresh_instance_security_rules(self, instance):
-        return self.firewall_driver.refresh_instance_security_rules(
-            instance)
-
-    def ensure_filtering_rules_for_instance(self, instance, network_info):
-        return self.firewall_driver.ensure_filtering_rules_for_instance(
-            instance, network_info)
-
-    def filter_defer_apply_on(self):
-        return self.firewall_driver.filter_defer_apply_on()
-
-    def filter_defer_apply_off(self):
-        return self.firewall_driver.filter_defer_apply_off()
-
-    def unfilter_instance(self, instance, network_info):
-        return self.firewall_driver.unfilter_instance(
-            instance, network_info)
-
-    def poll_rebooting_instances(self, timeout, instances):
-        raise NotImplementedError()
-
-    def host_power_action(self, action):
-        raise NotImplementedError()
-
-    def host_maintenance_mode(self, host, mode):
-        raise NotImplementedError()
-
-    def set_host_enabled(self, enabled):
-        raise NotImplementedError()
-
-    def get_host_uptime(self):
-        out, err = utils.execute('env', 'LANG=C', 'uptime')
-        return out
-
-    def get_host_cpu_stats(self):
-        cpuinfo = self._get_cpu_info()
-        return {
-            'kernel': int(psutil.cpu_times()[2]),
-            'idle': int(psutil.cpu_times()[3]),
-            'user': int(psutil.cpu_times()[0]),
-            'iowait': int(psutil.cpu_times()[4]),
-            'frequency': cpuinfo.get('cpu mhz', 0)
-        }
-
-    def block_stats(self, instance, disk_id):
-        raise NotImplementedError()
-
-    def deallocate_networks_on_reschedule(self, instance):
-        """Does the driver want networks deallocated on reschedule?"""
-        return False
-
-    def macs_for_instance(self, instance):
-        return None
-
-    def manage_image_cache(self, context, all_instances):
-        pass
-
-    def add_to_aggregate(self, context, aggregate, host, **kwargs):
-        raise NotImplementedError()
-
-    def remove_from_aggregate(self, context, aggregate, host, **kwargs):
-        raise NotImplementedError()
-
-    def undo_aggregate_operation(self, context, op, aggregate,
-                                 host, set_error=True):
-        raise NotImplementedError()
-
-    def get_volume_connector(self, instance):
-        return {'ip': CONF.my_block_storage_ip,
-                'initiator': 'fake',
-                'host': 'fakehost'}
-
-    def get_available_nodes(self, refresh=False):
-        hostname = socket.gethostname()
-        return [hostname]
-
-    def node_is_available(self, nodename):
-        if nodename in self.get_available_nodes():
-            return True
-        # Refresh and check again.
-        return nodename in self.get_available_nodes(refresh=True)
-
-    def get_per_instance_usage(self):
-        return {}
-
-    def instance_on_disk(self, instance):
-        return False
-
-    def volume_snapshot_create(self, context, instance, volume_id,
-                               create_info):
-        raise NotImplementedError()
-
-    def volume_snapshot_delete(self, context, instance, volume_id,
-                               snapshot_id, delete_info):
-        raise NotImplementedError()
-
-    def quiesce(self, context, instance, image_meta):
-        raise NotImplementedError()
-
-    def unquiesce(self, context, instance, image_meta):
-        raise NotImplementedError()
-
-    # Private methods
 
     def _get_fs_info(self, path):
         """Get free/used/total space info for a filesystem
