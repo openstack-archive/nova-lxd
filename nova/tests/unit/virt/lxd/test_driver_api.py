@@ -319,7 +319,7 @@ class LXDTestDriver(test.NoDBTestCase):
 
     def test_check_can_live_migrate_destination_cleanup(self):
         """Verify the check_can_live_migration destination cleanup call."""
-        self.driver.check_can_live_migrate_destination_cleanup(
+        self.driver.cleanup_live_migration_destination_check(
             mock.sentinel.context, mock.sentinel.instance
         )
         self.driver.container_migrate. \

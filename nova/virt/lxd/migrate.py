@@ -195,9 +195,8 @@ class LXDContainerMigrate(object):
         LOG.debug('check_can_live_migrate_source called for instance',
                   instance=instance)
 
-        if not CONF.lxd.allow_live_migrate:
-            msg = (_('Live migration is a en experimental feature'
-                     ' of LXD and is still in heavy development.'))
+        if not CONF.lxd.allow_live_migration:
+            msg = _('Live migration is not enabled.')
             LOG.error(msg, instance=instance)
             raise exception.MigrationPreCheckError(reason=msg)
 
