@@ -3,3 +3,4 @@
 
 [Filters]
 zfs: CommandFilter, zfs, root
+btrfs: CommandFilter, btrfs, root
