@@ -489,6 +489,81 @@ class LXDDriver(driver.ComputeDriver):
         """
         self.unpause(instance)
 
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `resume_state_on_host_boot`
+
+    def rescue(self, context, instance, network_info, image_meta,
+               rescue_password):
+        """Rescue a LXD container
+
+        Rescuing a instance requires a number of steps. First,
+        the failed container is stopped. Next, '-rescue', is
+        appended to the failed container's name, this is done
+        so the container can be unrescued. The container's
+        profile is updated with the rootfs of the
+        failed container. Finally, a new container
+        is created and started.
+
+        See 'nova.virt.driver.ComputeDriver.rescue` for more
+        information.
+        """
+
+        rescue = '%s-rescue' % instance.name
+
+        container = self.client.containers.get(instance.name)
+        container.stop(wait=True)
+        container.rename(rescue, wait=True)
+
+        profile = self.client.profiles.get(instance.name)
+        rescue_dir = {
+            'rescue': {
+                'source': container_utils.get_container_rescue(instance.name),
+                'path': '/mnt',
+                'type': 'disk'
+
+            }
+        }
+        profile.devices.update(rescue_dir)
+        profile.save()
+
+        container_config = {
+            'name': instance.name,
+            'profiles': [profile.name],
+            'source': {
+                'type': 'image',
+                'alias': instance.image_ref,
+            }
+        }
+        container = self.client.container_create(
+            container_config, instance, wait=True)
+        container.start(wait=True)
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `set_bootable`
+
+    def unrescue(self, instance, network_info):
+        """Unrescue an instance
+
+        Unrescue a container that has previously been rescued.
+        First, the rescue rootfs is removed from the profile.
+        Next, the container is restored to the original container
+        name and then started again.
+
+        See 'nova.virt.drvier.ComputeDriver.unrescue` for more
+        information.
+        """
+        rescue = '%s-rescue' % instance.name
+
+        container = self.client.containers.get(rescue)
+        container.stop(wait=True)
+
+        profile = self.client.profiles.get(instance.name)
+        del profile.devices['rescue']
+        profile.save()
+
+        container.rename(instance.name, wait=True)
+        container.start(wait=True)
+
     # XXX: rockstar (5 July 2016) - The methods and code below this line
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
@@ -553,61 +628,8 @@ class LXDDriver(driver.ComputeDriver):
     # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
     # `resume_state_on_host_boot`
 
-    def rescue(self, context, instance, network_info, image_meta,
-               rescue_password):
-        LOG.debug('rescue called for instance', instance=instance)
-        try:
-            # Step 1 - Stop the old container
-            self.session.container_stop(instance.name, instance)
-
-            # Step 2 - Rename the broken container to be rescued
-            self.session.container_move(instance.name,
-                                        {'name': '%s-backup' % instance.name},
-                                        instance)
-
-            # Step 3 - Re use the old instance object and confiugre
-            #          the disk mount point and create a new container.
-            container_config = self.create_container(instance)
-            rescue_dir = container_utils.get_container_rescue(
-                instance.name + '-backup')
-            config = self.configure_disk_path(
-                rescue_dir, 'mnt', 'rescue', instance)
-            container_config['devices'].update(config)
-            self.session.container_init(container_config, instance)
-
-            # Step 4 - Start the rescue instance
-            self.session.container_start(instance.name, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Container rescue failed for '
-                                  '%(instance)s: %(ex)s'),
-                              {'instance': instance.name,
-                               'ex': ex}, instance=instance)
-
     # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
     # `set_bootable`
-
-    def unrescue(self, instance, network_info):
-        LOG.debug('unrescue called for instance', instance=instance)
-        try:
-            # Step 1 - Destory the rescue instance.
-            self.session.container_destroy(instance.name,
-                                           instance)
-
-            # Step 2 - Rename the backup container that
-            #          the user was working on.
-            self.session.container_move(instance.name + '-backup',
-                                        {'name': instance.name},
-                                        instance)
-
-            # Step 3 - Start the old container
-            self.session.container_start(instance.name, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Container unrescue failed for '
-                                  '%(instance)s: %(ex)s'),
-                              {'instance': instance.name,
-                               'ex': ex}, instance=instance)
 
     def power_off(self, instance, timeout=0, retry_interval=0):
         LOG.debug('power_off called for instance', instance=instance)
@@ -1217,32 +1239,6 @@ class LXDDriver(driver.ComputeDriver):
                     if os.path.exists(container_manifest):
                         os.unlink(container_manifest)
 
-    def create_container(self, instance):
-        """Create a LXD container dictionary so that we can
-           use it to initialize a container
-
-           :param instance: nova instance object
-        """
-        LOG.debug('create_container called for instance', instance=instance)
-
-        instance_name = instance.name
-        try:
-
-            # Fetch the container configuration from the current nova
-            # instance object
-            return {
-                'name': instance_name,
-                'profiles': [str(instance.name)],
-                'source': self.get_container_source(instance),
-                'devices': {}
-            }
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error('Failed to get container configuration'
-                          ' %(instance)s: %(ex)s',
-                          {'instance': instance_name, 'ex': ex},
-                          instance=instance)
-
     def create_profile(self, instance, network_info, block_device_info):
         """Create a LXD container profile configuration
 
@@ -1509,30 +1505,6 @@ class LXDDriver(driver.ComputeDriver):
                 ('%s' + 'Mbit') % (vif_outbound_limit * units.k * 8 / units.M)
 
         return network_config
-
-    def get_container_source(self, instance):
-        """Set the LXD container image for the instance.
-
-        :param instance: nova instance object
-        :return: the container source
-        """
-        LOG.debug('get_container_source called for instance',
-                  instance=instance)
-        try:
-            container_source = {'type': 'image',
-                                'alias': str(instance.image_ref)}
-            if container_source is None:
-                msg = _('Failed to determine container source for %s') \
-                    % instance.name
-                raise exception.NovaException(msg)
-            return container_source
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(
-                    _LE('Failed to configure container source '
-                        '%(instance)s: %(ex)s'),
-                    {'instance': instance.name, 'ex': ex},
-                    instance=instance)
 
     def get_container_migrate(self, container_migrate, host, instance):
         """Create the image source for a migrating container
