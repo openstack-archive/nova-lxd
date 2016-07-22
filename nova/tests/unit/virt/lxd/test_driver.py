@@ -678,3 +678,78 @@ class LXDDriverTest(test.NoDBTestCase):
 
         self.client.containers.get.assert_called_once_with(instance.name)
         container.unfreeze.assert_called_once_with(instance.name, wait=True)
+
+    @mock.patch('nova.virt.lxd.driver.container_utils.get_container_rescue')
+    def test_rescue(self, get_container_rescue):
+        profile = mock.Mock()
+        profile.devices = {
+            'root': {
+                'type': 'disk',
+                'path': '/',
+                'size': '1GB'
+            }
+        }
+        container = mock.Mock()
+        self.client.profiles.get.return_value = profile
+        self.client.containers.get.return_value = container
+        get_container_rescue.return_value = '/path'
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        profile.name = instance.name
+        network_info = [mock.Mock()]
+        image_meta = mock.Mock()
+        rescue_password = mock.Mock()
+        rescue = '%s-rescue' % instance.name
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.rescue(
+            ctx, instance, network_info, image_meta, rescue_password)
+
+        lxd_driver.client.containers.get.assert_called_once_with(instance.name)
+        container.stop.assert_called_once_with(wait=True)
+        container.rename.assert_called_once_with(rescue, wait=True)
+        lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
+        lxd_driver.client.container_create.assert_called_once_with(
+            {'name': instance.name, 'profiles': [profile.name],
+             'source': {'type': 'image', 'alias': None},
+             }, instance, wait=True)
+
+        self.assertTrue('rescue' in profile.devices)
+
+    def test_unrescue(self):
+        container = mock.Mock()
+        self.client.containers.get.return_value = container
+        profile = mock.Mock()
+        profile.devices = {
+            'root': {
+                'type': 'disk',
+                'path': '/',
+                'size': '1GB'
+            },
+            'rescue': {
+                'source': '/path',
+                'path': '/mnt',
+                'type': 'disk'
+            }
+        }
+        self.client.profiles.get.return_value = profile
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        network_info = [mock.Mock()]
+        rescue = '%s-rescue' % instance.name
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.unrescue(instance, network_info)
+
+        lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
+        profile.save.assert_called_once_with()
+        lxd_driver.client.containers.get.assert_called_once_with(rescue)
+        container.stop.assert_called_once_with(wait=True)
+        container.rename.assert_called_once_with(instance.name, wait=True)
+        container.start.assert_called_once_with(wait=True)
+        self.assertTrue('rescue' not in profile.devices)
