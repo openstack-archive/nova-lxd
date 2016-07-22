@@ -843,8 +843,11 @@ class LXDDriver(driver.ComputeDriver):
             block_device_info)
         if ephemeral_storage:
             storage_driver = lxd_config['environment']['storage']
-            container_root = container_utils.get_container_rootfs(
-                instance.name)
+
+            container = self.client.containers.get(instance.name)
+            container_id_map = container.config[
+                'volatile.last_state.idmap'].split(',')
+            storage_id = container_id_map[2].split(':')[1]
 
             for ephemeral in ephemeral_storage:
                 storage_dir = container_utils.get_container_storage(
@@ -877,13 +880,30 @@ class LXDDriver(driver.ComputeDriver):
                         'btrfs', 'qgroup', 'limit',
                         '%sg' % instance.ephemeral_gb, storage_dir,
                         run_as_root=True)
+                elif storage_driver == 'lvm':
+                    fileutils.ensure_tree(storage_dir)
+
+                    lvm_pool = lxd_config['config']['storage.lvm_vg_name']
+                    lvm_volume = '%s-%s' % (instance.name,
+                                            ephemeral['virtual_name'])
+                    lvm_path = '/dev/%s/%s' % (lvm_pool, lvm_volume)
+
+                    cmd = (
+                        'lvcreate', '-L', '%sG' % instance.ephemeral_gb,
+                        '-n', lvm_volume, lvm_pool)
+                    utils.execute(*cmd, run_as_root=True, attempts=3)
+
+                    utils.execute('mkfs', '-t', 'ext4',
+                                  lvm_path, run_as_root=True)
+                    cmd = ('mount', '-t', 'ext4', lvm_path, storage_dir)
+                    utils.execute(*cmd, run_as_root=True)
                 else:
                     reason = _('Unsupport LXD storage detected. Supported'
                                ' storage drivers are zfs and btrfs.')
                     raise exception.NovaException(reason)
 
                 utils.execute(
-                    'chown', os.stat(container_root).st_uid,
+                    'chown', storage_id,
                     storage_dir, run_as_root=True)
 
     def _remove_ephemeral(self, block_device_info, lxd_config, instance):
@@ -902,6 +922,14 @@ class LXDDriver(driver.ComputeDriver):
                         'zfs', 'destroy',
                         '%s/%s-ephemeral' % (zfs_pool, instance.name),
                         run_as_root=True)
+                if storage_driver == 'lvm':
+                    lvm_pool = lxd_config['config']['storage.lvm_vg_name']
+
+                    lvm_path = '/dev/%s/%s-%s' % (
+                        lvm_pool, instance.name, ephemeral['virtual_name'])
+
+                    utils.execute('umount', lvm_path, run_as_root=True)
+                    utils.execute('lvremove', '-f', lvm_path, run_as_root=True)
 
     def _get_fs_info(self, path):
         """Get free/used/total space info for a filesystem
