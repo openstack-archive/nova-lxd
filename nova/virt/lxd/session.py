@@ -802,7 +802,7 @@ class LXDAPISession(object):
                          '%(image)s'), {'instance': instance_name,
                                         'image': instance.image_ref})
 
-            client = self.get_session(host)
+            client = self.get_session()
             (state, data) = client.container_migrate(instance_name)
 
             LOG.info(_LI('Successfully initialized migration for instance '

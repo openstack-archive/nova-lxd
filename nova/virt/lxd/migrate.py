@@ -125,8 +125,8 @@ class LXDContainerMigrate(object):
                        migrate_data=None):
         LOG.debug('live_migration called for instance', instance=instance)
         try:
-            self._container_init(CONF.my_ip, instance)
-            post_method(context, instance, dest, block_migration, host=dest)
+            self._container_init(dest, instance)
+            post_method(context, instance, dest, block_migration, dest)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('live_migration failed for %(instance)s: '
@@ -215,9 +215,12 @@ class LXDContainerMigrate(object):
         (state, data) = (self.session.container_migrate(instance.name,
                                                         CONF.my_ip,
                                                         instance))
-        container_config = self.driver.create_container(instance)
-        container_config['source'] = \
-            self.driver.get_container_migrate(data, host, instance)
+        container_config = {
+            'name': instance.name,
+            'profiles': [instance.name],
+            'source': self.driver.get_container_migrate(
+                data, host, instance)
+        }
         self.session.container_init(container_config, instance, host)
 
     def plug_vifs(self, instance, network_info):

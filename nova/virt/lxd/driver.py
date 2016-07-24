@@ -757,7 +757,7 @@ class LXDDriver(driver.ComputeDriver):
 
     def check_can_live_migrate_source(self, context, instance,
                                       dest_check_data, block_device_info=None):
-        self.container_migrate.check_can_live_migrate_source(
+        return self.container_migrate.check_can_live_migrate_source(
             context, instance, dest_check_data,
             block_device_info
         )
@@ -1267,7 +1267,7 @@ class LXDDriver(driver.ComputeDriver):
                     if os.path.exists(container_manifest):
                         os.unlink(container_manifest)
 
-    def create_profile(self, instance, network_info, block_device_info):
+    def create_profile(self, instance, network_info, block_device_info=None):
         """Create a LXD container profile configuration
 
         :param instance: nova instance object
@@ -1549,15 +1549,16 @@ class LXDDriver(driver.ComputeDriver):
             container_metadata = container_migrate['metadata']
 
             container_url = 'https://%s:8443%s' \
-                % (host, container_migrate.get('operation'))
+                % (CONF.my_ip, container_migrate.get('operation'))
+
+            lxd_config = self.session.get_host_config(instance)
 
             return {
                 'base_image': '',
                 'mode': 'pull',
-                'certificate': str(self.session.host_certificate(instance,
-                                                                 host)),
-                'operation': str(container_url),
-                'secrets': container_metadata,
+                'certificate': lxd_config['certificate'],
+                'operation': container_url,
+                'secrets': container_metadata['metadata'],
                 'type': 'migration'
             }
         except Exception as ex:
