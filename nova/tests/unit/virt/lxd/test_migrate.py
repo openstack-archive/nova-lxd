@@ -115,7 +115,7 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
                                                     mock.sentinel.instance)
         mock_post_method.assert_called_once_with(
             mock.sentinel.context, mock.sentinel.instance, mock.sentinel.dest,
-            mock.sentinel.block_migration, mock.sentinel.dest)
+            mock.sentinel.block_migration)
 
     @mock.patch.object(migrate.LXDContainerMigrate, '_container_init')
     def test_live_migration_failed(self, mock_container_init):

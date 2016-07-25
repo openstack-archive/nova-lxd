@@ -722,7 +722,7 @@ class LXDDriver(driver.ComputeDriver):
             context, instance, block_device_info, migrate_data)
 
     def post_live_migration_at_source(self, context, instance, network_info):
-        return self.container_migrate.post_live_migration_at_snurce(
+        return self.container_migrate.post_live_migration_at_source(
             context, instance, network_info)
 
     def post_live_migration_at_destination(self, context, instance,
@@ -809,10 +809,16 @@ class LXDDriver(driver.ComputeDriver):
         out, err = utils.execute('env', 'LANG=C', 'uptime')
         return out
 
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `plug_vifs`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `unplug_vifs`
+    def plug_vifs(self, instance, network_info):
+        for vif in network_info:
+            self.vif_driver.plug(instance, vif)
+        self.firewall_driver.setup_basic_filtering(instance, network_info)
+        self.firewall_driver.prepare_instance_filter(instance, network_info)
+        self.firewall_driver.apply_instance_filter(instance, network_info)
+
+    def unplug_vifs(self, instance, network_info):
+        for vif in network_info:
+            self.vif_driver.unplug(instance, vif)
 
     def get_host_cpu_stats(self):
         cpuinfo = self._get_cpu_info()

@@ -112,6 +112,7 @@ class LXDContainerMigrate(object):
                            network_info, disk_info, migrate_data=None):
         LOG.debug('pre_live_migration called for instance', instance=instance)
         try:
+            self.driver.plug_vifs(instance, network_info)
             self._copy_container_profile(instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -126,7 +127,7 @@ class LXDContainerMigrate(object):
         LOG.debug('live_migration called for instance', instance=instance)
         try:
             self._container_init(dest, instance)
-            post_method(context, instance, dest, block_migration, dest)
+            post_method(context, instance, dest, block_migration)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('live_migration failed for %(instance)s: '
@@ -159,7 +160,7 @@ class LXDContainerMigrate(object):
         LOG.debug('post_live_migration_at_source called for instance',
                   instance=instance)
         try:
-            self.operations.cleanup(context, instance, network_info)
+            self.driver.cleanup(context, instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('post_live_migration failed for %(instance)s: '
