@@ -13,12 +13,17 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import collections
+import json
+import platform
 
 import mock
 from nova import context
 from nova import exception
 from nova import test
+from nova.compute import arch
+from nova.compute import hv_type
 from nova.compute import power_state
+from nova.compute import vm_mode
 from nova.network import model as network_model
 from nova.tests.unit import fake_instance
 from pylxd import exceptions as lxdcore_exceptions
@@ -842,3 +847,127 @@ class LXDDriverTest(test.NoDBTestCase):
         container.rename.assert_called_once_with(instance.name, wait=True)
         container.start.assert_called_once_with(wait=True)
         self.assertTrue('rescue' not in profile.devices)
+
+    def test_power_off(self):
+        container = mock.Mock()
+        self.client.containers.get.return_value = container
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+        lxd_driver.power_off(instance)
+
+        self.client.containers.get.assert_called_once_with(instance.name)
+        container.stop.assert_called_once_with(wait=True)
+
+    def test_power_on(self):
+        container = mock.Mock()
+        self.client.containers.get.return_value = container
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+        lxd_driver.power_on(ctx, instance, None)
+
+        self.client.containers.get.assert_called_once_with(instance.name)
+        container.start.assert_called_once_with(wait=True)
+
+    @mock.patch('socket.gethostname', mock.Mock(return_value='fake_hostname'))
+    @mock.patch('os.statvfs', return_value=mock.Mock(
+        f_blocks=131072000, f_bsize=8192, f_bavail=65536000))
+    @mock.patch('nova.virt.lxd.driver.open')
+    @mock.patch.object(driver.utils, 'execute')
+    def test_get_available_resource(self, execute, open, statvfs):
+        expected = {
+            'cpu_info': json.dumps({
+                "features": "fake flag goes here",
+                "model": "Fake CPU",
+                "topology": {"sockets": 1, "threads": "4", "cores": "5"},
+                "arch": "x86_64", "vendor": "FakeVendor"
+            }),
+            'hypervisor_hostname': 'fake_hostname',
+            'hypervisor_type': 'lxd',
+            'hypervisor_version': '011',
+            'local_gb': 1000,
+            'local_gb_used': 500,
+            'memory_mb': 10000,
+            'memory_mb_used': 8000,
+            'numa_topology': None,
+            'supported_instances': [
+                ('i686', 'lxd', 'exe'),
+                ('x86_64', 'lxd', 'exe'),
+                ('i686', 'lxc', 'exe'),
+                ('x86_64', 'lxc', 'exe')],
+            'vcpus': 20,
+            'vcpus_used': 0}
+
+        execute.return_value = (
+            'Model name:          Fake CPU\n'
+            'Vendor ID:           FakeVendor\n'
+            'Socket(s):           10\n'
+            'Core(s) per socket:  5\n'
+            'Thread(s) per core:  4\n\n',
+            None)
+        meminfo = mock.MagicMock()
+        meminfo.__enter__.return_value = six.moves.cStringIO(
+            'MemTotal: 10240000 kB\n'
+            'MemFree:   2000000 kB\n'
+            'Buffers:     24000 kB\n'
+            'Cached:      24000 kB\n')
+
+        open.side_effect = [
+            six.moves.cStringIO('flags: fake flag goes here\n'
+                                'processor: 2\n'
+                                '\n'),
+            meminfo,
+        ]
+
+        lxd_driver = driver.LXDDriver(None)
+        value = lxd_driver.get_available_resource(None)
+
+        self.assertEqual(expected, value)
+        return
+
+        value = self.connection.get_available_resource(None)
+        value['cpu_info'] = json.loads(value['cpu_info'])
+        value['supported_instances'] = [[arch.I686, hv_type.LXD,
+                                         vm_mode.EXE],
+                                        [arch.X86_64, hv_type.LXD,
+                                         vm_mode.EXE],
+                                        [arch.I686, hv_type.LXC,
+                                         vm_mode.EXE],
+                                        [arch.X86_64, hv_type.LXC,
+                                         vm_mode.EXE]]
+        expected = {'cpu_info': {u'arch': platform.uname()[5],
+                                 u'features': u'fake flag goes here',
+                                 u'model': u'Fake CPU',
+                                 u'topology': {u'cores': u'5',
+                                               u'sockets': u'10',
+                                               u'threads': u'4'},
+                                 u'vendor': u'FakeVendor'},
+                    'hypervisor_hostname': 'fake_hostname',
+                    'hypervisor_type': 'lxd',
+                    'hypervisor_version': '011',
+                    'local_gb': 1000,
+                    'local_gb_used': 500,
+                    'memory_mb': 10000,
+                    'memory_mb_used': 8000,
+                    'numa_topology': None,
+                    'supported_instances': [[arch.I686, hv_type.LXD,
+                                             vm_mode.EXE],
+                                            [arch.X86_64, hv_type.LXD,
+                                             vm_mode.EXE],
+                                            [arch.I686, hv_type.LXC,
+                                             vm_mode.EXE],
+                                            [arch.X86_64, hv_type.LXC,
+                                             vm_mode.EXE]],
+                    'vcpus': 200,
+                    'vcpus_used': 0}
+        self.assertEqual(expected, value)
+        execute.assert_called_once_with('lscpu')
+        self.assertEqual([mock.call('/proc/cpuinfo', 'r'),
+                          mock.call('/proc/meminfo')],
+                         open.call_args_list)
+        statvfs.assert_called_once_with('/fake/lxd/root')

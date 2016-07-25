@@ -85,6 +85,66 @@ IMAGE_API = image.API()
 MAX_CONSOLE_BYTES = 100 * units.Ki
 
 
+def _get_cpu_info():
+    """Get cpu information.
+
+    This method executes lscpu and then parses the output,
+    returning a dictionary of information.
+    """
+    cpuinfo = {}
+    out, err = utils.execute('lscpu')
+    if err:
+        msg = _('Unable to parse lscpu output.')
+        raise exception.NovaException(msg)
+
+    cpu = [line.strip('\n') for line in out.splitlines()]
+    for line in cpu:
+        if line.strip():
+            name, value = line.split(':', 1)
+            name = name.strip().lower()
+            cpuinfo[name] = value.strip()
+
+    f = open('/proc/cpuinfo', 'r')
+    features = [line.strip('\n') for line in f.readlines()]
+    for line in features:
+        if line.strip():
+            if line.startswith('flags'):
+                name, value = line.split(':', 1)
+                name = name.strip().lower()
+                cpuinfo[name] = value.strip()
+
+    return cpuinfo
+
+
+def _get_ram_usage():
+    """Get memory info."""
+    with open('/proc/meminfo') as fp:
+        m = fp.read().split()
+        idx1 = m.index('MemTotal:')
+        idx2 = m.index('MemFree:')
+        idx3 = m.index('Buffers:')
+        idx4 = m.index('Cached:')
+
+        total = int(m[idx1 + 1])
+        avail = int(m[idx2 + 1]) + int(m[idx3 + 1]) + int(m[idx4 + 1])
+
+    return {
+        'total': total * 1024,
+        'used': (total - avail) * 1024
+    }
+
+
+def _get_fs_info(path):
+    """Get free/used/total disk space."""
+    hddinfo = os.statvfs(path)
+    total = hddinfo.f_blocks * hddinfo.f_bsize
+    available = hddinfo.f_bavail * hddinfo.f_bsize
+    used = total - available
+    return {'total': total,
+            'available': available,
+            'used': used}
+
+
 class LXDDriver(driver.ComputeDriver):
     """A LXD driver for nova.
 
@@ -564,6 +624,88 @@ class LXDDriver(driver.ComputeDriver):
         container.rename(instance.name, wait=True)
         container.start(wait=True)
 
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `resume_state_on_host_boot`
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `set_bootable`
+
+    def power_off(self, instance, timeout=0, retry_interval=0):
+        """Power off an instance
+
+        See 'nova.virt.drvier.ComputeDriver.power_off` for more
+        information.
+        """
+        container = self.client.containers.get(instance.name)
+        container.stop(wait=True)
+
+    def power_on(self, context, instance, network_info,
+                 block_device_info=None):
+        """Power on an instance
+
+        See 'nova.virt.drvier.ComputeDriver.power_on` for more
+        information.
+        """
+        container = self.client.containers.get(instance.name)
+        container.start(wait=True)
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `trigger_crash_dump`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `soft_delete`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `restore`
+
+    def get_available_resource(self, nodename):
+        """Aggregate all available system resources.
+
+        See 'nova.virt.drvier.ComputeDriver.get_available_resource`
+        for more information.
+        """
+        cpuinfo = _get_cpu_info()
+
+        cpu_info = {
+            'arch': platform.uname()[5],
+            'features': cpuinfo.get('flags', 'unknown'),
+            'model': cpuinfo.get('model name', 'unknown'),
+            'topology': {
+                'sockets': cpuinfo.get('sockets(s)', 1),
+                'cores': cpuinfo.get('core(s) per socket', 1),
+                'threads': cpuinfo.get('thread(s) per core', 1),
+            },
+            'vendor': cpuinfo.get('vendor id', 'unknown'),
+        }
+
+        cpu_topology = cpu_info['topology']
+        vcpus = (int(cpu_topology['cores']) *
+                 int(cpu_topology['sockets']) *
+                 int(cpu_topology['threads']))
+
+        local_memory_info = _get_ram_usage()
+        local_disk_info = _get_fs_info(CONF.lxd.root_dir)
+
+        data = {
+            'vcpus': vcpus,
+            'memory_mb': local_memory_info['total'] / units.Mi,
+            'memory_mb_used': local_memory_info['used'] / units.Mi,
+            'local_gb': local_disk_info['total'] / units.Gi,
+            'local_gb_used': local_disk_info['used'] / units.Gi,
+            'vcpus_used': 0,
+            'hypervisor_type': 'lxd',
+            'hypervisor_version': '011',
+            'cpu_info': jsonutils.dumps(cpu_info),
+            'hypervisor_hostname': socket.gethostname(),
+            'supported_instances': [
+                (arch.I686, hv_type.LXD, vm_mode.EXE),
+                (arch.X86_64, hv_type.LXD, vm_mode.EXE),
+                (arch.I686, hv_type.LXC, vm_mode.EXE),
+                (arch.X86_64, hv_type.LXC, vm_mode.EXE),
+            ],
+            'numa_topology': None,
+        }
+
+        return data
+
     # XXX: rockstar (5 July 2016) - The methods and code below this line
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
@@ -624,76 +766,6 @@ class LXDDriver(driver.ComputeDriver):
         return self.container_migrate.finish_revert_migration(
             context, instance, network_info, block_device_info,
             power_on)
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `resume_state_on_host_boot`
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `set_bootable`
-
-    def power_off(self, instance, timeout=0, retry_interval=0):
-        LOG.debug('power_off called for instance', instance=instance)
-        try:
-            self.session.container_stop(instance.name,
-                                        instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to power_off container'
-                              ' for %(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def power_on(self, context, instance, network_info,
-                 block_device_info=None):
-        LOG.debug('power_on called for instance', instance=instance)
-        try:
-            self.session.container_start(instance.name, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.exception(_LE('Container power off for '
-                                  '%(instance)s: %(ex)s'),
-                              {'instance': instance.name,
-                               'ex': ex}, instance=instance)
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `trigger_crash_dump`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `soft_delete`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `restore`
-
-    def get_available_resource(self, nodename):
-        LOG.debug('In get_available_resource')
-
-        local_cpu_info = self._get_cpuinfo()
-        cpu_topology = local_cpu_info['topology']
-        vcpus = (int(cpu_topology['cores']) *
-                 int(cpu_topology['sockets']) *
-                 int(cpu_topology['threads']))
-
-        local_memory_info = self._get_memory_mb_usage()
-        local_disk_info = self._get_fs_info(CONF.lxd.root_dir)
-
-        data = {
-            'vcpus': vcpus,
-            'memory_mb': local_memory_info['total'] / units.Mi,
-            'memory_mb_used': local_memory_info['used'] / units.Mi,
-            'local_gb': local_disk_info['total'] / units.Gi,
-            'local_gb_used': local_disk_info['used'] / units.Gi,
-            'vcpus_used': 0,
-            'hypervisor_type': 'lxd',
-            'hypervisor_version': '011',
-            'cpu_info': jsonutils.dumps(local_cpu_info),
-            'hypervisor_hostname': socket.gethostname(),
-            'supported_instances':
-                [(arch.I686, hv_type.LXD, vm_mode.EXE),
-                    (arch.X86_64, hv_type.LXD, vm_mode.EXE),
-                    (arch.I686, hv_type.LXC, vm_mode.EXE),
-                    (arch.X86_64, hv_type.LXC, vm_mode.EXE)],
-            'numa_topology': None,
-        }
-
-        return data
 
     def pre_live_migration(self, context, instance, block_device_info,
                            network_info, disk_info, migrate_data=None):
@@ -952,88 +1024,6 @@ class LXDDriver(driver.ComputeDriver):
 
                     utils.execute('umount', lvm_path, run_as_root=True)
                     utils.execute('lvremove', '-f', lvm_path, run_as_root=True)
-
-    def _get_fs_info(self, path):
-        """Get free/used/total space info for a filesystem
-
-        :param path: Any dirent on the filesystem
-        :returns: A dict containing
-              :free: How much space is free (in bytes)
-              :used: How much space is used (in bytes)
-              :total: How big the filesytem is (in bytes)
-        """
-        hddinfo = os.statvfs(path)
-        total = hddinfo.f_blocks * hddinfo.f_bsize
-        available = hddinfo.f_bavail * hddinfo.f_bsize
-        used = total - available
-        return {'total': total,
-                'available': available,
-                'used': used}
-
-    def _get_memory_mb_usage(self):
-        """Get the used memory size(MB) of the host.
-
-        :returns: the total usage of memory(MB)
-        """
-
-        with open('/proc/meminfo') as fp:
-            m = fp.read().split()
-            idx1 = m.index('MemTotal:')
-            idx2 = m.index('MemFree:')
-            idx3 = m.index('Buffers:')
-            idx4 = m.index('Cached:')
-
-            total = int(m[idx1 + 1])
-            avail = int(m[idx2 + 1]) + int(m[idx3 + 1]) + int(m[idx4 + 1])
-
-        return {
-            'total': total * 1024,
-            'used': (total - avail) * 1024
-        }
-
-    def _get_cpuinfo(self):
-        cpuinfo = self._get_cpu_info()
-
-        cpu_info = dict()
-
-        cpu_info['arch'] = platform.uname()[5]
-        cpu_info['model'] = cpuinfo.get('model name', 'unknown')
-        cpu_info['vendor'] = cpuinfo.get('vendor id', 'unknown')
-
-        topology = dict()
-        topology['sockets'] = cpuinfo.get('socket(s)', 1)
-        topology['cores'] = cpuinfo.get('core(s) per socket', 1)
-        topology['threads'] = cpuinfo.get('thread(s) per core', 1)
-        cpu_info['topology'] = topology
-        cpu_info['features'] = cpuinfo.get('flags', 'unknown')
-
-        return cpu_info
-
-    def _get_cpu_info(self):
-        '''Parse the output of lscpu.'''
-        cpuinfo = {}
-        out, err = utils.execute('lscpu')
-        if err:
-            msg = _('Unable to parse lscpu output.')
-            raise exception.NovaException(msg)
-
-        cpu = [line.strip('\n') for line in out.splitlines()]
-        for line in cpu:
-            if line.strip():
-                name, value = line.split(':', 1)
-                name = name.strip().lower()
-                cpuinfo[name] = value.strip()
-
-        f = open('/proc/cpuinfo', 'r')
-        features = [line.strip('\n') for line in f.readlines()]
-        for line in features:
-            if line.strip():
-                if line.startswith('flags'):
-                    name, value = line.split(':', 1)
-                    name = name.strip().lower()
-                    cpuinfo[name] = value.strip()
-
-        return cpuinfo
 
     def _save_lxd_image(self, instance, image_id):
         """Creates an LXD image from the LXD continaer

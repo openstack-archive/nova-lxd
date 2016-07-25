@@ -13,24 +13,17 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 import inspect
-import json
 import os
-import platform
 
 import ddt
 import mock
-import six
 
 from oslo_config import cfg
 
-from nova.compute import arch
-from nova.compute import hv_type
-from nova.compute import vm_mode
 from nova import test
 from nova.virt import fake
 
 from nova.virt.lxd import driver
-from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_dir
 import stubs
 
@@ -70,98 +63,6 @@ class LXDTestDriver(test.NoDBTestCase):
             self.connection.capabilities['supports_migrate_to_same_host'])
         self.assertTrue(
             self.connection.capabilities['supports_attach_interface'])
-
-    @mock.patch('socket.gethostname', mock.Mock(return_value='fake_hostname'))
-    @mock.patch('os.statvfs', return_value=mock.Mock(f_blocks=131072000,
-                                                     f_bsize=8192,
-                                                     f_bavail=65536000))
-    @mock.patch('six.moves.builtins.open')
-    @mock.patch.object(driver.utils, 'execute')
-    def test_get_available_resource(self, me, mo, ms):
-        me.return_value = ('Model name:          Fake CPU\n'
-                           'Vendor ID:           FakeVendor\n'
-                           'Socket(s):           10\n'
-                           'Core(s) per socket:  5\n'
-                           'Thread(s) per core:  4\n'
-                           '\n',
-                           None)
-        meminfo = mock.MagicMock()
-        meminfo.__enter__.return_value = six.moves.cStringIO(
-            'MemTotal: 10240000 kB\n'
-            'MemFree:   2000000 kB\n'
-            'Buffers:     24000 kB\n'
-            'Cached:      24000 kB\n')
-
-        mo.side_effect = [
-            six.moves.cStringIO('flags: fake flag goes here\n'
-                                'processor: 2\n'
-                                '\n'),
-            meminfo,
-        ]
-        value = self.connection.get_available_resource(None)
-        value['cpu_info'] = json.loads(value['cpu_info'])
-        value['supported_instances'] = [[arch.I686, hv_type.LXD,
-                                         vm_mode.EXE],
-                                        [arch.X86_64, hv_type.LXD,
-                                         vm_mode.EXE],
-                                        [arch.I686, hv_type.LXC,
-                                         vm_mode.EXE],
-                                        [arch.X86_64, hv_type.LXC,
-                                         vm_mode.EXE]]
-        expected = {'cpu_info': {u'arch': platform.uname()[5],
-                                 u'features': u'fake flag goes here',
-                                 u'model': u'Fake CPU',
-                                 u'topology': {u'cores': u'5',
-                                               u'sockets': u'10',
-                                               u'threads': u'4'},
-                                 u'vendor': u'FakeVendor'},
-                    'hypervisor_hostname': 'fake_hostname',
-                    'hypervisor_type': 'lxd',
-                    'hypervisor_version': '011',
-                    'local_gb': 1000,
-                    'local_gb_used': 500,
-                    'memory_mb': 10000,
-                    'memory_mb_used': 8000,
-                    'numa_topology': None,
-                    'supported_instances': [[arch.I686, hv_type.LXD,
-                                             vm_mode.EXE],
-                                            [arch.X86_64, hv_type.LXD,
-                                             vm_mode.EXE],
-                                            [arch.I686, hv_type.LXC,
-                                             vm_mode.EXE],
-                                            [arch.X86_64, hv_type.LXC,
-                                             vm_mode.EXE]],
-                    'vcpus': 200,
-                    'vcpus_used': 0}
-        self.assertEqual(expected, value)
-        me.assert_called_once_with('lscpu')
-        self.assertEqual([mock.call('/proc/cpuinfo', 'r'),
-                          mock.call('/proc/meminfo')],
-                         mo.call_args_list)
-        ms.assert_called_once_with('/fake/lxd/root')
-
-    def test_container_power_off(self):
-        instance = stubs._fake_instance()
-        with test.nested(
-            mock.patch.object(session.LXDAPISession, 'container_stop')
-        ) as (mock_container_stop):
-            self.assertEqual(None,
-                             self.connection.power_off(instance))
-            self.assertTrue(mock_container_stop)
-
-    def test_container_power_on(self):
-        context = mock.Mock()
-        instance = stubs._fake_instance()
-        network_info = mock.Mock()
-        block_device_info = mock.Mock()
-        with test.nested(
-            mock.patch.object(session.LXDAPISession, 'container_start')
-        ) as (mock_container_start):
-            self.assertEqual(None,
-                             self.connection.power_on(context, instance,
-                                                      network_info,
-                                                      block_device_info))
-            self.assertTrue(mock_container_start)
 
     @stubs.annotated_data(
         ('refresh_instance_security_rules', (mock.Mock(),)),
