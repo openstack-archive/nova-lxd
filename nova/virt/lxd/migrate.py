@@ -26,7 +26,8 @@ from oslo_utils import fileutils
 
 from nova.virt.lxd import utils as container_dir
 from nova.virt.lxd import session
-
+from nova.virt.lxd import vif as lxd_vif
+from nova.virt import firewall
 
 _ = i18n._
 _LE = i18n._LE
@@ -40,6 +41,10 @@ class LXDContainerMigrate(object):
 
     def __init__(self, driver):
         self.driver = driver
+
+        self.vif_driver = lxd_vif.LXDGenericDriver()
+        self.firewall_driver = firewall.load_driver(
+            default='nova.virt.firewall.NoopFirewallDriver')
 
         self.session = session.LXDAPISession()
 
@@ -112,6 +117,15 @@ class LXDContainerMigrate(object):
                            network_info, disk_info, migrate_data=None):
         LOG.debug('pre_live_migration called for instance', instance=instance)
         try:
+            for vif in network_info:
+                self.vif_driver.plug(instance, vif)
+            self.firewall_driver.setup_basic_filtering(
+                instance, network_info)
+            self.firewall_driver.prepare_instance_filter(
+                instance, network_info)
+            self.firewall_driver.apply_instance_filter(
+                instance, network_info)
+
             self._copy_container_profile(instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
@@ -126,7 +140,7 @@ class LXDContainerMigrate(object):
         LOG.debug('live_migration called for instance', instance=instance)
         try:
             self._container_init(dest, instance)
-            post_method(context, instance, dest, block_migration, dest)
+            post_method(context, instance, dest, block_migration)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('live_migration failed for %(instance)s: '
@@ -159,7 +173,7 @@ class LXDContainerMigrate(object):
         LOG.debug('post_live_migration_at_source called for instance',
                   instance=instance)
         try:
-            self.operations.cleanup(context, instance, network_info)
+            self.driver.cleanup(context, instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('post_live_migration failed for %(instance)s: '

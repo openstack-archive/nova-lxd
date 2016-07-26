@@ -794,7 +794,7 @@ class LXDDriver(driver.ComputeDriver):
             context, instance, block_device_info, migrate_data)
 
     def post_live_migration_at_source(self, context, instance, network_info):
-        return self.container_migrate.post_live_migration_at_snurce(
+        return self.container_migrate.post_live_migration_at_source(
             context, instance, network_info)
 
     def post_live_migration_at_destination(self, context, instance,
