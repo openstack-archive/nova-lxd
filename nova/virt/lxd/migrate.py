@@ -173,6 +173,7 @@ class LXDContainerMigrate(object):
         LOG.debug('post_live_migration_at_source called for instance',
                   instance=instance)
         try:
+            self.session.profile_delete(instance)
             self.driver.cleanup(context, instance, network_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
