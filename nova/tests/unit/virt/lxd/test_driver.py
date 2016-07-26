@@ -14,16 +14,12 @@
 #    under the License.
 import collections
 import json
-import platform
 
 import mock
 from nova import context
 from nova import exception
 from nova import test
-from nova.compute import arch
-from nova.compute import hv_type
 from nova.compute import power_state
-from nova.compute import vm_mode
 from nova.network import model as network_model
 from nova.tests.unit import fake_instance
 from pylxd import exceptions as lxdcore_exceptions
@@ -881,12 +877,12 @@ class LXDDriverTest(test.NoDBTestCase):
     @mock.patch.object(driver.utils, 'execute')
     def test_get_available_resource(self, execute, open, statvfs):
         expected = {
-            'cpu_info': json.dumps({
+            'cpu_info': {
                 "features": "fake flag goes here",
                 "model": "Fake CPU",
                 "topology": {"sockets": 1, "threads": "4", "cores": "5"},
                 "arch": "x86_64", "vendor": "FakeVendor"
-            }),
+            },
             'hypervisor_hostname': 'fake_hostname',
             'hypervisor_type': 'lxd',
             'hypervisor_version': '011',
@@ -926,48 +922,125 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver = driver.LXDDriver(None)
         value = lxd_driver.get_available_resource(None)
-
-        self.assertEqual(expected, value)
-        return
-
-        value = self.connection.get_available_resource(None)
+        # This is funky, but json strings make for fragile tests.
         value['cpu_info'] = json.loads(value['cpu_info'])
-        value['supported_instances'] = [[arch.I686, hv_type.LXD,
-                                         vm_mode.EXE],
-                                        [arch.X86_64, hv_type.LXD,
-                                         vm_mode.EXE],
-                                        [arch.I686, hv_type.LXC,
-                                         vm_mode.EXE],
-                                        [arch.X86_64, hv_type.LXC,
-                                         vm_mode.EXE]]
-        expected = {'cpu_info': {u'arch': platform.uname()[5],
-                                 u'features': u'fake flag goes here',
-                                 u'model': u'Fake CPU',
-                                 u'topology': {u'cores': u'5',
-                                               u'sockets': u'10',
-                                               u'threads': u'4'},
-                                 u'vendor': u'FakeVendor'},
-                    'hypervisor_hostname': 'fake_hostname',
-                    'hypervisor_type': 'lxd',
-                    'hypervisor_version': '011',
-                    'local_gb': 1000,
-                    'local_gb_used': 500,
-                    'memory_mb': 10000,
-                    'memory_mb_used': 8000,
-                    'numa_topology': None,
-                    'supported_instances': [[arch.I686, hv_type.LXD,
-                                             vm_mode.EXE],
-                                            [arch.X86_64, hv_type.LXD,
-                                             vm_mode.EXE],
-                                            [arch.I686, hv_type.LXC,
-                                             vm_mode.EXE],
-                                            [arch.X86_64, hv_type.LXC,
-                                             vm_mode.EXE]],
-                    'vcpus': 200,
-                    'vcpus_used': 0}
+
         self.assertEqual(expected, value)
-        execute.assert_called_once_with('lscpu')
-        self.assertEqual([mock.call('/proc/cpuinfo', 'r'),
-                          mock.call('/proc/meminfo')],
-                         open.call_args_list)
-        statvfs.assert_called_once_with('/fake/lxd/root')
+
+    def test_refresh_instance_security_rules(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        firewall = mock.Mock()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.firewall_driver = firewall
+        lxd_driver.refresh_instance_security_rules(instance)
+
+        firewall.refresh_instance_security_rules.assert_called_once_with(
+            instance)
+
+    def test_ensure_filtering_rules_for_instance(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        firewall = mock.Mock()
+        network_info = object()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.firewall_driver = firewall
+        lxd_driver.ensure_filtering_rules_for_instance(instance, network_info)
+
+        firewall.ensure_filtering_rules_for_instance.assert_called_once_with(
+            instance, network_info)
+
+    def test_filter_defer_apply_on(self):
+        firewall = mock.Mock()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.firewall_driver = firewall
+        lxd_driver.filter_defer_apply_on()
+
+        firewall.filter_defer_apply_on.assert_called_once_with()
+
+    def test_filter_defer_apply_off(self):
+        firewall = mock.Mock()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.firewall_driver = firewall
+        lxd_driver.filter_defer_apply_off()
+
+        firewall.filter_defer_apply_off.assert_called_once_with()
+
+    def test_unfilter_instance(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        firewall = mock.Mock()
+        network_info = object()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.firewall_driver = firewall
+        lxd_driver.unfilter_instance(instance, network_info)
+
+        firewall.unfilter_instance.assert_called_once_with(
+            instance, network_info)
+
+    @mock.patch.object(driver.utils, 'execute')
+    def test_get_host_uptime(self, execute):
+        expected = '00:00:00 up 0 days, 0:00 , 0 users, load average: 0'
+        execute.return_value = (expected, 'stderr')
+
+        lxd_driver = driver.LXDDriver(None)
+        result = lxd_driver.get_host_uptime()
+
+        self.assertEqual(expected, result)
+
+    @mock.patch('nova.virt.lxd.driver.psutil.cpu_times')
+    @mock.patch('nova.virt.lxd.driver.open')
+    @mock.patch.object(driver.utils, 'execute')
+    def test_get_host_cpu_stats(self, execute, open, cpu_times):
+        cpu_times.return_value = [
+            '1', 'b', '2', '3', '4'
+        ]
+        execute.return_value = (
+            'Model name:          Fake CPU\n'
+            'Vendor ID:           FakeVendor\n'
+            'Socket(s):           10\n'
+            'Core(s) per socket:  5\n'
+            'Thread(s) per core:  4\n\n',
+            None)
+        open.return_value = six.moves.cStringIO(
+            'flags: fake flag goes here\n'
+            'processor: 2\n\n')
+
+        expected = {
+            'user': 1, 'iowait': 4, 'frequency': 0, 'kernel': 2, 'idle': 3}
+
+        lxd_driver = driver.LXDDriver(None)
+        result = lxd_driver.get_host_cpu_stats()
+
+        self.assertEqual(expected, result)
+
+    def test_get_volume_connector(self):
+        expected = {
+            'host': 'fakehost',
+            'initiator': 'fake',
+            'ip': self.CONF.my_block_storage_ip
+        }
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        lxd_driver = driver.LXDDriver(None)
+        result = lxd_driver.get_volume_connector(instance)
+
+        self.assertEqual(expected, result)
+
+    @mock.patch('nova.virt.lxd.driver.socket.gethostname')
+    def test_get_available_nodes(self, gethostname):
+        gethostname.return_value = 'nova-lxd'
+
+        expected = ['nova-lxd']
+
+        lxd_driver = driver.LXDDriver(None)
+        result = lxd_driver.get_available_nodes()
+
+        self.assertEqual(expected, result)

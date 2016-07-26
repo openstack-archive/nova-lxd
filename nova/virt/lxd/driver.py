@@ -706,6 +706,100 @@ class LXDDriver(driver.ComputeDriver):
 
         return data
 
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `get_instance_disk_info`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `refresh_security_group_rules`
+
+    def refresh_instance_security_rules(self, instance):
+        return self.firewall_driver.refresh_instance_security_rules(
+            instance)
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `reset_network`
+
+    def ensure_filtering_rules_for_instance(self, instance, network_info):
+        return self.firewall_driver.ensure_filtering_rules_for_instance(
+            instance, network_info)
+
+    def filter_defer_apply_on(self):
+        return self.firewall_driver.filter_defer_apply_on()
+
+    def filter_defer_apply_off(self):
+        return self.firewall_driver.filter_defer_apply_off()
+
+    def unfilter_instance(self, instance, network_info):
+        return self.firewall_driver.unfilter_instance(
+            instance, network_info)
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `set_admin_password`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `inject_file`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `change_instance_metadata`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `inject_network_info`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `poll_rebooting_instances`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `host_power_action`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `host_power_action`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `set_host_enabled`
+
+    def get_host_uptime(self):
+        out, err = utils.execute('env', 'LANG=C', 'uptime')
+        return out
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `plug_vifs`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `unplug_vifs`
+
+    def get_host_cpu_stats(self):
+        return {
+            'kernel': int(psutil.cpu_times()[2]),
+            'idle': int(psutil.cpu_times()[3]),
+            'user': int(psutil.cpu_times()[0]),
+            'iowait': int(psutil.cpu_times()[4]),
+            'frequency': _get_cpu_info().get('cpu mhz', 0)
+        }
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `block_stats`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `add_to_aggregate`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `remove_from_aggregate`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `undo_aggregate_operation`
+
+    def get_volume_connector(self, instance):
+        return {'ip': CONF.my_block_storage_ip,
+                'initiator': 'fake',
+                'host': 'fakehost'}
+
+    def get_available_nodes(self, refresh=False):
+        hostname = socket.gethostname()
+        return [hostname]
+
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `volume_snapshot_create`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `volume_snapshot_delete`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `default_root_device_name`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `default_device_names_for_instance`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `get_device_name_for_instance`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `quiesce`
+    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
+    # `unquiesce`
+
     # XXX: rockstar (5 July 2016) - The methods and code below this line
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
@@ -833,101 +927,6 @@ class LXDDriver(driver.ComputeDriver):
             context, instance, dest_check_data,
             block_device_info
         )
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `get_instance_disk_info`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `refresh_security_group_rules`
-
-    def refresh_instance_security_rules(self, instance):
-        return self.firewall_driver.refresh_instance_security_rules(
-            instance)
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `reset_network`
-
-    def ensure_filtering_rules_for_instance(self, instance, network_info):
-        return self.firewall_driver.ensure_filtering_rules_for_instance(
-            instance, network_info)
-
-    def filter_defer_apply_on(self):
-        return self.firewall_driver.filter_defer_apply_on()
-
-    def filter_defer_apply_off(self):
-        return self.firewall_driver.filter_defer_apply_off()
-
-    def unfilter_instance(self, instance, network_info):
-        return self.firewall_driver.unfilter_instance(
-            instance, network_info)
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `set_admin_password`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `inject_file`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `change_instance_metadata`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `inject_network_info`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `poll_rebooting_instances`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `host_power_action`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `host_power_action`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `set_host_enabled`
-
-    def get_host_uptime(self):
-        out, err = utils.execute('env', 'LANG=C', 'uptime')
-        return out
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `plug_vifs`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `unplug_vifs`
-
-    def get_host_cpu_stats(self):
-        cpuinfo = self._get_cpu_info()
-        return {
-            'kernel': int(psutil.cpu_times()[2]),
-            'idle': int(psutil.cpu_times()[3]),
-            'user': int(psutil.cpu_times()[0]),
-            'iowait': int(psutil.cpu_times()[4]),
-            'frequency': cpuinfo.get('cpu mhz', 0)
-        }
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `block_stats`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `add_to_aggregate`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `remove_from_aggregate`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `undo_aggregate_operation`
-
-    def get_volume_connector(self, instance):
-        return {'ip': CONF.my_block_storage_ip,
-                'initiator': 'fake',
-                'host': 'fakehost'}
-
-    def get_available_nodes(self, refresh=False):
-        hostname = socket.gethostname()
-        return [hostname]
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `volume_snapshot_create`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `volume_snapshot_delete`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `default_root_device_name`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `default_device_names_for_instance`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `get_device_name_for_instance`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `quiesce`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `unquiesce`
 
     #
     # LXDDriver "private" implementation methods
