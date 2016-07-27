@@ -1274,23 +1274,20 @@ class LXDDriver(driver.ComputeDriver):
             # Restrict the size of the "/" disk
             config['devices'] = self.configure_container_root(instance)
 
-            if instance.get('ephemeral_gb', 0) != 0:
-                ephemerals = block_device_info.get('ephemerals', [])
-
-                if ephemerals == []:
+            ephemeral_storage = driver.block_device_info_get_ephemerals(
+                block_device_info)
+            if ephemeral_storage:
+                for ephemeral in ephemeral_storage:
                     ephemeral_src = container_utils.get_container_storage(
-                        ephemerals['virtual_name'], instance.name)
-                    config['devices'].update(
-                        self.configure_disk_path(
-                            ephemeral_src, '/mnt', ephemerals['virtual_name'],
-                            instance))
-                else:
-                    for idx, ephemerals in enumerate(ephemerals):
-                        ephemeral_src = container_utils.get_container_storage(
-                            ephemerals['virtual_name'], instance.name)
-                        config['devices'].update(self.configure_disk_path(
-                            ephemeral_src, '/mnt', ephemerals['virtual_name'],
-                            instance))
+                        ephemeral['virtual_name'], instance.name)
+                    ephemeral_storage = {
+                        ephemeral['virtual_name']: {
+                            'path': '/mnt',
+                            'source': ephemeral_src,
+                            'type': 'disk',
+                        }
+                    }
+                    config['devices'].update(ephemeral_storage)
 
             if network_info:
                 config['devices'].update(self.create_network(
@@ -1553,31 +1550,6 @@ class LXDDriver(driver.ComputeDriver):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(_LE('Failed to configure migation source '
-                              '%(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def configure_disk_path(self, src_path, dest_path, vfs_type, instance):
-        """Configure the host mount point for the LXD container
-
-        :param src_path: source path on the house
-        :param dest_path: destination path on the LXD container
-        :param vfs_type: dictionary identifier
-        :param instance: nova instance object
-        :return: container disk paths
-        """
-        LOG.debug('configure_disk_path called for instance',
-                  instance=instance)
-        try:
-            config = {}
-            config[vfs_type] = {'path': dest_path,
-                                'source': src_path,
-                                'type': 'disk',
-                                'optional': 'True'}
-            return config
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to configure disk for '
                               '%(instance)s: %(ex)s'),
                           {'instance': instance.name, 'ex': ex},
                           instance=instance)
