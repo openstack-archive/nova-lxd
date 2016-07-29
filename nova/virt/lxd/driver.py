@@ -68,10 +68,6 @@ lxd_opts = [
     cfg.IntOpt('timeout',
                default=-1,
                help='Default LXD timeout'),
-    cfg.IntOpt('retry_interval',
-               default=2,
-               help='How often to retry in seconds when a'
-                    'request does conflict'),
     cfg.BoolOpt('allow_live_migration',
                 default=False,
                 help='Determine wheter to allow live migration'),
