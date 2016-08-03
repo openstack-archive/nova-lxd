@@ -518,7 +518,7 @@ class LXDDriver(driver.ComputeDriver):
         information.
         """
         container = self.client.containers.get(instance.name)
-        container.freeze(instance.name, wait=True)
+        container.freeze(wait=True)
 
     def unpause(self, instance):
         """Unpause container.
@@ -527,7 +527,7 @@ class LXDDriver(driver.ComputeDriver):
         information.
         """
         container = self.client.containers.get(instance.name)
-        container.unfreeze(instance.name, wait=True)
+        container.unfreeze(wait=True)
 
     def suspend(self, context, instance):
         """Suspend container.

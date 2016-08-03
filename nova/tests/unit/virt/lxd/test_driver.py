@@ -725,7 +725,7 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.pause(instance)
 
         self.client.containers.get.assert_called_once_with(instance.name)
-        container.freeze.assert_called_once_with(instance.name, wait=True)
+        container.freeze.assert_called_once_with(wait=True)
 
     def test_unpause(self):
         container = mock.Mock()
@@ -739,7 +739,7 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.unpause(instance)
 
         self.client.containers.get.assert_called_once_with(instance.name)
-        container.unfreeze.assert_called_once_with(instance.name, wait=True)
+        container.unfreeze.assert_called_once_with(wait=True)
 
     def test_suspend(self):
         container = mock.Mock()
@@ -753,7 +753,7 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.suspend(ctx, instance)
 
         self.client.containers.get.assert_called_once_with(instance.name)
-        container.freeze.assert_called_once_with(instance.name, wait=True)
+        container.freeze.assert_called_once_with(wait=True)
 
     def test_resume(self):
         container = mock.Mock()
@@ -767,7 +767,7 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.resume(ctx, instance, None, None)
 
         self.client.containers.get.assert_called_once_with(instance.name)
-        container.unfreeze.assert_called_once_with(instance.name, wait=True)
+        container.unfreeze.assert_called_once_with(wait=True)
 
     @mock.patch('nova.virt.lxd.driver.container_utils.get_container_rescue')
     def test_rescue(self, get_container_rescue):
