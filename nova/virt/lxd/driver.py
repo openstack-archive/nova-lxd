@@ -166,7 +166,7 @@ class LXDDriver(driver.ComputeDriver):
 
         self.storage_driver = connector.InitiatorConnector.factory(
             'ISCSI', utils.get_root_helper(),
-            use_multipath=CONF.libvirt.iscsi_use_multipath,
+            use_multipath=CONF.libvirt.volume_use_multipath,
             device_scan_attempts=CONF.libvirt.num_iscsi_scan_tries,
             transport='default')
 
