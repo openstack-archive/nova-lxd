@@ -301,8 +301,7 @@ class LXDDriver(driver.ComputeDriver):
         """
         self.client.profiles.get(instance.name).delete()
         container = self.client.containers.get(instance.name)
-        if container.status == 'Running':
-            container.stop(wait=True)
+        container.stop(wait=True)
         container.delete(wait=True)
 
         self.cleanup(context, instance, network_info, block_device_info)
