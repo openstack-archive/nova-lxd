@@ -1,0 +1,32 @@
+Integration Tests
+=================
+
+To run the integration tests against a local devstack you have to do the following:
+
+1. Add cloud.yaml to your ~/.config/openstack:
+
+  clouds:
+    devstack:
+      auth:
+        auth_url: http://192.168.1.139/identity_v2_admin
+        password: password
+        project_domain_id: default
+        project_name: demo
+        user_domain_id: default
+        username: demo
+      identity_api_version: '3'
+      region_name: RegionOne
+      volume_api_version: '2'
+    devstack-admin:
+      auth:
+        auth_url: http://192.168.1.139/identity_v2_admin
+        password: password
+        project_domain_id: default
+        project_name: admin
+        user_domain_id: default
+        username: admin
+      identity_api_version: '3'
+      region_name: RegionOne
+      volume_api_version: '2'
+
+2. Run tox -e integration.
