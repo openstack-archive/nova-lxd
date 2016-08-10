@@ -1,0 +1,7 @@
+Integration Tests
+=================
+
+To run the integration tests against a local devstack you have to do the following:
+
+1. source openrc admin admin
+2. Run tox -e integration.
