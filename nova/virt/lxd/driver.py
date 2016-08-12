@@ -263,12 +263,75 @@ class LXDDriver(driver.ComputeDriver):
         self.firewall_driver.apply_instance_filter(instance, network_info)
 
         # Create the profile
-        # XXX: rockstar (6 Jul 2016) - create_profile is legacy code.
-        profile_data = self.create_profile(
-            instance, network_info, block_device_info)
         profile = self.client.profiles.create(
-            profile_data['name'], profile_data['config'],
-            profile_data['devices'])
+            instance.name, config={},
+            devices={'root': {'type': 'disk', 'path': '/'}})
+
+        profile_config = {
+            'limits.memory': '%sGB' % instance.flavor.memory_mb,
+            'limits.cpu': '%s' % instance.flavor.vcpus,
+            'raw.lxc': 'lxc.console.logfile=%s\n'
+                       % container_utils.get_console_path(instance.name),
+            'boot.autostart': 'True',
+            'security.nesting': instance.flavor.extra_specs.get(
+                'lxd:nested_allowed', 'False'),
+            'security.privileged': instance.flavor.extra_specs.get(
+                'lxd:privileged_allowed', 'False')
+        }
+        for key, value in profile_config.iteritems():
+            profile.config[key] = value
+
+        if self.client.host_info['environment']['storage'] in ['btrfs', 'zfs']:
+            profile.devices.get('root').update(
+                {'size': '%sGB' % instance.root_gb})
+            profile.devices.get('root').update(
+                self.create_disk_quota_config(instance)
+            )
+
+        ephemeral_storage = driver.block_device_info_get_ephemerals(
+            block_device_info)
+        if ephemeral_storage:
+            for ephemeral in ephemeral_storage:
+                ephemeral_src = container_utils.get_container_storage(
+                    ephemeral['virtual_name'], instance.name)
+                ephemeral_storage = {
+                    ephemeral['virtual_name']: {
+                        'path': '/mnt',
+                        'source': ephemeral_src,
+                        'type': 'disk',
+                    }
+                }
+                profile.devices.update(ephemeral_storage)
+
+        if network_info:
+            network_devices = {}
+            for vifaddr in network_info:
+                cfg = self.vif_driver.get_config(instance, vifaddr)
+                if 'bridge' in cfg:
+                    key = str(cfg['bridge'])
+                    network_devices[key] = {
+                        'nictype': 'bridged',
+                        'hwaddr': str(cfg['mac_address']),
+                        'parent': str(cfg['bridge']),
+                        'type': 'nic'
+                    }
+                else:
+                    key = 'unbridged'
+                    network_devices[key] = {
+                        'nictype': 'p2p',
+                        'hwaddr': str(cfg['mac_address']),
+                        'type': 'nic'
+                    }
+                host_device = self.vif_driver.get_vif_devname(vifaddr)
+                if host_device:
+                    network_devices[key]['host_name'] = host_device
+                # Set network device quotas
+                network_devices[key].update(
+                    self.create_network_quota_config(instance)
+                )
+                profile.devices.update(network_devices)
+
+        profile.save()
 
         # Create the container
         container_config = {

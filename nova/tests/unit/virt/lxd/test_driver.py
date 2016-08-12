@@ -158,7 +158,8 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.vif_driver = mock.Mock()
         lxd_driver.firewall_driver = mock.Mock()
         lxd_driver._add_ephemeral = mock.Mock()
-        lxd_driver.create_profile = mock.Mock(return_value={
+
+        self.client.profiles.create.return_value = mock.Mock(return_value={
             'name': instance.name, 'config': {}, 'devices': {}})
 
         lxd_driver.spawn(
