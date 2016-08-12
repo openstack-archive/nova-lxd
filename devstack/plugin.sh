@@ -33,6 +33,9 @@ function configure_nova-lxd() {
     # Configure the service.
     iniset $NOVA_CONF DEFAULT compute_driver lxd.LXDDriver
     iniset $NOVA_CONF DEFAULT force_config_drive False
+
+    # Install the rootwrap
+    sudo install -o root -g root -m 644 $NOVA_COMPUTE_LXD_DIR/etc/nova/rootwrap.d/*.filters $NOVA_CONF_DIR/rootwrap.d
 }
 
 function init_nova-lxd() {
