@@ -126,6 +126,9 @@ class LXDContainerConfig(object):
                 docker_devices['fuse'] = \
                     { 'path': '/dev/fuse',
                       'type': 'unix-char'}
+                docker_devices['tuntap'] = \
+                    { 'path': '/dev/net/tun',
+                      'type': 'unix-char'}
                 config['devices'].update(docker_devices)
                 
             return config
