@@ -797,13 +797,12 @@ class LXDDriverTest(test.NoDBTestCase):
             ctx, instance, network_info, image_meta, rescue_password)
 
         lxd_driver.client.containers.get.assert_called_once_with(instance.name)
-        container.stop.assert_called_once_with(wait=True)
         container.rename.assert_called_once_with(rescue, wait=True)
         lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
-        lxd_driver.client.container_create.assert_called_once_with(
+        lxd_driver.client.containers.create.assert_called_once_with(
             {'name': instance.name, 'profiles': [profile.name],
              'source': {'type': 'image', 'alias': None},
-             }, instance, wait=True)
+             }, wait=True)
 
         self.assertTrue('rescue' in profile.devices)
 
@@ -838,7 +837,6 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
         profile.save.assert_called_once_with()
         lxd_driver.client.containers.get.assert_called_once_with(rescue)
-        container.stop.assert_called_once_with(wait=True)
         container.rename.assert_called_once_with(instance.name, wait=True)
         container.start.assert_called_once_with(wait=True)
         self.assertTrue('rescue' not in profile.devices)

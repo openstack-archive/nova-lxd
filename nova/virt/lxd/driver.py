@@ -566,7 +566,6 @@ class LXDDriver(driver.ComputeDriver):
         rescue = '%s-rescue' % instance.name
 
         container = self.client.containers.get(instance.name)
-        container.stop(wait=True)
         container.rename(rescue, wait=True)
 
         profile = self.client.profiles.get(instance.name)
@@ -589,8 +588,8 @@ class LXDDriver(driver.ComputeDriver):
                 'alias': instance.image_ref,
             }
         }
-        container = self.client.container_create(
-            container_config, instance, wait=True)
+        container = self.client.containers.create(
+            container_config, wait=True)
         container.start(wait=True)
 
     # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
@@ -609,13 +608,11 @@ class LXDDriver(driver.ComputeDriver):
         """
         rescue = '%s-rescue' % instance.name
 
-        container = self.client.containers.get(rescue)
-        container.stop(wait=True)
-
         profile = self.client.profiles.get(instance.name)
         del profile.devices['rescue']
         profile.save()
 
+        container = self.client.containers.get(rescue)
         container.rename(instance.name, wait=True)
         container.start(wait=True)
 
