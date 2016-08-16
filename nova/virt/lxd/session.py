@@ -576,6 +576,8 @@ class LXDAPISession(object):
             # versions of LXD.
             if 'operation' in data:
                 self.operation_wait(data.get('operation'), instance)
+
+            return (state, data)
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
                     '%(reason)s') % {'instance': instance.image_ref,
