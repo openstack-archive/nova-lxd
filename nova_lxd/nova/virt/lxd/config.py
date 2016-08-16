@@ -111,6 +111,23 @@ class LXDContainerConfig(object):
                                                              instance,
                                                              network_info))
 
+            # If flavor allows docker execution, update profile config with
+            # required settings to allow docker to run properly in the container
+            flavor = instance.flavor 
+            if flavor.extra_specs.get('lxd_docker_allowed', False): 
+                config['config']['security.nesting'] = 'True'
+                config['config']['security.privileged'] = 'True' 
+                config['config']['linux.kernel_modules'] = 'overlay, nf_nat'
+                docker_devices = {}
+                docker_devices['aadisable'] = \
+                    { 'path': '/sys/module/apparmor/parameters/enabled',
+                      'source': '/dev/null',
+                      'type': 'disk'}
+                docker_devices['fuse'] = \
+                    { 'path': '/dev/fuse',
+                      'type': 'unix-char'}
+                config['devices'].update(docker_devices)
+                
             return config
         except Exception as ex:
             with excutils.save_and_reraise_exception():
