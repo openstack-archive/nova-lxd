@@ -12,9 +12,13 @@ NOVA_DIR=${NOVA_DIR:-$DEST/nova}
 NOVA_CONF_DIR=${NOVA_CONF_DIR:-/etc/nova}
 NOVA_CONF=${NOVA_CONF:-NOVA_CONF_DIR/nova.conf}
 
-# nova-powervm directories
+# nova-lxd directories
 NOVA_COMPUTE_LXD_DIR=${NOVA_COMPUTE_LXD_DIR:-${DEST}/nova-lxd}
 NOVA_COMPUTE_LXD_PLUGIN_DIR=$(readlink -f $(dirname ${BASH_SOURCE[0]}))
+
+# glance directories
+GLANCE_CONF_DIR=${GLANCE_CONF_DIR:-/etc/glance}
+GLANCE_API_CONF=$GLANCE_CONF_DIR/glance-api.conf
 
 source $NOVA_COMPUTE_LXD_PLUGIN_DIR/nova-lxd-functions.sh
 
@@ -33,6 +37,9 @@ function configure_nova-lxd() {
     # Configure the service.
     iniset $NOVA_CONF DEFAULT compute_driver lxd.LXDDriver
     iniset $NOVA_CONF DEFAULT force_config_drive False
+
+    iniset $GLANCE_API_CONF DEFAULT disk_formats "ami,ari,aki,vhd,raw,iso,qcow2,root-tar"
+    iniset $GLANCE_API_CONF DEFAULT container_formats "ami,ari,aki,bare,ovf,tgz"
 
     # Install the rootwrap
     sudo install -o root -g root -m 644 $NOVA_COMPUTE_LXD_DIR/etc/nova/rootwrap.d/*.filters $NOVA_CONF_DIR/rootwrap.d
