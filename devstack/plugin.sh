@@ -40,7 +40,24 @@ function configure_nova-lxd() {
 
 function init_nova-lxd() {
     # Initialize and start the service.
-    :
+    
+    mkdir -p mkdir -p $TOP_DIR/files
+
+    # Download and install the root-tar image from xenial
+    wget --progress=dot:giga -c https://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-root.tar.gz  \
+         -O $TOP_DIR/files/xenial-server-cloudimg-amd64-root.tar.gz -O $TOP_DIR/files/xenial-server-cloudimg-amd64-root.tar.gz
+    openstack --os-cloud=devstack-admin --os-region-name="$REGION_NAME" image create "ubuntu-16.04-lxd-root" \
+         --public --container-format bare --disk-format raw < $TOP_DIR/files/xenial-server-cloudimg-amd64-root.tar.gz
+
+    if is_service_enabled tempest; then
+       TEMPEST_CONFIG=${TEMPEST_CONFIG:-$TEMPEST_DIR/etc/tempest.conf}
+       TEMPEST_IMAGE=`openstack image list | grep ubuntu-16.04-lxd-root | awk {'print $2'}`
+       iniset $TEMPEST_CONFIG image disk_formats "ami,ari,aki,vhd,raw,iso,root-tar"
+       iniset $TEMPEST_CONFIG compute ssh_user ubuntu
+       iniset $TEMPEST_CONFIG compute-feature-enabled shelve False
+       iniset $TEMPEST_CONFIG compute image_ref $TEMPEST_IMAGE
+       iniset $TEMPEST_CONFIG compute image_ref_alt $TEMPEST_IMAGE
+    fi
 }
 
 function shutdown_nova-lxd() {
