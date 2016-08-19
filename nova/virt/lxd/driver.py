@@ -299,10 +299,11 @@ class LXDDriver(driver.ComputeDriver):
         See `nova.virt.driver.ComputeDriver.destroy` for more
         information.
         """
-        self.client.profiles.get(instance.name).delete()
         container = self.client.containers.get(instance.name)
-        container.stop(wait=True)
+        if container.status == 'Running':
+            container.stop(wait=True)
         container.delete(wait=True)
+        self.client.profiles.get(instance.name).delete()
 
         self.cleanup(context, instance, network_info, block_device_info)
 
