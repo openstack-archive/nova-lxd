@@ -129,6 +129,18 @@ class LXDContainerConfig(object):
                 docker_devices['tuntap'] = \
                     { 'path': '/dev/net/tun',
                       'type': 'unix-char'}
+                docker_devices['loop0'] = \
+                    { 'path': '/dev/loop0',
+                      'type': 'unix-block'}
+                docker_devices['loop1'] = \
+                    { 'path': '/dev/loop1',
+                      'type': 'unix-block'}
+                docker_devices['loop2'] = \
+                    { 'path': '/dev/loop2',
+                      'type': 'unix-block'}
+                docker_devices['loop3'] = \
+                    { 'path': '/dev/loop3',
+                      'type': 'unix-block'}
                 config['devices'].update(docker_devices)
                 
             return config
