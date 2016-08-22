@@ -120,17 +120,6 @@ def fake_container_list():
     }
 
 
-def fake_container_state(status):
-    return {
-        "type": "sync",
-        "status": "Success",
-        "status_code": 200,
-        "metadata": {
-            "status_code": status
-        }
-    }
-
-
 def fake_container_log():
     return {
         "type": "sync",

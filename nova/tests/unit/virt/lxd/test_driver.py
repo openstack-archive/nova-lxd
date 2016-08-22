@@ -32,7 +32,7 @@ MockResponse = collections.namedtuple('Response', ['status_code'])
 
 MockContainer = collections.namedtuple('Container', ['name'])
 MockContainerState = collections.namedtuple(
-    'ContainerState', ['status_code', 'memory'])
+    'ContainerState', ['status', 'memory'])
 
 
 def fake_connection_info(volume, location, iqn, auth=False, transport=None):
@@ -104,7 +104,7 @@ class LXDDriverTest(test.NoDBTestCase):
     def test_get_info(self):
         container = mock.Mock()
         container.state.return_value = MockContainerState(
-            100, {'usage': 4000, 'usage_peak': 4500})
+            'Running', {'usage': 4000, 'usage_peak': 4500})
         self.client.containers.get.return_value = container
 
         ctx = context.get_admin_context()

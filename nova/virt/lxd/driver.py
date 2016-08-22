@@ -46,6 +46,7 @@ from nova.virt.lxd import utils as container_utils
 
 from nova.compute import arch
 from nova.compute import hv_type
+from nova.compute import power_state
 from nova.compute import vm_mode
 from nova.virt import hardware
 from oslo_utils import units
@@ -211,12 +212,16 @@ class LXDDriver(driver.ComputeDriver):
         """Return an InstanceInfo object for the instance."""
         container = self.client.containers.get(instance.name)
         state = container.state()
-        power_state = session.LXD_POWER_STATES[state.status_code]
         mem_kb = state.memory['usage'] >> 10
         max_mem_kb = state.memory['usage_peak'] >> 10
         return hardware.InstanceInfo(
-            state=power_state, max_mem_kb=max_mem_kb, mem_kb=mem_kb,
-            num_cpu=instance.flavor.vcpus, cpu_time_ns=0)
+            state=(
+                power_state.RUNNING if state.status == 'Running'
+                else power_state.SHUTDOWN),
+            max_mem_kb=max_mem_kb,
+            mem_kb=mem_kb,
+            num_cpu=instance.flavor.vcpus,
+            cpu_time_ns=0)
 
     def list_instances(self):
         """Return a list of all instance names."""
