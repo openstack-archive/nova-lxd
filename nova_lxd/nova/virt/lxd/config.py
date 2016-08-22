@@ -131,11 +131,28 @@ class LXDContainerConfig(object):
                       'type': 'unix-char'}
                 docker_devices['loop0'] = \
                     { 'path': '/dev/loop0',
-                      'type': 'unix-block'}
-                for num in 20:
-                    docker_devices[str('loop%s' % num)] = \
-                      { 'path': str('/dev/loop%s' % num),
                         'type': 'unix-block'}
+                docker_devices['loop1'] = \
+                    { 'path': '/dev/loop1',
+                        'type': 'unix-block'}
+                docker_devices['loop2'] = \
+                    { 'path': '/dev/loop2',		
+                       'type': 'unix-block'}		
+                docker_devices['loop3'] = \		
+                    { 'path': '/dev/loop3',		
+                       'type': 'unix-block'}
+                docker_devices['loop4'] = \		
+                    { 'path': '/dev/loop4',		
+                       'type': 'unix-block'}
+                docker_devices['loop5'] = \		
+                    { 'path': '/dev/loop5',		
+                       'type': 'unix-block'}
+                docker_devices['loop6'] = \		
+                    { 'path': '/dev/loop6',		
+                       'type': 'unix-block'}
+                docker_devices['loop7'] = \		
+                    { 'path': '/dev/loop7',		
+                       'type': 'unix-block'}
                 config['devices'].update(docker_devices)
                 
             return config
