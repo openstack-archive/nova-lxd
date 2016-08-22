@@ -23,7 +23,6 @@ for nova-lxd.
 import ddt
 import mock
 
-from nova.compute import power_state
 from nova import exception
 from nova import test
 from pylxd.deprecated import exceptions as lxd_exceptions
@@ -107,42 +106,6 @@ class SessionContainerTest(test.NoDBTestCase):
                 exception.NovaException,
                 self.session.container_running, instance
             )
-
-    def test_container_state(self):
-        """
-        container_state translates LXD container status into
-        what nova understands. Verify that status_code sends
-        a power_state.RUNNING and a 108 sends a
-        power_state.CRASHED.
-        """
-        calls = []
-        self.assertEqual(calls, self.ml.method_calls)
-
-    @stubs.annotated_data(
-        ('api_fail', True, lxd_exceptions.APIError('Fake', 500),
-         {'state': power_state.NOSTATE, 'mem': 0, 'max_mem': 0})
-    )
-    def test_container_state_fail(self, tag, container_defined, side_effect,
-                                  expected):
-        """
-        container_state translates LXD container status into
-        what nova understands. If the API sends an APIError
-        then raise an power_state.NOSTATE, same if the
-        the container goes missing.
-        """
-        instance = stubs._fake_instance()
-        if container_defined:
-            self.ml.container_defined.return_value = container_defined
-            self.ml.container_state.side_effect = (
-                lxd_exceptions.APIError('Fake', 500))
-            self.assertEqual(
-                expected,
-                self.session.container_state(instance))
-        if not container_defined:
-            self.ml.container_defined.return_value = container_defined
-            self.assertEqual(
-                expected,
-                self.session.container_state(instance))
 
     def test_container_config(self):
         """

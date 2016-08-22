@@ -19,7 +19,6 @@ from nova import context as nova_context
 from nova import exception
 from nova import i18n
 from nova import rpc
-from nova.compute import power_state
 
 from oslo_log import log as logging
 from oslo_service import loopingcall
@@ -34,24 +33,6 @@ _LI = i18n._LI
 
 CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
-
-LXD_POWER_STATES = {
-    100: power_state.RUNNING,
-    101: power_state.RUNNING,
-    102: power_state.SHUTDOWN,
-    103: power_state.RUNNING,
-    104: power_state.SHUTDOWN,
-    105: power_state.NOSTATE,
-    106: power_state.NOSTATE,
-    107: power_state.SHUTDOWN,
-    108: power_state.CRASHED,
-    109: power_state.SUSPENDED,
-    110: power_state.SUSPENDED,
-    111: power_state.SUSPENDED,
-    200: power_state.RUNNING,
-    400: power_state.CRASHED,
-    401: power_state.NOSTATE
-}
 
 
 class LXDAPISession(object):
@@ -155,42 +136,6 @@ class LXDAPISession(object):
                               '%(instance)s: %(reason)s'),
                           {'instance': instance.name, 'reason': e},
                           instance=instance)
-
-    def container_state(self, instance):
-        """Determine container_state and translate state
-
-        :param instance: nova instance object
-        :return: nova power_state
-
-        """
-        LOG.debug('container_state called for instance', instance=instance)
-        try:
-            mem = 0
-            max_mem = 0
-
-            client = self.get_session()
-
-            (state, data) = client.container_state(instance.name)
-            state = LXD_POWER_STATES[data['metadata']['status_code']]
-
-            container_state = self.container_info(instance)
-            mem = int(container_state['memory']['usage']) >> 10
-            max_mem = int(container_state['memory']['usage_peak']) >> 10
-
-        except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD API %(instance)s:'
-                    ' %(reason)s') % {'instance': instance.name,
-                                      'reason': ex}
-            LOG.error(msg)
-            state = power_state.NOSTATE
-        except Exception as e:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Error from LXD during container_state'
-                              '%(instance)s: %(reason)s'),
-                          {'instance': instance.name, 'reason': e},
-                          instance=instance)
-                state = power_state.NOSTATE
-        return {'state': state, 'mem': mem, 'max_mem': max_mem}
 
     def container_config(self, instance):
         """Fetches the configuration of a given LXD container
