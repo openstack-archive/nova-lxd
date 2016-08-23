@@ -305,8 +305,13 @@ class LXDDriver(driver.ComputeDriver):
         information.
         """
         container = self.client.containers.get(instance.name)
-        if container.status == 'Running':
-            container.stop(wait=True)
+        try:
+            if container.status != 'Stopped':
+                container.stop(wait=True)
+        except lxd_exceptions.LXDAPIException as e:
+            if e.response.status_code != 200:
+                raise
+
         container.delete(wait=True)
         self.client.profiles.get(instance.name).delete()
 
