@@ -621,14 +621,19 @@ class LXDDriver(driver.ComputeDriver):
         """Unrescue an instance
 
         Unrescue a container that has previously been rescued.
-        First, the rescue rootfs is removed from the profile.
-        Next, the container is restored to the original container
-        name and then started again.
+        First the rescue containerisremoved. Next the rootfs
+        of the defective container is removed from the profile.
+        Finally the container is renamed and started.
 
         See 'nova.virt.drvier.ComputeDriver.unrescue` for more
         information.
         """
         rescue = '%s-rescue' % instance.name
+
+        container = self.client.containers.get(instance.name)
+        if container.status != 'Stopped':
+            container.stop(wait=True)
+        container.delete(wait=True)
 
         profile = self.client.profiles.get(instance.name)
         del profile.devices['rescue']
