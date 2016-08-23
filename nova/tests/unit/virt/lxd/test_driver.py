@@ -351,6 +351,7 @@ class LXDDriverTest(test.NoDBTestCase):
     def test_destroy(self):
         mock_profile = mock.Mock()
         mock_container = mock.Mock()
+        mock_container.status = 'Running'
         self.client.profiles.get.return_value = mock_profile
         self.client.containers.get.return_value = mock_container
         ctx = context.get_admin_context()
