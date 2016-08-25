@@ -28,9 +28,14 @@ import tarfile
 import tempfile
 import uuid
 
-from nova import image
+import nova.conf
+import nova.context
 from nova import exception
 from nova import i18n
+from nova import image
+from nova import network
+from nova.network import model as network_model
+from nova import objects
 from nova.virt import driver
 from os_brick.initiator import connector
 from oslo_config import cfg
@@ -48,6 +53,7 @@ from nova.compute import arch
 from nova.compute import hv_type
 from nova.compute import power_state
 from nova.compute import vm_mode
+from nova.compute import vm_states
 from nova.virt import hardware
 from oslo_utils import units
 from oslo_serialization import jsonutils
@@ -80,7 +86,7 @@ LOG = logging.getLogger(__name__)
 IMAGE_API = image.API()
 
 MAX_CONSOLE_BYTES = 100 * units.Ki
-
+NOVA_CONF = nova.conf.CONF
 
 def _get_cpu_info():
     """Get cpu information.
@@ -161,6 +167,8 @@ class LXDDriver(driver.ComputeDriver):
         super(LXDDriver, self).__init__(virtapi)
 
         self.client = None  # Initialized by init_host
+        self.host = NOVA_CONF.host
+        self.network_api = network.API()
         self.vif_driver = lxd_vif.LXDGenericDriver()
         self.firewall_driver = firewall.load_driver(
             default='nova.virt.firewall.NoopFirewallDriver')
@@ -195,6 +203,7 @@ class LXDDriver(driver.ComputeDriver):
         except lxd_exceptions.ClientConnectionFailed as e:
             msg = _('Unable to connect to LXD daemon: %s') % e
             raise exception.HostNotFound(msg)
+        self._after_reboot()
 
     def cleanup_host(self, host):
         """Clean up the host.
@@ -1551,3 +1560,32 @@ class LXDDriver(driver.ComputeDriver):
                               '%(instance)s: %(ex)s'),
                           {'instance': instance.name, 'ex': ex},
                           instance=instance)
+
+    def _reconnect_instance(self, context, instance):
+        '''Reconnect instance ports.'''
+
+        # Check instance state
+        if (instance.vm_state != vm_states.STOPPED):
+            return
+        try:
+            network_info = self.network_api.get_instance_nw_info(
+                context, instance)
+        except exception.InstanceNotFound:
+            network_info = network_model.NetworkInfo()
+
+        # Plug in the network
+        for vif in network_info:
+            self.vif_driver.plug(instance, vif)
+        self.firewall_driver.setup_basic_filtering(instance, network_info)
+        self.firewall_driver.prepare_instance_filter(instance, network_info)
+        self.firewall_driver.apply_instance_filter(instance, network_info)
+
+    def _after_reboot(self):
+        '''Actions to take after host reboot'''
+
+        context = nova.context.get_admin_context()
+        instances = objects.InstanceList.get_by_host(
+            context, self.host, expected_attrs=['info_cache', 'metadata'])
+
+        for instance in instances:
+            self._reconnect_instance(context, instance)
