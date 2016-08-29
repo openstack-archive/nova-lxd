@@ -635,7 +635,8 @@ class LXDDriver(driver.ComputeDriver):
         information.
         """
         container = self.client.containers.get(instance.name)
-        container.stop(wait=True)
+        if container.status != 'Stopped':
+            container.stop(wait=True)
 
     def power_on(self, context, instance, network_info,
                  block_device_info=None):
