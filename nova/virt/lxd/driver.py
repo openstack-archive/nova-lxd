@@ -449,8 +449,9 @@ class LXDDriver(driver.ComputeDriver):
         """
         profile = self.client.profiles.get(instance.name)
         vol_id = connection_info['data']['volume_id']
-        del profile.devices[vol_id]
-        profile.save()
+        if vol_id in profile.devices:
+            del profile.devices[vol_id]
+            profile.save()
 
         self.storage_driver.disconnect_volume(connection_info['data'], None)
 
