@@ -650,7 +650,8 @@ class LXDDriver(driver.ComputeDriver):
         information.
         """
         container = self.client.containers.get(instance.name)
-        container.start(wait=True)
+        if container.status != 'Running':
+            container.start(wait=True)
 
     # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
     # `trigger_crash_dump`

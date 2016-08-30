@@ -857,6 +857,7 @@ class LXDDriverTest(test.NoDBTestCase):
 
     def test_power_on(self):
         container = mock.Mock()
+        container.status = 'Stopped'
         self.client.containers.get.return_value = container
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
