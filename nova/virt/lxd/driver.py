@@ -1081,7 +1081,8 @@ class LXDDriver(driver.ComputeDriver):
             snapshot = IMAGE_API.get(context, image_id)
             data = self.session.container_export(fingerprint, instance)
             image_meta = {'name': snapshot['name'],
-                          'disk_format': 'raw'}
+                          'disk_format': 'raw',
+                          'container_format': 'bare'}
             IMAGE_API.update(context, image_id, image_meta, data)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
