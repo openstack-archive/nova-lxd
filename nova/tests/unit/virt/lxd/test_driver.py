@@ -139,6 +139,7 @@ class LXDDriverTest(test.NoDBTestCase):
 
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance.image_ref = 'fake_image'
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()

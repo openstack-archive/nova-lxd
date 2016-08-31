@@ -259,6 +259,10 @@ class LXDDriver(driver.ComputeDriver):
             if e.response.status_code != 404:
                 raise  # Re-raise the exception if it wasn't NotFound
 
+        # XXX: zulcss (31 Aug 2016)  - We dont support boot from volume.
+        if not bool(instance.get('image_ref')):
+            return
+
         instance_dir = container_utils.get_instance_dir(instance.name)
         if not os.path.exists(instance_dir):
             fileutils.ensure_tree(instance_dir)
