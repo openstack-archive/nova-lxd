@@ -295,7 +295,13 @@ class LXDDriver(driver.ComputeDriver):
             },
         }
         LOG.debug(container_config)
-        container = self.client.containers.create(container_config, wait=True)
+        try:
+            container = self.client.containers.create(
+                container_config, wait=True)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                self.cleanup(
+                    context, instance, network_info, block_device_info)
 
         # XXX: rockstar (6 Jul 2016) - _add_ephemeral is only used here,
         # and hasn't really been audited. It may need a cleanup
