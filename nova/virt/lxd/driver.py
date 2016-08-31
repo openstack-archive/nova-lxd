@@ -342,6 +342,16 @@ class LXDDriver(driver.ComputeDriver):
                     pass
             self.firewall_driver.unfilter_instance(instance, network_info)
 
+        try:
+            container = self.client.containers.get('%s-rescue' % instance.name)
+
+            # Container should already stopped once we reach this point.
+            container.delete(wait=True)
+        except lxd_exceptions.LXDAPIException as e:
+            if e.response.status_code != 404:
+                raise # Re-raise the exception if it wasn't NotFound
+
+
         # XXX: zulcss (14 Jul 2016) - _remove_ephemeral is only used here,
         # and hasn't really been audited. It may need a cleanup
         lxd_config = self.client.host_info

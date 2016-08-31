@@ -405,6 +405,45 @@ class LXDDriverTest(test.NoDBTestCase):
             'chown', '-R', 'user:user', instance_dir, run_as_root=True)
         rmtree.assert_called_once_with(instance_dir)
 
+    @mock.patch('os.path.exists', mock.Mock(return_value=True))
+    @mock.patch('pwd.getpwuid')
+    @mock.patch('shutil.rmtree')
+    @mock.patch.object(driver.utils, 'execute')
+    def test_cleanup_rescue_instances(self, execute, rmtree, getpwuid):
+        pwuid = mock.Mock()
+        pwuid.pw_name = 'user'
+        getpwuid.return_value = pwuid
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        network_info = [mock.Mock()]
+        instance_dir = utils.get_instance_dir(instance.name)
+        block_device_info = mock.Mock()
+        mock_container = mock.Mock()
+        self.client.containers.get.return_value = mock_container
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+        lxd_driver.vif_driver = mock.Mock()
+        lxd_driver.firewall_driver = mock.Mock()
+        lxd_driver._remove_ephemeral = mock.Mock()
+
+        lxd_driver.cleanup(ctx, instance, network_info, block_device_info)
+
+        lxd_driver.client.containers.get.assert_called_once_with(
+            '%s-rescue' % instance.name)
+        mock_container.delete.assert_called_once_with(wait=True)
+
+        lxd_driver.vif_driver.unplug.assert_called_once_with(
+            instance, network_info[0])
+        lxd_driver.firewall_driver.unfilter_instance.assert_called_once_with(
+            instance, network_info)
+        lxd_driver._remove_ephemeral.assert_called_once_with(
+            block_device_info, lxd_driver.client.host_info, instance)
+        execute.assert_called_once_with(
+            'chown', '-R', 'user:user', instance_dir, run_as_root=True)
+        rmtree.assert_called_once_with(instance_dir)
+
     @mock.patch.object(driver.utils, 'execute')
     @mock.patch('nova.virt.driver.block_device_info_get_ephemerals')
     def test_remove_emepheral_with_zfs(
