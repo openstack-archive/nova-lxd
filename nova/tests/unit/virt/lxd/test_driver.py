@@ -873,6 +873,34 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.containers.get.assert_called_once_with(instance.name)
         container.start.assert_called_once_with(wait=True)
 
+    @mock.patch.object(driver.IMAGE_API, 'get')
+    @mock.patch.object(driver.IMAGE_API, 'update')
+    @mock.patch('nova.virt.lxd.driver.session.LXDAPISession.container_export')
+    def test_snapshot(self, get, update, export):
+        container = mock.Mock()
+        container.status = 'Running'
+        self.client.containers.get.return_value = container
+        image = mock.Mock()
+        image.fignerprint = 'fake_fingerprint'
+        self.client.images.get.return_value = image
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        image_id = mock.Mock()
+        update_task_state = mock.Mock()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+        lxd_driver.snapshot(ctx, instance, image_id, update_task_state)
+
+        lxd_driver.client.containers.get.assert_called_once_with(instance.name)
+        container.stop.assert_called_once_with(wait=True)
+        f = container.publish
+        f.assert_called_once_with(wait=True)
+
+        image.add_alias.assert_called_once_with(image_id, image_id)
+
+
     @mock.patch('socket.gethostname', mock.Mock(return_value='fake_hostname'))
     @mock.patch('os.statvfs', return_value=mock.Mock(
         f_blocks=131072000, f_bsize=8192, f_bavail=65536000))
