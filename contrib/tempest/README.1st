@@ -1,0 +1,1 @@
+Run run_tempest_lxd.sh to run tempest.api.compute tests to run against nova-lxd
