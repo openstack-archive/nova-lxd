@@ -314,16 +314,20 @@ class LXDDriver(driver.ComputeDriver):
         See `nova.virt.driver.ComputeDriver.destroy` for more
         information.
         """
-        container = self.client.containers.get(instance.name)
         try:
+            container = self.client.containers.get(instance.name)
             if container.status != 'Stopped':
                 container.stop(wait=True)
         except lxd_exceptions.LXDAPIException as e:
             if e.response.status_code != 200:
                 raise
+            elif e.respsonse.status_code != 404:
+                self.cleanup(
+                    context, instance, network_info, block_device_info)
+            else:
+                return
 
         container.delete(wait=True)
-        self.client.profiles.get(instance.name).delete()
 
         self.cleanup(context, instance, network_info, block_device_info)
 
@@ -355,6 +359,8 @@ class LXDDriver(driver.ComputeDriver):
                 'chown', '-R', '{}:{}'.format(name, name),
                 container_dir, run_as_root=True)
             shutil.rmtree(container_dir)
+
+        self.client.profiles.get(instance.name).delete()
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):

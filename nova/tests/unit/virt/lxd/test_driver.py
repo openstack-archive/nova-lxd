@@ -349,10 +349,8 @@ class LXDDriverTest(test.NoDBTestCase):
         self.assertEqual(expected_calls, execute.call_args_list)
 
     def test_destroy(self):
-        mock_profile = mock.Mock()
         mock_container = mock.Mock()
         mock_container.status = 'Running'
-        self.client.profiles.get.return_value = mock_profile
         self.client.containers.get.return_value = mock_container
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
@@ -366,8 +364,6 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver.cleanup.assert_called_once_with(
             ctx, instance, network_info, None)
-        lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
-        mock_profile.delete.assert_called_once_with()
         lxd_driver.client.containers.get.assert_called_once_with(instance.name)
         mock_container.stop.assert_called_once_with(wait=True)
         mock_container.delete.assert_called_once_with(wait=True)
@@ -377,6 +373,8 @@ class LXDDriverTest(test.NoDBTestCase):
     @mock.patch('shutil.rmtree')
     @mock.patch.object(driver.utils, 'execute')
     def test_cleanup(self, execute, rmtree, getpwuid):
+        mock_profile = mock.Mock()
+        self.client.profiles.get.return_value = mock_profile
         pwuid = mock.Mock()
         pwuid.pw_name = 'user'
         getpwuid.return_value = pwuid
@@ -404,6 +402,7 @@ class LXDDriverTest(test.NoDBTestCase):
         execute.assert_called_once_with(
             'chown', '-R', 'user:user', instance_dir, run_as_root=True)
         rmtree.assert_called_once_with(instance_dir)
+        mock_profile.delete.assert_called_once_with()
 
     @mock.patch.object(driver.utils, 'execute')
     @mock.patch('nova.virt.driver.block_device_info_get_ephemerals')
