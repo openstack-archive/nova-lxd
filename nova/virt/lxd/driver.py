@@ -279,11 +279,16 @@ class LXDDriver(driver.ComputeDriver):
 
         # Create the profile
         # XXX: rockstar (6 Jul 2016) - create_profile is legacy code.
-        profile_data = self.create_profile(
-            instance, network_info, block_device_info)
-        profile = self.client.profiles.create(
-            profile_data['name'], profile_data['config'],
-            profile_data['devices'])
+        try:
+            profile_data = self.create_profile(
+                instance, network_info, block_device_info)
+            profile = self.client.profiles.create(
+                profile_data['name'], profile_data['config'],
+                profile_data['devices'])
+        except lxd_exceptions.LXDAPIException as e:
+            with excutils.save_and_reraise_exception():
+                self.cleanup(
+                    context, instance, network_info, block_device_info)
 
         # Create the container
         container_config = {
@@ -295,7 +300,12 @@ class LXDDriver(driver.ComputeDriver):
             },
         }
         LOG.debug(container_config)
-        container = self.client.containers.create(container_config, wait=True)
+        try:
+            container = self.client.containers.create(container_config, wait=True)
+        except lxd_exceptions.LXDAPIException as e:
+            with excutils.save_and_reraise_exception():
+                self.cleanup(
+                    context, instance, network_info, block_device_info)
 
         # XXX: rockstar (6 Jul 2016) - _add_ephemeral is only used here,
         # and hasn't really been audited. It may need a cleanup
