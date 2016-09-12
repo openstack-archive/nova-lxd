@@ -69,6 +69,11 @@ function init_nova-lxd() {
        iniset $TEMPEST_CONFIG validation image_ssh_user ubuntu
        iniset $TEMPEST_CONFIG validation run_validation True
     fi
+
+    if is_service_enabled cinder; then
+       # Enable user namespace for ext4, this has only been tested on xenial+
+       echo Y | sudo tee /sys/module/ext4/parameters/userns_mounts
+    fi
 }
 
 function shutdown_nova-lxd() {
