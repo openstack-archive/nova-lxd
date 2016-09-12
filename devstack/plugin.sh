@@ -67,6 +67,7 @@ function init_nova-lxd() {
        iniset $TEMPEST_CONFIG compute image_ref $TEMPEST_IMAGE
        iniset $TEMPEST_CONFIG compute image_ref_alt $TEMPEST_IMAGE
        iniset $TEMPEST_CONFIG validation image_ssh_user ubuntu
+       iniset $TEMPEST_CONFIG validation run_validation True
     fi
 }
 
