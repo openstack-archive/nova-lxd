@@ -1,0 +1,6 @@
+To run tempest specific tests for nova-lxd run the following command:
+
+- sudo pip install nova-lxd
+- To run the tests with tempest:
+
+	tox -e all-plugin -- nova_lxd
