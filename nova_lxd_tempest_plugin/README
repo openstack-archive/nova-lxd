@@ -1,0 +1,3 @@
+To run tempest specific tests for nova-lxd run the following command:
+
+	tox -e all-plugin -- nova_lxd
