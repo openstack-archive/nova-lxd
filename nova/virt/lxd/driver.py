@@ -327,20 +327,19 @@ class LXDDriver(driver.ComputeDriver):
         """
         try:
             container = self.client.containers.get(instance.name)
-            if container.status != 'Stopped':
-                container.stop(wait=True)
         except lxd_exceptions.LXDAPIException as e:
-            if e.response.status_code != 200:
-                raise
-            elif e.response.status_code == 404:
+            if e.response.status_code == 404:
                 self.cleanup(
                     context, instance, network_info, block_device_info)
-            else:
                 return
 
-        container.delete(wait=True)
-
-        self.cleanup(context, instance, network_info, block_device_info)
+        try:
+            if container.status != 'Stopped':
+                container.stop(wait=True)
+        finally:
+            container.delete(wait=True)
+            self.cleanup(
+                context, instance, network_info, block_device_info)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
