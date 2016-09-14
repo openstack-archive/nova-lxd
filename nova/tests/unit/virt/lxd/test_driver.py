@@ -78,6 +78,10 @@ class LXDDriverTest(test.NoDBTestCase):
         self.CONF.instances_path = '/path/to/instances'
         self.CONF.my_ip = '0.0.0.0'
 
+        # NOTE: mock out fileutils to ensure that unit tests don't try
+        #       to manipulate the filesystem (breaks in package builds).
+        driver.fileutils = mock.Mock()
+
     def tearDown(self):
         super(LXDDriverTest, self).tearDown()
         self.Client_patcher.stop()
@@ -144,10 +148,6 @@ class LXDDriverTest(test.NoDBTestCase):
         admin_password = mock.Mock()
         network_info = [mock.Mock()]
         block_device_info = mock.Mock()
-
-        # NOTE: mock out fileutils to ensure that unit tests don't try
-        #       to manipulate the filesystem (breaks in package builds).
-        driver.fileutils = mock.Mock()
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
