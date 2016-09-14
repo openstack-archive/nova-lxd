@@ -340,6 +340,14 @@ class LXDDriver(driver.ComputeDriver):
 
         container.delete(wait=True)
 
+        # Remove the assoicated rescue container, if it exists
+        try:
+            container = self.client.container.get('%s-rescue' % instance.name)
+            container.delete(wait=True)
+        except lxd_exceptions.LXDAPIException as e:
+            if e.response.status_code == 404:
+                pass
+
         self.cleanup(context, instance, network_info, block_device_info)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
