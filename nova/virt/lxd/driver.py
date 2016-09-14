@@ -329,18 +329,15 @@ class LXDDriver(driver.ComputeDriver):
             container = self.client.containers.get(instance.name)
             if container.status != 'Stopped':
                 container.stop(wait=True)
+            container.delete(wait=True)
         except lxd_exceptions.LXDAPIException as e:
-            if e.response.status_code != 200:
-                raise
-            elif e.response.status_code == 404:
-                self.cleanup(
-                    context, instance, network_info, block_device_info)
+            if e.response.status_code == 404:
+                LOG.warning(_LW('Container does not exist."'))
             else:
-                return
-
-        container.delete(wait=True)
-
-        self.cleanup(context, instance, network_info, block_device_info)
+                raise
+        finally:
+            self.cleanup(
+                context, instance, network_info, block_device_info)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
@@ -371,7 +368,13 @@ class LXDDriver(driver.ComputeDriver):
                 container_dir, run_as_root=True)
             shutil.rmtree(container_dir)
 
-        self.client.profiles.get(instance.name).delete()
+        try:
+            self.client.profiles.get(instance.name).delete()
+        except lxd_exceptions.LXDAPIException as e:
+            if e.response.status_code == 404:
+                LOG.warning(_LW('Profie does not exist.'))
+            else:
+                raise
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
