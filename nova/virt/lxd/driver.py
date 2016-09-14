@@ -335,6 +335,7 @@ class LXDDriver(driver.ComputeDriver):
             elif e.response.status_code == 404:
                 self.cleanup(
                     context, instance, network_info, block_device_info)
+                pass
             else:
                 return
 
