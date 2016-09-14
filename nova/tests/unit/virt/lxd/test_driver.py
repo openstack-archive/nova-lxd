@@ -446,9 +446,9 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.init_host(None)
         lxd_driver.cleanup = mock.Mock()  # There is a separate cleanup test
 
-        self.assertRaises(
-            lxdcore_exceptions.LXDAPIException,
-            lxd_driver.destroy, ctx, instance, network_info)
+        lxd_driver.destroy(ctx, instance, network_info)
+        lxd_driver.cleanup.assert_called_once_with(
+            ctx, instance, network_info, None)
 
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('pwd.getpwuid')
