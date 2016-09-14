@@ -371,6 +371,16 @@ class LXDDriver(driver.ComputeDriver):
                 container_dir, run_as_root=True)
             shutil.rmtree(container_dir)
 
+        # Remove the rescue container if it exists
+        try:
+            container = self.client.container.get('%s-rescue' % instance.name)
+            container.delete(wait=True)
+        except lxd_exceptions.LXDAPIException as e:
+            if e.response.status_code != 404:
+                pass
+            else:
+                raise
+
         self.client.profiles.get(instance.name).delete()
 
     def reboot(self, context, instance, network_info, reboot_type,
