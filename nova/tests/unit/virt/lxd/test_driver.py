@@ -433,6 +433,30 @@ class LXDDriverTest(test.NoDBTestCase):
         mock_container.stop.assert_called_once_with(wait=True)
         mock_container.delete.assert_called_once_with(wait=True)
 
+    def test_destroy_with_rescue_instance(self):
+        mock_container = mock.Mock()
+        mock_container.status = 'Running'
+        self.client.containers.get.return_value = mock_container
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        network_info = [mock.Mock()]
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+        lxd_driver.cleanup = mock.Mock()  # There is a separate cleanup test
+
+        lxd_driver.destroy(ctx, instance, network_info)
+
+        lxd_driver.cleanup.assert_called_once_with(
+            ctx, instance, network_info, None)
+        lxd_driver.client.containers.get.assert_called_once_with(instance.name)
+        mock_container.stop.assert_called_once_with(wait=True)
+        mock_container.delete.assert_called_once_with(wait=True)
+
+        instance = fake_instance.fake_instance_obj(ctx, name='test-rescue')
+        lxd_driver.client.containers.get_assert_called_once_with(instance.name)
+        lxd_driver.client.containers.delete(wait=True)
+
     def test_destroy_without_instance(self):
         def side_effect(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
