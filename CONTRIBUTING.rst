@@ -5,6 +5,8 @@ nova-lxd absolutely requires lxd, though its installation and configuration
 is out of scope here. If you're running Ubuntu, here is the easy path
 to a running lxd.
 
+.. code-block: bash
+   
    add-apt-repository ppa:ubuntu-lxc/lxd-git-master && sudo apt-get update
    apt-get -y install lxd
    usermod -G lxd ${your_username|stack}
@@ -20,6 +22,8 @@ Using nova-lxd with devstack
 nova-lxd includes a plugin for use in devstack. If you'd like to run
 devstack with nova-lxd, you'll want to add the following to `local.conf`:
 
+.. code-block: bash
+   
    enable_plugin nova-lxd https://git.openstack.org/openstack/nova-lxd
 
 In this case, nova-lxd will run HEAD from master. You may want to point
@@ -30,6 +34,8 @@ Configuration and installation of devstack is beyond the scope
 of this document. Here's an example `local.conf` file that will
 run the very minimum you`ll need for devstack.
 
+.. code-block: bash
+   
    [[local|localrc]]
    ADMIN_PASSWORD=password
    DATABASE_PASSWORD=$ADMIN_PASSWORD
@@ -56,10 +62,15 @@ run the very minimum you`ll need for devstack.
 Once devstack is running, you'll want to add the lxd image to glance. You can
 do this (as an admin) with:
 
+.. code-block: bash
+
    wget http://cloud-images.ubuntu.com/trusty/current/trusty-server-cloudimg-amd64-root.tar.xz
-   glance image-create --name lxd --container-format bare --disk-format raw --visibility=public < trusty-server-cloudimg-amd64-root.tar.xz
+   glance image-create --name lxd --container-format bare --disk-format raw \
+      --visibility=public < trusty-server-cloudimg-amd64-root.tar.xz
 
 To run the tempest tests, you can use:
+
+.. code-block: bash
 
    /opt/stack/tempest/run_tempest.sh -N tempest.api.compute
 
