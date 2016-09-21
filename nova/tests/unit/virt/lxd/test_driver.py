@@ -264,6 +264,42 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.cleanup.assert_called_once_with(
             ctx, instance, network_info, block_device_info)
 
+    def test_spawn_container_start_fail(self):
+        def container_get(*args, **kwargs):
+            raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
+
+        def side_effect(*args, **kwargs):
+            raise lxdcore_exceptions.LXDAPIException(MockResponse(200))
+
+        self.client.containers.get.side_effect = container_get
+        container = mock.Mock()
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        image_meta = mock.Mock()
+        injected_files = mock.Mock()
+        admin_password = mock.Mock()
+        network_info = [mock.Mock()]
+        block_device_info = mock.Mock()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+        lxd_driver.setup_image = mock.Mock()
+        lxd_driver.vif_driver = mock.Mock()
+        lxd_driver.cleanup = mock.Mock()
+        lxd_driver.create_profile = mock.Mock(return_value={
+            'name': instance.name, 'config': {}, 'devices': {}})
+        lxd_driver.client.containers.create = mock.Mock(
+            side_effect=side_effect)
+        container.start.side_effect = side_effect
+
+        self.assertRaises(
+            lxdcore_exceptions.LXDAPIException,
+            lxd_driver.spawn,
+            ctx, instance, image_meta, injected_files, admin_password,
+            network_info, block_device_info)
+        lxd_driver.cleanup.assert_called_once_with(
+            ctx, instance, network_info, block_device_info)
+
     @mock.patch('nova.virt.lxd.driver.container_utils.get_container_storage')
     @mock.patch.object(driver.utils, 'execute')
     @mock.patch('nova.virt.driver.block_device_info_get_ephemerals')
