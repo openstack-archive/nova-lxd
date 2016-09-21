@@ -52,3 +52,7 @@ def get_container_rootfs(instance):
 
 def get_container_rescue(instance):
     return os.path.join(CONF.lxd.root_dir, 'containers', instance, 'rootfs')
+
+
+def get_container_configdrive(instance):
+    return os.path.join(CONF.instances_path, instance, 'configdrive')
