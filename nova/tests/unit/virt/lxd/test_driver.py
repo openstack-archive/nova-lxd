@@ -77,6 +77,7 @@ class LXDDriverTest(test.NoDBTestCase):
         self.CONF = self.CONF_patcher.start()
         self.CONF.instances_path = '/path/to/instances'
         self.CONF.my_ip = '0.0.0.0'
+        self.CONF.config_drive_format = 'iso9660'
 
         # NOTE: mock out fileutils to ensure that unit tests don't try
         #       to manipulate the filesystem (breaks in package builds).
@@ -136,10 +137,12 @@ class LXDDriverTest(test.NoDBTestCase):
 
         self.assertEqual(['mock-instance-1', 'mock-instance-2'], instances)
 
-    def test_spawn(self):
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_spawn(self, configdrive):
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
         self.client.containers.get.side_effect = container_get
+        configdrive.return_value = False
 
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
@@ -199,7 +202,60 @@ class LXDDriverTest(test.NoDBTestCase):
             ctx, instance, image_meta, injected_files, admin_password,
             None, None)
 
-    def test_spawn_profile_fail(self):
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_spawn_with_configdrive(self, configdrive):
+        def container_get(*args, **kwargs):
+            raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
+
+        self.client.containers.get.side_effect = container_get
+        configdrive.return_value = True
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        image_meta = mock.Mock()
+        injected_files = mock.Mock()
+        admin_password = mock.Mock()
+        network_info = [mock.Mock()]
+        block_device_info = mock.Mock()
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+        # XXX: rockstar (6 Jul 2016) - There are a number of XXX comments
+        # related to these calls in spawn. They require some work before we
+        # can take out these mocks and follow the real codepaths.
+        lxd_driver.setup_image = mock.Mock()
+        lxd_driver.vif_driver = mock.Mock()
+        lxd_driver.firewall_driver = mock.Mock()
+        lxd_driver._add_ephemeral = mock.Mock()
+        lxd_driver.create_profile = mock.Mock(return_value={
+            'name': instance.name, 'config': {}, 'devices': {}})
+        lxd_driver._add_configdrive = mock.Mock()
+
+        lxd_driver.spawn(
+            ctx, instance, image_meta, injected_files, admin_password,
+            network_info, block_device_info)
+
+        lxd_driver.setup_image.assert_called_once_with(
+            ctx, instance, image_meta)
+        lxd_driver.vif_driver.plug.assert_called_once_with(
+            instance, network_info[0])
+        lxd_driver.create_profile.assert_called_once_with(
+            instance, network_info, block_device_info)
+        fd = lxd_driver.firewall_driver
+        fd.setup_basic_filtering.assert_called_once_with(
+            instance, network_info)
+        fd.prepare_instance_filter.assert_called_once_with(
+            instance, network_info)
+        fd.apply_instance_filter.assert_called_once_with(
+            instance, network_info)
+        lxd_driver._add_ephemeral.assert_called_once_with(
+            block_device_info, lxd_driver.client.host_info, instance)
+
+        configdrive.assert_called_once_with(instance)
+        lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
+
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_spawn_profile_fail(self, configdrive):
         """Cleanup is called when profile creation fails."""
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
@@ -207,6 +263,7 @@ class LXDDriverTest(test.NoDBTestCase):
         def side_effect(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(200))
         self.client.containers.get.side_effect = container_get
+        configdrive.return_value = False
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
         image_meta = mock.Mock()
@@ -230,7 +287,8 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.cleanup.assert_called_once_with(
             ctx, instance, network_info, block_device_info)
 
-    def test_spawn_container_fail(self):
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_spawn_container_fail(self, configdrive):
         """Cleanup is called when container creation fails."""
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
@@ -238,6 +296,7 @@ class LXDDriverTest(test.NoDBTestCase):
         def side_effect(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(200))
         self.client.containers.get.side_effect = container_get
+        configdrive.return_value = False
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
         image_meta = mock.Mock()

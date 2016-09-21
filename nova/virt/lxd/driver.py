@@ -38,6 +38,7 @@ from nova.network import model as network_model
 from nova import objects
 from nova.virt import driver
 from os_brick.initiator import connector
+from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import fileutils
@@ -49,7 +50,9 @@ from nova.virt.lxd import vif as lxd_vif
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_utils
 
+from nova.api.metadata import base as instance_metadata
 from nova.compute import arch
+from nova.virt import configdrive
 from nova.compute import hv_type
 from nova.compute import power_state
 from nova.compute import vm_mode
@@ -312,6 +315,22 @@ class LXDDriver(driver.ComputeDriver):
         # and hasn't really been audited. It may need a cleanup
         lxd_config = self.client.host_info
         self._add_ephemeral(block_device_info, lxd_config, instance)
+        if configdrive.required_by(instance):
+            configdrive_path = self._add_configdrive(
+                context, instance,
+                injected_files, admin_password,
+                network_info)
+
+            profile = self.client.profiles.get(instance.name)
+            config_drive = {
+                'configdrive': {
+                    'path': '/var/lib/cloud/data',
+                    'source': configdrive_path,
+                    'type': 'disk',
+                }
+            }
+            profile.devices.update(config_drive)
+            profile.save()
 
         container.start()
 
@@ -1068,6 +1087,72 @@ class LXDDriver(driver.ComputeDriver):
 
                     utils.execute('umount', lvm_path, run_as_root=True)
                     utils.execute('lvremove', '-f', lvm_path, run_as_root=True)
+
+    def _add_configdrive(self, context, instance,
+                         injected_files, admin_password, network_info):
+        """Create configdrive for the instance."""
+        if CONF.config_drive_format != 'iso9660':
+            raise exception.ConfigDriveUnsupportedFormat(
+                format=CONF.config_drive_format)
+
+        container = self.client.containers.get(instance.name)
+        container_id_map = container.config[
+            'volatile.last_state.idmap'].split(',')
+        storage_id = container_id_map[2].split(':')[1]
+
+        extra_md = {}
+        if admin_password:
+            extra_md['admin_pass'] = admin_password
+
+        inst_md = instance_metadata.InstanceMetadata(
+            instance, content=injected_files, extra_md=extra_md,
+            network_info=network_info, request_context=context)
+
+        iso_path = os.path.join(
+            container_utils.get_instance_dir(instance.name),
+            'configdrive.iso')
+
+        with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
+            try:
+                cdb.make_drive(iso_path)
+            except processutils.ProcessExecutionError as e:
+                with excutils.save_and_reraise_exception():
+                    LOG.error(_LE('Creating config drive failed with '
+                                  'error: %s'),
+                              e, instance=instance)
+
+        configdrive_dir = \
+            container_utils.get_container_configdrive(instance.name)
+        if not os.path.exists(configdrive_dir):
+            fileutils.ensure_tree(configdrive_dir)
+
+        with utils.tempdir() as tmpdir:
+            mounted = False
+            try:
+                _, err = utils.execute('mount',
+                                       '-o',
+                                       'loop,uid=%d,gid=%d' % (os.getuid(),
+                                                               os.getgid()),
+                                       iso_path, tmpdir,
+                                       run_as_root=True)
+                mounted = True
+
+                # Copy and adjust the files from the ISO so that we
+                # dont have the ISO mounted during the life cycle of the
+                # instance and the directory can be removed once the instance
+                # is terminated
+                for ent in os.listdir(tmpdir):
+                    shutil.copytree(os.path.join(tmpdir, ent),
+                                    os.path.join(configdrive_dir, ent))
+                    utils.execute('chmod', '-R', '775', configdrive_dir,
+                                  run_as_root=True)
+                    utils.execute('chown', '-R', storage_id, configdrive_dir,
+                                  run_as_root=True)
+            finally:
+                if mounted:
+                    utils.execute('umount', tmpdir, run_as_root=True)
+
+        return configdrive_dir
 
     def _save_lxd_image(self, instance, image_id):
         """Creates an LXD image from the LXD continaer
