@@ -11,10 +11,9 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
-   readme
-   installation
    usage
    contributing
+   exclusive_machine
 
 Indices and tables
 ==================
