@@ -776,11 +776,11 @@ class LXDDriverTest(test.NoDBTestCase):
         self.assertEqual(0, self.client.profiles.get.call_count)
         container.stop.assert_called_once_with(wait=True)
 
-    @mock.patch('os.readlink')
-    def test_attach_volume(self, readlink):
+    @mock.patch('os.path.realpath')
+    def test_attach_volume(self, realpath):
         profile = mock.Mock()
         self.client.profiles.get.return_value = profile
-        readlink.return_value = '/dev/sdc'
+        realpath.return_value = '/dev/sdc'
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
         connection_info = fake_connection_info(
