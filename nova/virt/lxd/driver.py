@@ -474,12 +474,14 @@ class LXDDriver(driver.ComputeDriver):
 
         device_info = self.storage_driver.connect_volume(
             connection_info['data'])
-        disk = os.readlink(device_info['path']).rpartition("/")[2]
+        disk = os.stat(os.path.realpath(device_info['path']))
         vol_id = connection_info['data']['volume_id']
 
         disk_device = {
             vol_id: {
-                'path': '/dev/%s' % disk,
+                'path': mountpoint,
+                'major': '%s' % os.major(disk.st_rdev),
+                'mior': '%s' % os.minor(disk.st_rdev),
                 'type': 'unix-block'
             }
         }
