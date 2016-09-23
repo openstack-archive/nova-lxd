@@ -776,18 +776,18 @@ class LXDDriverTest(test.NoDBTestCase):
         self.assertEqual(0, self.client.profiles.get.call_count)
         container.stop.assert_called_once_with(wait=True)
 
-    @mock.patch('os.readlink')
-    def test_attach_volume(self, readlink):
+    @mock.patch('os.path.realpath')
+    def test_attach_volume(self, realpath):
         profile = mock.Mock()
         self.client.profiles.get.return_value = profile
-        readlink.return_value = '/dev/sdc'
+        realpath.return_value = '/dev/sda'
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
         connection_info = fake_connection_info(
             {'id': 1, 'name': 'volume-00000001'},
             '10.0.2.15:3260', 'iqn.2010-10.org.openstack:volume-00000001',
             auth=True)
-        mountpoint = mock.Mock()
+        mountpoint = '/dev/sdc'
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
