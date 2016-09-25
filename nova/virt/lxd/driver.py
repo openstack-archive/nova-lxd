@@ -332,7 +332,12 @@ class LXDDriver(driver.ComputeDriver):
             profile.devices.update(config_drive)
             profile.save()
 
-        container.start()
+        try:
+            container.start()
+        except lxd_exceptions.LXDAPIException as e:
+            with excutils.save_and_reraise_exception():
+                self.cleanup(
+                    context, instance, network_info, block_device_info)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
