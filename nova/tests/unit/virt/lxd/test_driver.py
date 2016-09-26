@@ -1059,7 +1059,7 @@ class LXDDriverTest(test.NoDBTestCase):
             'cpu_info': {
                 "features": "fake flag goes here",
                 "model": "Fake CPU",
-                "topology": {"sockets": 1, "threads": "4", "cores": "5"},
+                "topology": {"sockets": "10", "threads": "4", "cores": "5"},
                 "arch": "x86_64", "vendor": "FakeVendor"
             },
             'hypervisor_hostname': 'fake_hostname',
@@ -1075,7 +1075,7 @@ class LXDDriverTest(test.NoDBTestCase):
                 ('x86_64', 'lxd', 'exe'),
                 ('i686', 'lxc', 'exe'),
                 ('x86_64', 'lxc', 'exe')],
-            'vcpus': 20,
+            'vcpus': 200,
             'vcpus_used': 0}
 
         execute.return_value = (

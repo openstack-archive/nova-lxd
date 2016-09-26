@@ -738,9 +738,9 @@ class LXDDriver(driver.ComputeDriver):
             'features': cpuinfo.get('flags', 'unknown'),
             'model': cpuinfo.get('model name', 'unknown'),
             'topology': {
-                'sockets': cpuinfo.get('sockets(s)', 1),
-                'cores': cpuinfo.get('core(s) per socket', 1),
-                'threads': cpuinfo.get('thread(s) per core', 1),
+                'sockets': cpuinfo['socket(s)'],
+                'cores': cpuinfo['core(s) per socket'],
+                'threads': cpuinfo['thread(s) per core'],
             },
             'vendor': cpuinfo.get('vendor id', 'unknown'),
         }
