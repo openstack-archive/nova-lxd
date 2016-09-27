@@ -61,12 +61,14 @@ function init_nova-lxd() {
        TEMPEST_IMAGE=`openstack image list | grep ubuntu-16.04-lxd-root | awk {'print $2'}`
        iniset $TEMPEST_CONFIG image disk_formats "ami,ari,aki,vhd,raw,iso,root-tar"
        iniset $TEMPEST_CONFIG compute ssh_user ubuntu
+       iniset $TEMPEST_CONFIG compute volume_device_name sdb
        iniset $TEMPEST_CONFIG compute-feature-enabled shelve False
        iniset $TEMPEST_CONFIG compute-feature-enabled resize False
        iniset $TEMPEST_CONFIG compute-feature-enabled attach_encrypted_volume False
        iniset $TEMPEST_CONFIG compute image_ref $TEMPEST_IMAGE
        iniset $TEMPEST_CONFIG compute image_ref_alt $TEMPEST_IMAGE
        iniset $TEMPEST_CONFIG validation image_ssh_user ubuntu
+       iniset $TEMPEST_CONFIG validation run_validation True
        iniset $TEMPEST_CONFIG validation run_validation True
     fi
 
