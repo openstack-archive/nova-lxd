@@ -25,6 +25,10 @@ CONF = config.CONF
 class LXDServersTestJSON(base.BaseV2ComputeAdminTest):
     disk_config = 'AUTO'
 
+    def __init__(self, *args, **kwargs):
+        super(LXDServersTestJSON, self).__init__(*args, **kwargs)
+        self.client = client.Client()
+
     @classmethod
     def setup_credentials(cls):
         cls.prepare_instance_network()
@@ -58,33 +62,94 @@ class LXDServersTestJSON(base.BaseV2ComputeAdminTest):
         cls.server = (
             cls.client.show_server(cls.server_initial['id'])['server'])
 
+    def test_profile_configuration(self):
+        # Verify that the profile was created
+        profile = self.client.profiles.get(
+            self.server['OS-EXT-SRV-ATTR:instance_name'])
+
+        self.assertEqual(
+            self.server['OS-EXT-SRV-ATTR:instance_name'], profile.name)
+
+        self.assertIn('raw.lxc', profile.config)
+        self.assertIn('boot.autostart', profile.config)
+        self.assertIn('limits.cpu', profile.config)
+        self.assertIn('limits.memory', profile.config)
+
+        self.assertIn('root', profile.devices)
+
     def test_verify_created_server_vcpus(self):
         # Verify that the number of vcpus reported by the instance matches
         # the amount stated by the flavor
         flavor = self.flavors_client.show_flavor(self.flavor_ref)['flavor']
 
-        lxd = client.Client()
-        profile = lxd.profiles.get(
+        profile = self.client.profiles.get(
             self.server['OS-EXT-SRV-ATTR:instance_name'])
         self.assertEqual(
-            '%s' % flavor['vcpu'], profile.config['limits.cpu'])
+            '%s' % flavor['vcpus'], profile.config['limits.cpu'])
 
     def test_verify_created_server_memory(self):
         # Verify that the memory reported by the instance matches
         # the amount stated by the flavor
         flavor = self.flavors_client.show_flavor(self.flavor_ref)['flavor']
 
-        lxd = client.Client()
-        profile = lxd.profiles.get(
+        profile = self.client.profiles.get(
             self.server['OS-EXT-SRV-ATTR:instance_name'])
         self.assertEqual(
             '%sMB' % flavor['ram'], profile.config['limits.memory'])
 
-    def test_verify_created_server_disk_size(self):
+    def test_verify_server_root_size(self):
         flavor = self.flavors_client.show_flavor(self.flavor_ref)['flavor']
 
-        lxd = client.Client()
-        profile = lxd.profiles.get(
+        profile = self.client.profiles.get(
             self.server['OS-EXT-SRV-ATTR:instance_name'])
         self.assertEqual(
             '%sGB' % flavor['disk'], profile.devices['root']['size'])
+
+    def test_verify_console_log(self):
+        # Verify that the console log for the container exists
+        profile = self.client.profiles.get(
+            self.server['OS-EXT-SRV-ATTR:instance_name'])
+        self.assertIn('lxc.console.logfile', profile.config['raw.lxc'])
+
+    def test_verify_network_configuration(self):
+        # Verfiy network is configured for the instance
+        profile = self.client.profiles.get(
+            self.server['OS-EXT-SRV-ATTR:instance_name'])
+        for device in profile.devices:
+            if 'root' not in device:
+                network_device = device
+        self.assertEqual('nic', profile.devices[network_device]['type'])
+        self.assertEqual('bridged', profile.devices[network_device]['nictype'])
+        self.assertEqual(
+            network_device, profile.devices[network_device]['parent'])
+
+    def test_container_configuration_valid(self):
+        # Verify container configuration is correct
+        profile = self.client.profiles.get(
+            self.server['OS-EXT-SRV-ATTR:instance_name'])
+        container = self.client.containers.get(
+            self.server['OS-EXT-SRV-ATTR:instance_name'])
+        flavor = self.flavors_client.show_flavor(self.flavor_ref)['flavor']
+
+        self.assertEqual(profile.name, container.profiles[0])
+        self.assertIn('raw.lxc', container.expanded_config)
+        self.assertEqual(
+            '%s' % flavor['vcpus'], container.expanded_config['limits.cpu'])
+        self.assertEqual(
+            '%sMB' % flavor['ram'], container.expanded_config['limits.memory'])
+
+        self.assertEqual(
+            '%sGB' % flavor['disk'],
+            container.expanded_devices['root']['size'])
+
+        for device in profile.devices:
+            if 'root' not in device:
+                network_device = device
+        self.assertIn(network_device, container.expanded_devices)
+        self.assertEqual(
+            'nic', container.expanded_devices[network_device]['type'])
+        self.assertEqual(
+            'bridged', container.expanded_devices[network_device]['nictype'])
+        self.assertEqual(
+            network_device,
+            container.expanded_devices[network_device]['parent'])
