@@ -1229,3 +1229,41 @@ class LXDDriverTest(test.NoDBTestCase):
         result = lxd_driver.get_available_nodes()
 
         self.assertEqual(expected, result)
+
+    @mock.patch('nova.virt.lxd.driver.IMAGE_API')
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_snapshot(self, lock, IMAGE_API):
+        update_task_state_expected = [
+            mock.call(task_state='image_pending_upload'),
+            mock.call(
+                expected_state='image_pending_upload',
+                task_state='image_uploading'),
+        ]
+
+        container = mock.Mock()
+        self.client.containers.get.return_value = container
+        image = mock.Mock()
+        container.publish.return_value = image
+        data = mock.Mock()
+        image.export.return_value = data
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        image_id = mock.Mock()
+        update_task_state = mock.Mock()
+        snapshot = {'name': mock.Mock()}
+        IMAGE_API.get.return_value = snapshot
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.snapshot(ctx, instance, image_id, update_task_state)
+
+        self.assertEqual(
+            update_task_state_expected, update_task_state.call_args_list)
+        IMAGE_API.get.assert_called_once_with(ctx, image_id)
+        IMAGE_API.update.assert_called_once_with(
+            ctx, image_id, {
+                'name': snapshot['name'],
+                'disk_format': 'raw',
+                'container_format': 'bare'},
+            data)

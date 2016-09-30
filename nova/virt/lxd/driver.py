@@ -582,6 +582,32 @@ class LXDDriver(driver.ComputeDriver):
         container.stop(wait=True)
         return ''
 
+    def snapshot(self, context, instance, image_id, update_task_state):
+        lock_path = str(os.path.join(CONF.instances_path, 'locks'))
+
+        with lockutils.lock(
+                lock_path, external=True,
+                lock_file_prefix=('lxd-snapshot-%s' % instance.name)):
+
+            update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
+
+            container = self.client.containers.get(instance.name)
+            if container.status != 'Stopped':
+                container.stop(wait=True)
+            image = container.publish(wait=True)
+            container.start(wait=True)
+
+            update_task_state(
+                task_state=task_states.IMAGE_UPLOADING,
+                expected_state=task_states.IMAGE_PENDING_UPLOAD)
+
+            snapshot = IMAGE_API.get(context, image_id)
+            data = image.export()
+            image_meta = {'name': snapshot['name'],
+                          'disk_format': 'raw',
+                          'container_format': 'bare'}
+            IMAGE_API.update(context, image_id, image_meta, data)
+
     def pause(self, instance):
         """Pause container.
 
@@ -879,40 +905,6 @@ class LXDDriver(driver.ComputeDriver):
     #
     # ComputeDriver implementation methods
     #
-    def snapshot(self, context, instance, image_id, update_task_state):
-        lock_path = str(os.path.join(CONF.instances_path, 'locks'))
-        try:
-            if not self.session.container_defined(instance.name, instance):
-                raise exception.InstanceNotFound(instance_id=instance.name)
-
-            with lockutils.lock(lock_path,
-                                lock_file_prefix=('lxd-snapshot-%s' %
-                                                  instance.name),
-                                external=True):
-
-                update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
-
-                # We have to stop the container before we can publish the
-                # image to the local store
-                self.session.container_stop(instance.name,
-                                            instance)
-                fingerprint = self._save_lxd_image(instance,
-                                                   image_id)
-                self.session.container_start(instance.name, instance)
-
-                update_task_state(task_state=task_states.IMAGE_UPLOADING,
-                                  expected_state=task_states.IMAGE_PENDING_UPLOAD)  # noqa
-                self._save_glance_image(context, instance, image_id,
-                                        fingerprint)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to create snapshot for %(instance)s: '
-                              '%(ex)s'), {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def post_interrupted_snapshot_cleanup(self, context, instance):
-        pass
-
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance,
                          block_device_info=None, power_on=True):
