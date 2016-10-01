@@ -582,6 +582,32 @@ class LXDDriver(driver.ComputeDriver):
         container.stop(wait=True)
         return ''
 
+    def snapshot(self, context, instance, image_id, update_task_state):
+        lock_path = str(os.path.join(CONF.instances_path, 'locks'))
+
+        with lockutils.lock(
+                lock_path, external=True,
+                lock_file_prefix=('lxd-snapshot-%s' % instance.name)):
+
+            update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
+
+            container = self.client.containers.get(instance.name)
+            if container.status != 'Stopped':
+                container.stop(wait=True)
+            image = container.publish(wait=True)
+            container.start(wait=True)
+
+            update_task_state(
+                task_state=task_states.IMAGE_UPLOADING,
+                expected_state=task_states.IMAGE_PENDING_UPLOAD)
+
+            snapshot = IMAGE_API.get(context, image_id)
+            data = image.export()
+            image_meta = {'name': snapshot['name'],
+                          'disk_format': 'raw',
+                          'container_format': 'bare'}
+            IMAGE_API.update(context, image_id, image_meta, data)
+
     def pause(self, instance):
         """Pause container.
 
@@ -879,40 +905,6 @@ class LXDDriver(driver.ComputeDriver):
     #
     # ComputeDriver implementation methods
     #
-    def snapshot(self, context, instance, image_id, update_task_state):
-        lock_path = str(os.path.join(CONF.instances_path, 'locks'))
-        try:
-            if not self.session.container_defined(instance.name, instance):
-                raise exception.InstanceNotFound(instance_id=instance.name)
-
-            with lockutils.lock(lock_path,
-                                lock_file_prefix=('lxd-snapshot-%s' %
-                                                  instance.name),
-                                external=True):
-
-                update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
-
-                # We have to stop the container before we can publish the
-                # image to the local store
-                self.session.container_stop(instance.name,
-                                            instance)
-                fingerprint = self._save_lxd_image(instance,
-                                                   image_id)
-                self.session.container_start(instance.name, instance)
-
-                update_task_state(task_state=task_states.IMAGE_UPLOADING,
-                                  expected_state=task_states.IMAGE_PENDING_UPLOAD)  # noqa
-                self._save_glance_image(context, instance, image_id,
-                                        fingerprint)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to create snapshot for %(instance)s: '
-                              '%(ex)s'), {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
-    def post_interrupted_snapshot_cleanup(self, context, instance):
-        pass
-
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance,
                          block_device_info=None, power_on=True):
@@ -1160,70 +1152,6 @@ class LXDDriver(driver.ComputeDriver):
                     utils.execute('umount', tmpdir, run_as_root=True)
 
         return configdrive_dir
-
-    def _save_lxd_image(self, instance, image_id):
-        """Creates an LXD image from the LXD continaer
-
-        """
-        LOG.debug('_save_lxd_image called for instance', instance=instance)
-
-        fingerprint = None
-        try:
-            # Publish the snapshot to the local LXD image store
-            container_snapshot = {
-                "properties": {},
-                "public": False,
-                "source": {
-                    "name": instance.name,
-                    "type": "container"
-                }
-            }
-            (state, data) = self.session.container_publish(container_snapshot,
-                                                           instance)
-            event_id = data.get('operation')
-            self.session.wait_for_snapshot(event_id, instance)
-
-            # Image has been create but the fingerprint is buried deep
-            # in the metadata when the snapshot is complete
-            (state, data) = self.session.operation_info(event_id, instance)
-            fingerprint = data['metadata']['metadata']['fingerprint']
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to publish snapshot for %(instance)s: '
-                              '%(ex)s'), {'instance': instance.name,
-                                          'ex': ex}, instance=instance)
-
-        try:
-            # Set the alias for the LXD image
-            alias_config = {
-                'name': image_id,
-                'target': fingerprint
-            }
-            self.session.create_alias(alias_config, instance)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to create alias for %(instance)s: '
-                              '%(ex)s'), {'instance': instance.name,
-                                          'ex': ex}, instance=instance)
-
-        return fingerprint
-
-    def _save_glance_image(self, context, instance, image_id, fingerprint):
-        LOG.debug('_save_glance_image called for instance', instance=instance)
-
-        try:
-            snapshot = IMAGE_API.get(context, image_id)
-            data = self.session.container_export(fingerprint, instance)
-            image_meta = {'name': snapshot['name'],
-                          'disk_format': 'raw',
-                          'container_format': 'bare'}
-            IMAGE_API.update(context, image_id, image_meta, data)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to upload image to glance for '
-                              '%(instance)s:  %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
 
     def setup_image(self, context, instance, image_meta):
         """Download an image from glance and upload it to LXD
