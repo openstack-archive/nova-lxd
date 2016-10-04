@@ -52,23 +52,27 @@ function init_nova-lxd() {
 
     # Download and install the root-tar image from xenial
     wget --progress=dot:giga -c https://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-root.tar.gz  \
-         -O $TOP_DIR/files/xenial-server-cloudimg-amd64-root.tar.gz -O $TOP_DIR/files/xenial-server-cloudimg-amd64-root.tar.gz
+         -O $TOP_DIR/files/xenial-server-cloudimg-amd64-root.tar.gz
     openstack --os-cloud=devstack-admin --os-region-name="$REGION_NAME" image create "ubuntu-16.04-lxd-root" \
          --public --container-format bare --disk-format raw < $TOP_DIR/files/xenial-server-cloudimg-amd64-root.tar.gz
 
+    # Download and install the cirros lxc image
+    wget --progress=dot:giga -c http://download.cirros-cloud.net/${CIRROS_VERSION}/cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxc.tar.gz \
+        -O $TOP_DIR/files/cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxc.tar.gz
+    openstack --os-cloud=devstack-admin --os-region-name="$REGION_NAME" image create "cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxd" \
+        --public --container-format bare --disk-format raw < $TOP_DIR/files/cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxc.tar.gz
+ 
     if is_service_enabled tempest; then
        TEMPEST_CONFIG=${TEMPEST_CONFIG:-$TEMPEST_DIR/etc/tempest.conf}
-       TEMPEST_IMAGE=`openstack image list | grep ubuntu-16.04-lxd-root | awk {'print $2'}`
+       TEMPEST_IMAGE=`openstack image list | grep cirros-0.3.4-x86_64-lxd | awk {'print $2'}` 
+       TEMPEST_IMAGE_ALT=`openstack image list | grep ubuntu-16.04-lxd-root | awk {'print $2'}`
        iniset $TEMPEST_CONFIG image disk_formats "ami,ari,aki,vhd,raw,iso,root-tar"
-       iniset $TEMPEST_CONFIG compute ssh_user ubuntu
        iniset $TEMPEST_CONFIG compute volume_device_name sdb
        iniset $TEMPEST_CONFIG compute-feature-enabled shelve False
        iniset $TEMPEST_CONFIG compute-feature-enabled resize False
        iniset $TEMPEST_CONFIG compute-feature-enabled attach_encrypted_volume False
        iniset $TEMPEST_CONFIG compute image_ref $TEMPEST_IMAGE
-       iniset $TEMPEST_CONFIG compute image_ref_alt $TEMPEST_IMAGE
-       iniset $TEMPEST_CONFIG validation image_ssh_user ubuntu
-       iniset $TEMPEST_CONFIG validation run_validation True
+       iniset $TEMPEST_CONFIG compute image_ref_alt $TEMPEST_IMAGE_ALT
        iniset $TEMPEST_CONFIG validation run_validation True
     fi
 
