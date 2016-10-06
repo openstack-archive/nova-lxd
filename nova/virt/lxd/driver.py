@@ -850,10 +850,20 @@ class LXDDriver(driver.ComputeDriver):
         out, err = utils.execute('env', 'LANG=C', 'uptime')
         return out
 
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `plug_vifs`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `unplug_vifs`
+    def plug_vifs(self, instance, network_info):
+        for vif in network_info:
+            self.vif_driver.plug(instance, vif)
+        self.firewall_driver.setup_basic_filtering(
+            instance, network_info)
+        self.firewall_driver.prepare_instance_filter(
+            instance, network_info)
+        self.firewall_driver.apply_instance_filter(
+            instance, network_info)
+
+    def unplug_vifs(self, instance, network_info):
+        for vif in network_info:
+            self.vif_driver.unplug(instance, vif)
+        self.firewall_driver.unfilter_instance(instance, network_info)
 
     def get_host_cpu_stats(self):
         return {
