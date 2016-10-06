@@ -45,7 +45,6 @@ from oslo_utils import fileutils
 import pylxd
 from pylxd import exceptions as lxd_exceptions
 
-from nova.virt.lxd import migrate
 from nova.virt.lxd import vif as lxd_vif
 from nova.virt.lxd import session
 from nova.virt.lxd import utils as container_utils
@@ -66,6 +65,7 @@ from oslo_concurrency import lockutils
 from nova.compute import task_states
 from oslo_utils import excutils
 from nova.virt import firewall
+from nova.virt.lxd import migrate_data
 
 _ = i18n._
 _LW = i18n._LW
@@ -164,7 +164,8 @@ class LXDDriver(driver.ComputeDriver):
         "has_imagecache": False,
         "supports_recreate": False,
         "supports_migrate_to_same_host": False,
-        "supports_attach_interface": True
+        "supports_attach_interface": True,
+        "supports_device_tagging": False,
     }
 
     def __init__(self, virtapi):
@@ -187,7 +188,6 @@ class LXDDriver(driver.ComputeDriver):
         # will know our cleanup of nova-lxd is complete when these
         # attributes are no longer needed.
         self.session = session.LXDAPISession()
-        self.container_migrate = migrate.LXDContainerMigrate(self)
 
     def init_host(self, host):
         """Initialize the driver on the host.
@@ -209,18 +209,6 @@ class LXDDriver(driver.ComputeDriver):
             raise exception.HostNotFound(msg)
         self._after_reboot()
 
-    def cleanup_host(self, host):
-        """Clean up the host.
-
-        `nova.virt.ComputeDriver` defines this method. It is overridden
-        here to be explicit that there is nothing to be done, as
-        `init_host` does not create any resources that would need to be
-        cleaned up.
-
-        See `nova.virt.driver.ComputeDriver.cleanup_host` for more
-        information.
-        """
-
     def get_info(self, instance):
         """Return an InstanceInfo object for the instance."""
         container = self.client.containers.get(instance.name)
@@ -236,11 +224,19 @@ class LXDDriver(driver.ComputeDriver):
             num_cpu=instance.flavor.vcpus,
             cpu_time_ns=0)
 
+    # XXX: rockstar (6 Oct 2016) - `estimate_instance_overhead` is not
+    # implemented, but it should be.
+
     def list_instances(self):
         """Return a list of all instance names."""
         return [c.name for c in self.client.containers.all()]
 
-    # XXX: rockstar (6 Jul 2016) - nova-lxd does not support `rebuild`
+    # XXX: rockstar (6 Oct 2016) - `list_instance_uuids` is not
+    # implemented, but will raise an exception if called. It should
+    # be implemented.
+
+    # XXX: rockstar (6 Jul 2016) - nova-lxd does not support `rebuild`,
+    # but its functionality is needed.
 
     def spawn(self, context, instance, image_meta, injected_files,
               admin_password, network_info=None, block_device_info=None):
@@ -418,9 +414,6 @@ class LXDDriver(driver.ComputeDriver):
         container = self.client.containers.get(instance.name)
         container.restart(force=True, wait=True)
 
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support
-    # `get_console_pool_info`
-
     def get_console_output(self, context, instance):
         """Get the output of the container console.
 
@@ -440,21 +433,6 @@ class LXDDriver(driver.ComputeDriver):
         with open(console_path, 'rb') as f:
             log_data, _ = utils.last_bytes(f, MAX_CONSOLE_BYTES)
             return log_data
-
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `get_vnc_console`
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support
-    # `get_spice_console`
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `get_rdp_console`
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support
-    # `get_serial_console`
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `get_mks_console`
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `get_diagnostics`
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support
-    # `get_instance_diagnostics`
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support
-    # `get_all_bw_counters`
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support
-    # `get_all_volume_usage`
 
     def get_host_ip_addr(self):
         return CONF.my_ip
@@ -514,8 +492,6 @@ class LXDDriver(driver.ComputeDriver):
             profile.save()
 
         self.storage_driver.disconnect_volume(connection_info['data'], None)
-
-    # XXX: rockstar (7 Jul 2016) - nova-lxd does not support `swap_volume`
 
     def attach_interface(self, instance, image_meta, vif):
         self.vif_driver.plug(instance, vif)
@@ -608,6 +584,40 @@ class LXDDriver(driver.ComputeDriver):
                           'container_format': 'bare'}
             IMAGE_API.update(context, image_id, image_meta, data)
 
+    def finish_migration(self, context, migration, instance, disk_info,
+                         network_info, image_meta, resize_instance,
+                         block_device_info=None, power_on=True):
+        # Ensure that the instance directory exists
+        instance_dir = container_utils.get_instance_dir(instance.name)
+        if not os.path.exists(instance_dir):
+            fileutils.ensure_tree(instance_dir)
+
+        # Step 1 - Setup the profile on the dest host
+        # XXX: rockstar (6 Oct 2016) - create_profile is legacy code.
+        profile_data = self.create_profile(instance, network_info)
+        self.client.profiles.create(
+            profile_data['name'], profile_data['config'],
+            profile_data['devices'])
+
+        # Step 2 - Open a websocket on the srct and and
+        #          generate the container config
+        source_client = pylxd.Client(endpoint=migration['source_compute'])
+        container = source_client.containers.get(instance.name)
+        container.migrate(self.client, wait=True)
+
+        # Step 3 - Start the network and container
+        self.plug_vifs(instance, network_info)
+        self.client.containers.get(instance.name).start()
+
+    def confirm_migration(self, migration, instance, network_info):
+        self.client.profiles.get(instance.name).delete()
+        self.client.containers.get(instance.name).delete()
+        self.unplug_vifs(instance, network_info)
+
+    def finish_revert_migration(self, context, instance, network_info,
+                                block_device_info=None, power_on=True):
+        self.client.containers.get(instance.name).start()
+
     def pause(self, instance):
         """Pause container.
 
@@ -641,9 +651,6 @@ class LXDDriver(driver.ComputeDriver):
         information.
         """
         self.unpause(instance)
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `resume_state_on_host_boot`
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
@@ -690,9 +697,6 @@ class LXDDriver(driver.ComputeDriver):
             container_config, wait=True)
         container.start(wait=True)
 
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `set_bootable`
-
     def unrescue(self, instance, network_info):
         """Unrescue an instance
 
@@ -719,12 +723,6 @@ class LXDDriver(driver.ComputeDriver):
         container.rename(instance.name, wait=True)
         container.start(wait=True)
 
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `resume_state_on_host_boot`
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `set_bootable`
-
     def power_off(self, instance, timeout=0, retry_interval=0):
         """Power off an instance
 
@@ -745,13 +743,6 @@ class LXDDriver(driver.ComputeDriver):
         container = self.client.containers.get(instance.name)
         if container.status != 'Running':
             container.start(wait=True)
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `trigger_crash_dump`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `soft_delete`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `restore`
 
     def get_available_resource(self, nodename):
         """Aggregate all available system resources.
@@ -803,17 +794,56 @@ class LXDDriver(driver.ComputeDriver):
 
         return data
 
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `get_instance_disk_info`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `refresh_security_group_rules`
+    def pre_live_migration(self, context, instance, block_device_info,
+                           network_info, disk_info, migrate_data=None):
+        for vif in network_info:
+            self.vif_driver.plug(instance, vif)
+        self.firewall_driver.setup_basic_filtering(
+            instance, network_info)
+        self.firewall_driver.prepare_instance_filter(
+            instance, network_info)
+        self.firewall_driver.apply_instance_filter(
+            instance, network_info)
+
+        self._copy_container_profile(instance, network_info)
+
+    def live_migration(self, context, instance, dest,
+                       post_method, recover_method, block_migration=False,
+                       migrate_data=None):
+        self._container_init(dest, instance)
+        post_method(context, instance, dest, block_migration)
+
+    def post_live_migration(self, context, instance, block_device_info,
+                            migrate_data=None):
+        self.client.containers.get(instance.name).delete()
+
+    def post_live_migration_at_source(self, context, instance, network_info):
+        self.client.profiles.get(instance.name).delete()
+        self.cleanup(context, instance, network_info)
+
+    def check_can_live_migrate_destination(self, context, instance,
+                                           src_compute_info, dst_compute_info,
+                                           block_migration=False,
+                                           disk_over_commit=False):
+        try:
+            self.client.containers.get(instance.name)
+            raise exception.InstanceExists(name=instance.name)
+        except lxd_exceptions.LXDAPIException as e:
+            if e.response.status_code != 404:
+                raise
+        return migrate_data.LXDLiveMigrateData()
+
+    def cleanup_live_migration_destination_check(
+            self, context, dest_check_data):
+        return
+
+    def check_can_live_migrate_source(self, context, instance,
+                                      dest_check_data, block_device_info=None):
+        return dest_check_data
 
     def refresh_instance_security_rules(self, instance):
         return self.firewall_driver.refresh_instance_security_rules(
             instance)
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `reset_network`
 
     def ensure_filtering_rules_for_instance(self, instance, network_info):
         return self.firewall_driver.ensure_filtering_rules_for_instance(
@@ -911,95 +941,6 @@ class LXDDriver(driver.ComputeDriver):
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
     # comment can be removed.
-
-    #
-    # ComputeDriver implementation methods
-    #
-    def finish_migration(self, context, migration, instance, disk_info,
-                         network_info, image_meta, resize_instance,
-                         block_device_info=None, power_on=True):
-        return self.container_migrate.finish_migration(
-            context, migration, instance, disk_info,
-            network_info, image_meta, resize_instance,
-            block_device_info, power_on)
-
-    def confirm_migration(self, migration, instance, network_info):
-        return self.container_migrate.confirm_migration(migration,
-                                                        instance,
-                                                        network_info)
-
-    def finish_revert_migration(self, context, instance, network_info,
-                                block_device_info=None, power_on=True):
-        return self.container_migrate.finish_revert_migration(
-            context, instance, network_info, block_device_info,
-            power_on)
-
-    def pre_live_migration(self, context, instance, block_device_info,
-                           network_info, disk_info, migrate_data=None):
-        self.container_migrate.pre_live_migration(
-            context, instance, block_device_info, network_info,
-            disk_info, migrate_data)
-
-    def live_migration(self, context, instance, dest,
-                       post_method, recover_method, block_migration=False,
-                       migrate_data=None):
-        self.container_migrate.live_migration(
-            context, instance, dest, post_method,
-            recover_method, block_migration,
-            migrate_data)
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `live_migration_force_complete`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `live_migration_abort`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `rollback_live_migration_at_destination`
-
-    def post_live_migration(self, context, instance, block_device_info,
-                            migrate_data=None):
-        self.container_migrate.post_live_migration(
-            context, instance, block_device_info, migrate_data)
-
-    def post_live_migration_at_source(self, context, instance, network_info):
-        return self.container_migrate.post_live_migration_at_source(
-            context, instance, network_info)
-
-    def post_live_migration_at_destination(self, context, instance,
-                                           network_info,
-                                           block_migration=False,
-                                           block_device_info=None):
-        self.container_migrate.post_live_migration_at_destination(
-            context, instance, network_info, block_migration,
-            block_device_info)
-
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `check_instance_shared_storage_local`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not
-    # check_instance_shared_storage_remote`
-    # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
-    # `check_instance_shared_storage_cleanup`
-
-    def check_can_live_migrate_destination(self, context, instance,
-                                           src_compute_info, dst_compute_info,
-                                           block_migration=False,
-                                           disk_over_commit=False):
-        return self.container_migrate.check_can_live_migrate_destination(
-            context, instance, src_compute_info, dst_compute_info,
-            block_migration, disk_over_commit)
-
-    def cleanup_live_migration_destination_check(
-            self, context, dest_check_data):
-        # XXX: rockstar (20 Jul 2016) - This method was renamed in newton,
-        # NOQA See https://github.com/openstack/nova/commit/3b62698235364057ec0c6811cc89ac85511876d2
-        self.container_migrate.check_can_live_migrate_destination_cleanup(
-            context, dest_check_data)
-
-    def check_can_live_migrate_source(self, context, instance,
-                                      dest_check_data, block_device_info=None):
-        return self.container_migrate.check_can_live_migrate_source(
-            context, instance, dest_check_data,
-            block_device_info
-        )
 
     #
     # LXDDriver "private" implementation methods
@@ -1658,3 +1599,22 @@ class LXDDriver(driver.ComputeDriver):
 
         for instance in instances:
             self._reconnect_instance(context, instance)
+
+    def _copy_container_profile(self, instance, network_info):
+        LOG.debug('_copy_cotontainer_profile called for instnace',
+                  instance=instance)
+        container_profile = self.create_profile(instance, network_info)
+        self.session.profile_create(container_profile, instance)
+
+    def _container_init(self, host, instance):
+        LOG.debug('_container_init called for instnace', instance=instance)
+
+        (state, data) = (self.session.container_migrate(instance.name,
+                                                        CONF.my_ip,
+                                                        instance))
+        container_config = {
+            'name': instance.name,
+            'profiles': [instance.name],
+            'source': self.get_container_migrate(data, host, instance)
+        }
+        self.session.container_init(container_config, instance, host)
