@@ -25,7 +25,6 @@ source $NOVA_COMPUTE_LXD_PLUGIN_DIR/nova-lxd-functions.sh
 function pre_install_nova-lxd() {
     # Install OS packages if necessary with "install_package ...".
     install_lxd
-    install_pylxd
 }
 
 function install_nova-lxd() {
