@@ -73,7 +73,6 @@ function init_nova-lxd() {
        iniset $TEMPEST_CONFIG compute-feature-enabled attach_encrypted_volume False
        iniset $TEMPEST_CONFIG compute image_ref $TEMPEST_IMAGE
        iniset $TEMPEST_CONFIG compute image_ref_alt $TEMPEST_IMAGE_ALT
-       iniset $TEMPEST_CONFIG validation run_validation True
     fi
 
     if is_service_enabled cinder; then
