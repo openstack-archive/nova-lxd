@@ -12,6 +12,12 @@ NOVA_DIR=${NOVA_DIR:-$DEST/nova}
 NOVA_CONF_DIR=${NOVA_CONF_DIR:-/etc/nova}
 NOVA_CONF=${NOVA_CONF:-NOVA_CONF_DIR/nova.conf}
 
+# Configure LXD storage backends
+LXD_BACKEND_DRIVER=${LXD_BACKEND_DRIVER:default}
+LXD_DISK_IMAGE=${DATA_DIR}/lxd.img
+LXD_ZFS_ZPOOL=devstack
+LXD_LOOPBACK_DISK_SIZE=${LXD_LOOPBACK_DISK_SIZE:-8G}
+
 # nova-lxd directories
 NOVA_COMPUTE_LXD_DIR=${NOVA_COMPUTE_LXD_DIR:-${DEST}/nova-lxd}
 NOVA_COMPUTE_LXD_PLUGIN_DIR=$(readlink -f $(dirname ${BASH_SOURCE[0]}))
@@ -81,6 +87,22 @@ function init_nova-lxd() {
     fi
 }
 
+function configure_lxd_block() {
+   echo_summary "Configure LXD storage backend"
+   if is_ubuntu; then
+      if [ $LXD_BACKEND_DRIVER == "default" ]; then
+         echo "Nothing to be done"
+      elif [ $LXD_BACKEND_DRIVER == "zfs" ]; then
+         echo "Configuring ZFS backend"
+         truncate -s $LXD_LOOPBACK_DISK_SIZE $LXD_DISK_IMAGE
+         sudo apt-get install -y zfs
+         lxd_dev=`sudo losetup --show -f ${LXD_DISK_IMAGE}`
+         sudo lxd init --auto --storage-backend zfs --storage-pool $LXD_ZFS_ZPOOL \
+              --storage-create-device $lxd_dev
+      fi
+   fi
+}
+
 function shutdown_nova-lxd() {
     # Shut the service down.
     :
@@ -88,7 +110,9 @@ function shutdown_nova-lxd() {
 
 function cleanup_nova-lxd() {
     # Cleanup the service.
-    :
+    if [ $LXD_BACKEND_DRIVER == "zfs" ]; then
+       sudo zpool destroy ${LXD_ZFS_ZPOOL}
+    fi
 }
 
 if is_service_enabled nova-lxd; then
@@ -97,6 +121,7 @@ if is_service_enabled nova-lxd; then
         # Set up system services
         echo_summary "Configuring system services nova-lxd"
         pre_install_nova-lxd
+        configure_lxd_block
 
     elif [[ "$1" == "stack" && "$2" == "install" ]]; then
         # Perform installation of service source
