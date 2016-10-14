@@ -28,6 +28,7 @@ import tarfile
 import tempfile
 import uuid
 
+import eventlet
 import nova.conf
 import nova.context
 from nova import exception
@@ -273,12 +274,32 @@ class LXDDriver(driver.ComputeDriver):
         # refactoring.
         self.setup_image(context, instance, image_meta)
 
-        # Plug in the network
-        for vif in network_info:
-            self.vif_driver.plug(instance, vif)
-        self.firewall_driver.setup_basic_filtering(instance, network_info)
-        self.firewall_driver.prepare_instance_filter(instance, network_info)
-        self.firewall_driver.apply_instance_filter(instance, network_info)
+        # Plug in the network - wait for neturon to come up
+        if network_info:
+            timeout = CONF.vif_plugging_timeout
+            if (utils.is_neutron() and timeout):
+                events = self._get_neutron_events(network_info)
+            else:
+                events = {}
+
+            try:
+                with self.virtapi.wait_for_instance_event(
+                        instance, events, deadline=timeout,
+                        error_callback=self._neutron_failed_callback):
+                    self.plug_vifs(instance, network_info)
+            except eventlet.timeout.Timeout:
+                # We never heard from Neutron
+                LOG.warn(_LW('Timeout waiting for vif plugging callback for '
+                             'instance %(uuid)s'), {'uuid': instance['name']})
+                if CONF.vif_plugging_is_fatal:
+                    self.cleanup(
+                        context, instance, network_info, block_device_info)
+            except exception.VirtualInterfaceCreateException as e:
+                LOG.warning(_('Cannot setup network: %s'),
+                            e, instance=instance, exc_info=True)
+                self.cleanup(
+                    context, instance, network_info, block_device_info)
+                raise exception.VirtualInterfaceCreateException()
 
         # Create the profile
         # XXX: rockstar (6 Jul 2016) - create_profile is legacy code.
@@ -333,7 +354,15 @@ class LXDDriver(driver.ComputeDriver):
             profile.save()
 
         try:
+            self.firewall_driver.setup_basic_filtering(
+                instance, network_info)
+            self.firewall_driver.prepare_instance_filter(
+                instance. network_info)
+
             container.start()
+
+            self.firewall_driver.apply_instance_filter(
+                instance, network_info)
         except lxd_exceptions.LXDAPIException as e:
             with excutils.save_and_reraise_exception():
                 self.cleanup(
@@ -373,12 +402,7 @@ class LXDDriver(driver.ComputeDriver):
         information.
         """
         if destroy_vifs:
-            for vif in network_info:
-                try:
-                    self.vif_driver.unplug(instance, vif)
-                except exception.NovaException:
-                    pass
-            self.firewall_driver.unfilter_instance(instance, network_info)
+            self.unplug_vifs(instance, network_info)
 
         # XXX: zulcss (14 Jul 2016) - _remove_ephemeral is only used here,
         # and hasn't really been audited. It may need a cleanup
@@ -519,7 +543,7 @@ class LXDDriver(driver.ComputeDriver):
 
     def attach_interface(self, instance, image_meta, vif):
         self.vif_driver.plug(instance, vif)
-        self.firewall_driver.setup_basic_filtering(instance, vif)
+        self.firewall_driver.setup_basic_filtering(instance, [vif])
 
         container = self.client.containers.get(instance.name)
 
@@ -853,17 +877,10 @@ class LXDDriver(driver.ComputeDriver):
     def plug_vifs(self, instance, network_info):
         for vif in network_info:
             self.vif_driver.plug(instance, vif)
-        self.firewall_driver.setup_basic_filtering(
-            instance, network_info)
-        self.firewall_driver.prepare_instance_filter(
-            instance, network_info)
-        self.firewall_driver.apply_instance_filter(
-            instance, network_info)
 
     def unplug_vifs(self, instance, network_info):
         for vif in network_info:
             self.vif_driver.unplug(instance, vif)
-        self.firewall_driver.unfilter_instance(instance, network_info)
 
     def get_host_cpu_stats(self):
         return {
@@ -1643,11 +1660,7 @@ class LXDDriver(driver.ComputeDriver):
             network_info = network_model.NetworkInfo()
 
         # Plug in the network
-        for vif in network_info:
-            self.vif_driver.plug(instance, vif)
-        self.firewall_driver.setup_basic_filtering(instance, network_info)
-        self.firewall_driver.prepare_instance_filter(instance, network_info)
-        self.firewall_driver.apply_instance_filter(instance, network_info)
+        self.plug_vifs(instance, network_info)
 
     def _after_reboot(self):
         '''Actions to take after the host has been rebooted.'''
@@ -1658,3 +1671,19 @@ class LXDDriver(driver.ComputeDriver):
 
         for instance in instances:
             self._reconnect_instance(context, instance)
+
+    def _neutron_failed_callback(self, event_name, instance):
+        LOG.error(_LE('Neutron Reported failure on event '
+                      '%(event)s for instance %(uuid)s'),
+                  {'event': event_name, 'uuid': instance.uuid},
+                  instance=instance)
+        if CONF.vif_plugging_is_fatal:
+            raise exception.VirtualInterfaceCreateException()
+
+    def _get_neutron_events(self, network_info):
+        # NOTE(zulcss): We need to collect any VIFs that are currently
+        # already u will not undergo that transition, and for
+        # anything that might be stale (cache-wise) assume it's
+        # alrady up so we don't block on it.
+        return [('network-vif-plugged', vif['id'])
+                for vif in network_info if vif.get('active', True) is False]
