@@ -274,11 +274,8 @@ class LXDDriver(driver.ComputeDriver):
         self.setup_image(context, instance, image_meta)
 
         # Plug in the network
-        for vif in network_info:
-            self.vif_driver.plug(instance, vif)
-        self.firewall_driver.setup_basic_filtering(instance, network_info)
-        self.firewall_driver.prepare_instance_filter(instance, network_info)
-        self.firewall_driver.apply_instance_filter(instance, network_info)
+        if network_info:
+            self.plug_vif(instance, network_info)
 
         # Create the profile
         # XXX: rockstar (6 Jul 2016) - create_profile is legacy code.
@@ -373,12 +370,7 @@ class LXDDriver(driver.ComputeDriver):
         information.
         """
         if destroy_vifs:
-            for vif in network_info:
-                try:
-                    self.vif_driver.unplug(instance, vif)
-                except exception.NovaException:
-                    pass
-            self.firewall_driver.unfilter_instance(instance, network_info)
+            self.unplug_vifs(instance, network_info)
 
         # XXX: zulcss (14 Jul 2016) - _remove_ephemeral is only used here,
         # and hasn't really been audited. It may need a cleanup
@@ -1643,11 +1635,7 @@ class LXDDriver(driver.ComputeDriver):
             network_info = network_model.NetworkInfo()
 
         # Plug in the network
-        for vif in network_info:
-            self.vif_driver.plug(instance, vif)
-        self.firewall_driver.setup_basic_filtering(instance, network_info)
-        self.firewall_driver.prepare_instance_filter(instance, network_info)
-        self.firewall_driver.apply_instance_filter(instance, network_info)
+        self.plug_vifs(instance, network_info)
 
     def _after_reboot(self):
         '''Actions to take after the host has been rebooted.'''
