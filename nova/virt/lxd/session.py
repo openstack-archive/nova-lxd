@@ -67,27 +67,6 @@ class LXDAPISession(object):
     #
     # Container related API methods
     #
-
-    def container_list(self):
-        """List of containers running on a given host
-
-        Returns a list of running containers
-
-        """
-        LOG.debug('container_list called')
-        try:
-            client = self.get_session()
-            return client.container_list()
-        except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD API: %(reason)s') \
-                % {'reason': ex}
-            LOG.error(msg)
-            raise exception.NovaException(msg)
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Error from LXD during container_list: '
-                              '%(reason)s') % {'reason': ex})
-
     def container_update(self, config, instance):
         """Update the LXD configuration of a given container
 
