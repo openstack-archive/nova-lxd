@@ -1,0 +1,9 @@
+Workflow+1: Paul Hummer <paul@eventuallyanyway.com>
+Code-Review+2: Chuck Short <chuck.short@canonical.com>
+Workflow+1: Chuck Short <chuck.short@canonical.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 18 Oct 2016 17:04:02 +0000
+Reviewed-on: https://review.openstack.org/386723
+Project: openstack/nova-lxd
+Branch: refs/heads/master
