@@ -15,10 +15,12 @@
 import collections
 import json
 
+import eventlet
 import mock
 from nova import context
 from nova import exception
 from nova import test
+from nova.compute import manager
 from nova.compute import power_state
 from nova.network import model as network_model
 from nova.tests.unit import fake_instance
@@ -138,7 +140,7 @@ class LXDDriverTest(test.NoDBTestCase):
         self.assertEqual(['mock-instance-1', 'mock-instance-2'], instances)
 
     @mock.patch('nova.virt.configdrive.required_by')
-    def test_spawn(self, configdrive):
+    def test_spawn(self, configdrive, neutron_failure=None):
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
         self.client.containers.get.side_effect = container_get
@@ -152,7 +154,31 @@ class LXDDriverTest(test.NoDBTestCase):
         network_info = [mock.Mock()]
         block_device_info = mock.Mock()
 
-        lxd_driver = driver.LXDDriver(None)
+        generated_events = []
+
+        def wait_timeout():
+            event = mock.MagicMock()
+            if neutron_failure == 'timeout':
+                raise eventlet.timeout.Timeout()
+            elif neutron_failure == 'error':
+                event.status = 'failed'
+            else:
+                event.status = 'completed'
+            return event
+
+        def fake_prepare(instance, event_name):
+            m = mock.MagicMock()
+            m.instance = instance
+            m.event_name = event_name
+            m.wait.side_effect = wait_timeout
+            generated_events.append(m)
+            return m
+
+        virtapi = manager.ComputeVirtAPI(mock.MagicMock())
+        prepare = virtapi._compute.instance_events.prepare_for_instance_event
+        prepare.side_effect = fake_prepare
+
+        lxd_driver = driver.LXDDriver(virtapi)
         lxd_driver.init_host(None)
         # XXX: rockstar (6 Jul 2016) - There are a number of XXX comments
         # related to these calls in spawn. They require some work before we
@@ -176,8 +202,6 @@ class LXDDriverTest(test.NoDBTestCase):
             instance, network_info, block_device_info)
         fd = lxd_driver.firewall_driver
         fd.setup_basic_filtering.assert_called_once_with(
-            instance, network_info)
-        fd.prepare_instance_filter.assert_called_once_with(
             instance, network_info)
         fd.apply_instance_filter.assert_called_once_with(
             instance, network_info)
@@ -203,7 +227,7 @@ class LXDDriverTest(test.NoDBTestCase):
             None, None)
 
     @mock.patch('nova.virt.configdrive.required_by')
-    def test_spawn_with_configdrive(self, configdrive):
+    def test_spawn_with_configdrive(self, configdrive, neutron_failure=None):
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
 
@@ -218,7 +242,31 @@ class LXDDriverTest(test.NoDBTestCase):
         network_info = [mock.Mock()]
         block_device_info = mock.Mock()
 
-        lxd_driver = driver.LXDDriver(None)
+        generated_events = []
+
+        def wait_timeout():
+            event = mock.MagicMock()
+            if neutron_failure == 'timeout':
+                raise eventlet.timeout.Timeout()
+            elif neutron_failure == 'error':
+                event.status = 'failed'
+            else:
+                event.status = 'completed'
+            return event
+
+        def fake_prepare(instance, event_name):
+            m = mock.MagicMock()
+            m.instance = instance
+            m.event_name = event_name
+            m.wait.side_effect = wait_timeout
+            generated_events.append(m)
+            return m
+
+        virtapi = manager.ComputeVirtAPI(mock.MagicMock())
+        prepare = virtapi._compute.instance_events.prepare_for_instance_event
+        prepare.side_effect = fake_prepare
+
+        lxd_driver = driver.LXDDriver(virtapi)
         lxd_driver.init_host(None)
         # XXX: rockstar (6 Jul 2016) - There are a number of XXX comments
         # related to these calls in spawn. They require some work before we
@@ -244,8 +292,6 @@ class LXDDriverTest(test.NoDBTestCase):
         fd = lxd_driver.firewall_driver
         fd.setup_basic_filtering.assert_called_once_with(
             instance, network_info)
-        fd.prepare_instance_filter.assert_called_once_with(
-            instance, network_info)
         fd.apply_instance_filter.assert_called_once_with(
             instance, network_info)
         lxd_driver._add_ephemeral.assert_called_once_with(
@@ -255,7 +301,7 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
 
     @mock.patch('nova.virt.configdrive.required_by')
-    def test_spawn_profile_fail(self, configdrive):
+    def test_spawn_profile_fail(self, configdrive, neutron_failure=None):
         """Cleanup is called when profile creation fails."""
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
@@ -272,7 +318,31 @@ class LXDDriverTest(test.NoDBTestCase):
         network_info = [mock.Mock()]
         block_device_info = mock.Mock()
 
-        lxd_driver = driver.LXDDriver(None)
+        generated_events = []
+
+        def wait_timeout():
+            event = mock.MagicMock()
+            if neutron_failure == 'timeout':
+                raise eventlet.timeout.Timeout()
+            elif neutron_failure == 'error':
+                event.status = 'failed'
+            else:
+                event.status = 'completed'
+            return event
+
+        def fake_prepare(instance, event_name):
+            m = mock.MagicMock()
+            m.instance = instance
+            m.event_name = event_name
+            m.wait.side_effect = wait_timeout
+            generated_events.append(m)
+            return m
+
+        virtapi = manager.ComputeVirtAPI(mock.MagicMock())
+        prepare = virtapi._compute.instance_events.prepare_for_instance_event
+        prepare.side_effect = fake_prepare
+
+        lxd_driver = driver.LXDDriver(virtapi)
         lxd_driver.init_host(None)
         lxd_driver.setup_image = mock.Mock()
         lxd_driver.vif_driver = mock.Mock()
@@ -288,7 +358,7 @@ class LXDDriverTest(test.NoDBTestCase):
             ctx, instance, network_info, block_device_info)
 
     @mock.patch('nova.virt.configdrive.required_by')
-    def test_spawn_container_fail(self, configdrive):
+    def test_spawn_container_fail(self, configdrive, neutron_failure=None):
         """Cleanup is called when container creation fails."""
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
@@ -305,7 +375,31 @@ class LXDDriverTest(test.NoDBTestCase):
         network_info = [mock.Mock()]
         block_device_info = mock.Mock()
 
-        lxd_driver = driver.LXDDriver(None)
+        generated_events = []
+
+        def wait_timeout():
+            event = mock.MagicMock()
+            if neutron_failure == 'timeout':
+                raise eventlet.timeout.Timeout()
+            elif neutron_failure == 'error':
+                event.status = 'failed'
+            else:
+                event.status = 'completed'
+            return event
+
+        def fake_prepare(instance, event_name):
+            m = mock.MagicMock()
+            m.instance = instance
+            m.event_name = event_name
+            m.wait.side_effect = wait_timeout
+            generated_events.append(m)
+            return m
+
+        virtapi = manager.ComputeVirtAPI(mock.MagicMock())
+        prepare = virtapi._compute.instance_events.prepare_for_instance_event
+        prepare.side_effect = fake_prepare
+
+        lxd_driver = driver.LXDDriver(virtapi)
         lxd_driver.init_host(None)
         lxd_driver.setup_image = mock.Mock()
         lxd_driver.vif_driver = mock.Mock()
@@ -323,7 +417,7 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.cleanup.assert_called_once_with(
             ctx, instance, network_info, block_device_info)
 
-    def test_spawn_container_start_fail(self):
+    def test_spawn_container_start_fail(self, neutron_failure=None):
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
 
@@ -340,7 +434,31 @@ class LXDDriverTest(test.NoDBTestCase):
         network_info = [mock.Mock()]
         block_device_info = mock.Mock()
 
-        lxd_driver = driver.LXDDriver(None)
+        generated_events = []
+
+        def wait_timeout():
+            event = mock.MagicMock()
+            if neutron_failure == 'timeout':
+                raise eventlet.timeout.Timeout()
+            elif neutron_failure == 'error':
+                event.status = 'failed'
+            else:
+                event.status = 'completed'
+            return event
+
+        def fake_prepare(instance, event_name):
+            m = mock.MagicMock()
+            m.instance = instance
+            m.event_name = event_name
+            m.wait.side_effect = wait_timeout
+            generated_events.append(m)
+            return m
+
+        virtapi = manager.ComputeVirtAPI(mock.MagicMock())
+        prepare = virtapi._compute.instance_events.prepare_for_instance_event
+        prepare.side_effect = fake_prepare
+
+        lxd_driver = driver.LXDDriver(virtapi)
         lxd_driver.init_host(None)
         lxd_driver.setup_image = mock.Mock()
         lxd_driver.vif_driver = mock.Mock()
