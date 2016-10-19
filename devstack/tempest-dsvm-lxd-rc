@@ -31,26 +31,6 @@
 r="^(?!.*"
 r="$r(?:.*\[.*\bslow\b.*\])"
 
-# Rebuilds are not supported
-r="$r|(?:tempest\.api\.compute\.servers\.test_server_actions\.ServerActionsTestJSON\.test_rebuild_server)"
-r="$r|(?:tempest\.api\.compute\.servers\.test_disk_config\.ServerDiskConfigTestJSON\.test_rebuild_server*)"
-r="$r|(?:tempest\.api\.compute\.servers\.test_servers_negative\.ServersNegativeTestJSON\.test_rebuild_non_existent_server)"
-r="$r|(?:tempest\.api\.compute\.admin\.test_servers\.ServersAdminTestJSON\.test_rebuild_server_in_error_state)"
-
-# AMI images are not supported
-r="$r|(?:tempest\.scenario\.test_volume_boot_pattern\.TestVolumeBootPatternV2*)"
-r="$r|(?:tempest\.scenario\.test_volume_boot_pattern\.TestVolumeBootPattern*)"
-
-r="$r|(?:tempest\.api\.compute\.volumes\.test_attach_volume\.AttachVolumeShelveTestJSON\.test_attach_detach_volume)"
-r="$r|(?:tempest\.scenario\.test_snapshot_pattern\.TestSnapshotPattern\.test_snapshot_pattern)"
-
-# Random failures
-r="$r|(?:tempest\.scenario\.test_network_v6\.TestGettingAddress\.test_dualnet_multi_prefix_dhcpv6_stateless)"
-r="$r|(?:neutron\.tests\.tempest\.api\.test_revisions\.TestRevisions.*)"
-
-# Regressions
-# Interface Attach/Detach fails - https://bugs.launchpad.net/nova-lxd/+bug/1632370
-r="$r|(?:tempest\.api\.compute\.servers\.test_attach_interfaces\.AttachInterfacesTestJSON\.test_create_list_show_delete_interfaces)"
 r="$r).*$"
 
 export DEVSTACK_GATE_TEMPEST_REGEX="$r"
