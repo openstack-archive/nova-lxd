@@ -521,10 +521,10 @@ class LXDDriver(driver.ComputeDriver):
         self.vif_driver.plug(instance, vif)
         self.firewall_driver.setup_basic_filtering(instance, vif)
 
-        container = self.client.containers.get(instance.name)
+        profile = self.client.profiles.get(instance.name)
 
         interfaces = []
-        for key, val in container.expanded_devices.items():
+        for key, val in  profile.devices.items():
             if key.startswith('eth'):
                 interfaces.append(key)
         net_device = 'eth{}'.format(len(interfaces))
@@ -548,20 +548,20 @@ class LXDDriver(driver.ComputeDriver):
                 }
             }
 
-        container.expanded_devices.update(config_update)
-        container.save(wait=True)
+        profile.devices.update(config_update)
+        profile.save(wait=True)
 
     def detach_interface(self, instance, vif):
         self.vif_driver.unplug(instance, vif)
 
-        container = self.client.containers.get(instance.name)
+        profile = self.client.profiles.get(instance.name)
         to_remove = None
-        for key, val in container.expanded_devices.items():
+        for key, val in profile.devices.items():
             if val.get('hwaddr') == vif['address']:
                 to_remove = key
                 break
-        del container.expanded_devices[to_remove]
-        container.save(wait=True)
+        del profile.devices[to_remove]
+        profile.save(wait=True)
 
     def migrate_disk_and_power_off(
             self, context, instance, dest, flavor, network_info,

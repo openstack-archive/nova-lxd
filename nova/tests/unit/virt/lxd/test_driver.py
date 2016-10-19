@@ -690,8 +690,8 @@ class LXDDriverTest(test.NoDBTestCase):
             'type': 'nic',
         }
 
-        container = mock.Mock()
-        container.expanded_devices = {
+        profile = mock.Mock()
+        profile.devices = {
             'eth0': {
                 'name': 'eth0',
                 'nictype': 'bridged',
@@ -703,7 +703,7 @@ class LXDDriverTest(test.NoDBTestCase):
                 'type': 'disk'
             },
         }
-        self.client.containers.get.return_value = container
+        self.client.profiles.get.return_value = profile
 
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
@@ -725,13 +725,13 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver.attach_interface(instance, image_meta, vif)
 
-        self.assertTrue('eth1' in container.expanded_devices)
-        self.assertEqual(expected, container.expanded_devices['eth1'])
-        container.save.assert_called_once_with(wait=True)
+        self.assertTrue('eth1' in profile.devices)
+        self.assertEqual(expected, profile.devices['eth1'])
+        profile.save.assert_called_once_with(wait=True)
 
     def test_detach_interface(self):
-        container = mock.Mock()
-        container.expanded_devices = {
+        profile = mock.Mock()
+        profile.devices = {
             'eth0': {
                 'name': 'eth0',
                 'nictype': 'bridged',
@@ -744,7 +744,7 @@ class LXDDriverTest(test.NoDBTestCase):
                 'type': 'disk'
             },
         }
-        self.client.containers.get.return_value = container
+        self.client.profiles.get.return_value = profile
 
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
@@ -763,8 +763,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver.vif_driver.unplug.assert_called_once_with(
             instance, vif)
-        self.assertEqual(['root'], sorted(container.expanded_devices.keys()))
-        container.save.assert_called_once_with(wait=True)
+        self.assertEqual(['root'], sorted(profile.devices.keys()))
+        profile.save.assert_called_once_with(wait=True)
 
     def test_migrate_disk_and_power_off(self):
         container = mock.Mock()
