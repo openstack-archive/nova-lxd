@@ -31,7 +31,7 @@ class LXDTestDriver(test.NoDBTestCase):
     def setUp(self):
         super(LXDTestDriver, self).setUp()
         self.ml = stubs.lxd_mock()
-        lxd_patcher = mock.patch('pylxd.api.API',
+        lxd_patcher = mock.patch('pylxd.deprecated.api.API',
                                  mock.Mock(return_value=self.ml))
         lxd_patcher.start()
         self.addCleanup(lxd_patcher.stop)
