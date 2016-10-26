@@ -162,6 +162,21 @@ def _get_fs_info(path):
             'used': used}
 
 
+def _get_power_state(lxd_state):
+    """Take a lxd state code and translate it to nova power state."""
+    state_map = [
+        (power_state.RUNNING, {100, 101, 103, 200}),
+        (power_state.SHUTDOWN, {102, 104, 107}),
+        (power_state.NOSTATE, {105, 106, 401}),
+        (power_state.CRASHED, {108, 400}),
+        (power_state.SUSPENDED, {109, 110, 111}),
+    ]
+    for nova_state, lxd_states in state_map:
+        if lxd_state in lxd_states:
+            return nova_state
+    raise ValueError('Unknown LXD power state: {}'.format(lxd_state))
+
+
 class LXDDriver(driver.ComputeDriver):
     """A LXD driver for nova.
 
@@ -233,14 +248,14 @@ class LXDDriver(driver.ComputeDriver):
 
     def get_info(self, instance):
         """Return an InstanceInfo object for the instance."""
+
         container = self.client.containers.get(instance.name)
+
         state = container.state()
         mem_kb = state.memory['usage'] >> 10
         max_mem_kb = state.memory['usage_peak'] >> 10
         return hardware.InstanceInfo(
-            state=(
-                power_state.RUNNING if state.status == 'Running'
-                else power_state.SHUTDOWN),
+            state=_get_power_state(state.status_code),
             max_mem_kb=max_mem_kb,
             mem_kb=mem_kb,
             num_cpu=instance.flavor.vcpus,
