@@ -366,7 +366,7 @@ class LXDDriver(driver.ComputeDriver):
             self.firewall_driver.instance_filter(
                 instance, network_info)
 
-            container.start()
+            container.start(wait=True)
 
             self.firewall_driver.apply_instance_filter(
                 instance, network_info)

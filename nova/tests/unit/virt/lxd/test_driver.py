@@ -148,6 +148,8 @@ class LXDDriverTest(test.NoDBTestCase):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
         self.client.containers.get.side_effect = container_get
         configdrive.return_value = False
+        container = mock.Mock()
+        self.client.containers.create.return_value = container
 
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
@@ -187,6 +189,7 @@ class LXDDriverTest(test.NoDBTestCase):
             instance, network_info)
         lxd_driver._add_ephemeral.assert_called_once_with(
             block_device_info, lxd_driver.client.host_info, instance)
+        container.start.assert_called_once_with(wait=True)
 
     def test_spawn_already_exists(self):
         """InstanceExists is raised if the container already exists."""
