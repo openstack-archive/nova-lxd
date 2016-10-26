@@ -187,6 +187,7 @@ class LXDDriverTest(test.NoDBTestCase):
             instance, network_info)
         lxd_driver._add_ephemeral.assert_called_once_with(
             block_device_info, lxd_driver.client.host_info, instance)
+        lxd_driver.client.contianers.start.assert_called_once_with(wait=True)
 
     def test_spawn_already_exists(self):
         """InstanceExists is raised if the container already exists."""
@@ -256,6 +257,7 @@ class LXDDriverTest(test.NoDBTestCase):
 
         configdrive.assert_called_once_with(instance)
         lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
+        lxd_driver.client.contianers.start.assert_called_once_with(wait=True)
 
     @mock.patch('nova.virt.configdrive.required_by')
     def test_spawn_profile_fail(self, configdrive, neutron_failure=None):
