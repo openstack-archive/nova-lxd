@@ -333,7 +333,7 @@ class LXDDriver(driver.ComputeDriver):
             profile.save()
 
         try:
-            container.start()
+            container.start(wait=True)
         except lxd_exceptions.LXDAPIException as e:
             with excutils.save_and_reraise_exception():
                 self.cleanup(
