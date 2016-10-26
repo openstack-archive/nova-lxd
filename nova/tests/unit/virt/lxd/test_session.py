@@ -40,7 +40,7 @@ class SessionContainerTest(test.NoDBTestCase):
 
         """This is so we can mock out pylxd API calls."""
         self.ml = stubs.lxd_mock()
-        lxd_patcher = mock.patch('pylxd.api.API',
+        lxd_patcher = mock.patch('pylxd.deprecated.api.API',
                                  mock.Mock(return_value=self.ml))
         lxd_patcher.start()
         self.addCleanup(lxd_patcher.stop)
@@ -440,7 +440,7 @@ class SessionEventTest(test.NoDBTestCase):
         super(SessionEventTest, self).setUp()
 
         self.ml = stubs.lxd_mock()
-        lxd_patcher = mock.patch('pylxd.api.API',
+        lxd_patcher = mock.patch('pylxd.deprecated.api.API',
                                  mock.Mock(return_value=self.ml))
         lxd_patcher.start()
         self.addCleanup(lxd_patcher.stop)
@@ -464,7 +464,7 @@ class SessionImageTest(test.NoDBTestCase):
         super(SessionImageTest, self).setUp()
 
         self.ml = stubs.lxd_mock()
-        lxd_patcher = mock.patch('pylxd.api.API',
+        lxd_patcher = mock.patch('pylxd.deprecated.api.API',
                                  mock.Mock(return_value=self.ml))
         lxd_patcher.start()
         self.addCleanup(lxd_patcher.stop)
@@ -497,7 +497,7 @@ class SessionProfileTest(test.NoDBTestCase):
 
         """This is so we can mock out pylxd API calls."""
         self.ml = stubs.lxd_mock()
-        lxd_patcher = mock.patch('pylxd.api.API',
+        lxd_patcher = mock.patch('pylxd.deprecated.api.API',
                                  mock.Mock(return_value=self.ml))
         lxd_patcher.start()
         self.addCleanup(lxd_patcher.stop)
@@ -550,7 +550,7 @@ class SessionSnapshotTest(test.NoDBTestCase):
 
         """This is so we can mock out pylxd API calls."""
         self.ml = stubs.lxd_mock()
-        lxd_patcher = mock.patch('pylxd.api.API',
+        lxd_patcher = mock.patch('pylxd.deprecated.api.API',
                                  mock.Mock(return_value=self.ml))
         lxd_patcher.start()
         self.addCleanup(lxd_patcher.stop)
