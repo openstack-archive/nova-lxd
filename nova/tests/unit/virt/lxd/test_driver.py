@@ -36,7 +36,7 @@ MockResponse = collections.namedtuple('Response', ['status_code'])
 
 MockContainer = collections.namedtuple('Container', ['name'])
 MockContainerState = collections.namedtuple(
-    'ContainerState', ['status', 'memory'])
+    'ContainerState', ['status', 'memory', 'status_code'])
 
 
 def fake_connection_info(volume, location, iqn, auth=False, transport=None):
@@ -63,6 +63,33 @@ def fake_connection_info(volume, location, iqn, auth=False, transport=None):
         ret['data']['auth_username'] = 'foo'
         ret['data']['auth_password'] = 'bar'
     return ret
+
+
+class GetPowerStateTest(test.NoDBTestCase):
+    """Tests for nova.virt.lxd.driver.LXDDriver."""
+
+    def test_running(self):
+        state = driver._get_power_state(100)
+        self.assertEqual(power_state.RUNNING, state)
+
+    def test_shutdown(self):
+        state = driver._get_power_state(102)
+        self.assertEqual(power_state.SHUTDOWN, state)
+
+    def test_nostate(self):
+        state = driver._get_power_state(105)
+        self.assertEqual(power_state.NOSTATE, state)
+
+    def test_crashed(self):
+        state = driver._get_power_state(108)
+        self.assertEqual(power_state.CRASHED, state)
+
+    def test_suspended(self):
+        state = driver._get_power_state(109)
+        self.assertEqual(power_state.SUSPENDED, state)
+
+    def test_unknown(self):
+        self.assertRaises(ValueError, driver._get_power_state, 69)
 
 
 class LXDDriverTest(test.NoDBTestCase):
@@ -121,7 +148,7 @@ class LXDDriverTest(test.NoDBTestCase):
     def test_get_info(self):
         container = mock.Mock()
         container.state.return_value = MockContainerState(
-            'Running', {'usage': 4000, 'usage_peak': 4500})
+            'Running', {'usage': 4000, 'usage_peak': 4500}, 100)
         self.client.containers.get.return_value = container
 
         ctx = context.get_admin_context()
