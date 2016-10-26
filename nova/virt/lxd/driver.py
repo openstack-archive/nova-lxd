@@ -92,6 +92,23 @@ IMAGE_API = image.API()
 MAX_CONSOLE_BYTES = 100 * units.Ki
 NOVA_CONF = nova.conf.CONF
 
+LXD_POWER_STATES = {
+    100: power_state.RUNNING
+    101: power_state.RUNNING,
+    102: power_state.SHUTDOWN,
+    103: power_state.RUNNING,
+    104: power_state.SHUTDOWN,
+    105: power_state.NOSTATE,
+    106: power_state.NOSTATE,
+    107: power_state.SHUTDOWN,
+    108: power_state.CRASHED,
+    109: power_state.SUSPENDED,
+    110: power_state.SUSPENDED,
+    111: power_state.SUSPENDED,
+    200: power_state.RUNNING,
+    400: power_state.CRASHED,
+    401: power_state.NOSTATE
+}
 
 def _neutron_failed_callback(event_name, instance):
     LOG.error(_LE('Neutron Reported failure on event '
@@ -233,14 +250,24 @@ class LXDDriver(driver.ComputeDriver):
 
     def get_info(self, instance):
         """Return an InstanceInfo object for the instance."""
-        container = self.client.containers.get(instance.name)
+        try:
+            container = self.client.containers.get(instance.name)
+        except lxd_exceptions.LXDAPIException as e:
+            if e.repsonse.status_code == 404:
+                raise exception.InstanceNotFound(instance_id=instance.uuid)
+
+            msg = (_('Error from LXD while getting instance info for '
+                     '%(instance_name)s: [Error Code %(error_code)s] %(ex)s') %
+                     {'instance_name': instance.name,
+                      'error_code': e.response.status_code,
+                      'ex': ex})
+            raise exception.NovaException(msg)
+
         state = container.state()
         mem_kb = state.memory['usage'] >> 10
         max_mem_kb = state.memory['usage_peak'] >> 10
         return hardware.InstanceInfo(
-            state=(
-                power_state.RUNNING if state.status == 'Running'
-                else power_state.SHUTDOWN),
+            state=LXD_POWER_STATES[state.status_code],
             max_mem_kb=max_mem_kb,
             mem_kb=mem_kb,
             num_cpu=instance.flavor.vcpus,
