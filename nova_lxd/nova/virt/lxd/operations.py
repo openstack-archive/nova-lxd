@@ -345,9 +345,9 @@ class LXDContainerOperations(object):
         """
         LOG.debug('destroy called for instance', instance=instance)
         try:
-            self.session.profile_delete(instance)
             self.session.container_destroy(instance.name,
                                            instance)
+            self.session.profile_delete(instance)
             self.cleanup(context, instance, network_info, block_device_info)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
