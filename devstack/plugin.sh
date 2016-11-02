@@ -26,11 +26,19 @@ NOVA_COMPUTE_LXD_PLUGIN_DIR=$(readlink -f $(dirname ${BASH_SOURCE[0]}))
 GLANCE_CONF_DIR=${GLANCE_CONF_DIR:-/etc/glance}
 GLANCE_API_CONF=$GLANCE_CONF_DIR/glance-api.conf
 
-source $NOVA_COMPUTE_LXD_PLUGIN_DIR/nova-lxd-functions.sh
-
 function pre_install_nova-lxd() {
     # Install OS packages if necessary with "install_package ...".
-    install_lxd
+    echo_summary "Installing LXD"
+    if is_ubuntu; then
+        if [ "$DISTRO" == "trusty" ]; then
+            sudo add-apt-repository -y ppa:ubuntu-lxc/lxd-stable
+        fi
+        if ! ( is_package_installed lxd ); then
+            install_package lxd
+        fi
+
+        add_user_to_group $STACK_USER $LXD_GROUP
+    fi
 }
 
 function install_nova-lxd() {
@@ -43,8 +51,10 @@ function configure_nova-lxd() {
     iniset $NOVA_CONF DEFAULT compute_driver lxd.LXDDriver
     iniset $NOVA_CONF DEFAULT force_config_drive False
 
-    iniset $GLANCE_API_CONF DEFAULT disk_formats "ami,ari,aki,vhd,raw,iso,qcow2,root-tar"
-    iniset $GLANCE_API_CONF DEFAULT container_formats "ami,ari,aki,bare,ovf,tgz"
+    if is_service_enabled glance; then
+        iniset $GLANCE_API_CONF DEFAULT disk_formats "ami,ari,aki,vhd,raw,iso,qcow2,root-tar"
+        iniset $GLANCE_API_CONF DEFAULT container_formats "ami,ari,aki,bare,ovf,tgz"
+    fi
 
     # Install the rootwrap
     sudo install -o root -g root -m 644 $NOVA_COMPUTE_LXD_DIR/etc/nova/rootwrap.d/*.filters $NOVA_CONF_DIR/rootwrap.d
@@ -52,22 +62,33 @@ function configure_nova-lxd() {
 
 function init_nova-lxd() {
     # Initialize and start the service.
-    
-    mkdir -p mkdir -p $TOP_DIR/files
 
-    # Download and install the root-tar image from xenial
-    wget --progress=dot:giga -c https://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-root.tar.gz  \
-         -O $TOP_DIR/files/xenial-server-cloudimg-amd64-root.tar.gz
-    openstack --os-cloud=devstack-admin --os-region-name="$REGION_NAME" image create "ubuntu-16.04-lxd-root" \
-         --public --container-format bare --disk-format raw < $TOP_DIR/files/xenial-server-cloudimg-amd64-root.tar.gz
+    mkdir -p $TOP_DIR/files
 
     # Download and install the cirros lxc image
-    wget --progress=dot:giga -c http://download.cirros-cloud.net/${CIRROS_VERSION}/cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxc.tar.gz \
-        -O $TOP_DIR/files/cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxc.tar.gz
-    openstack --os-cloud=devstack-admin --os-region-name="$REGION_NAME" image create "cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxd" \
-        --public --container-format bare --disk-format raw < $TOP_DIR/files/cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxc.tar.gz
- 
+    CIRROS_IMAGE_FILE=cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxc.tar.gz
+    if [ ! -f $TOP_DIR/files/$CIRROS_IMAGE_FILE ]; then
+        wget --progress=dot:giga
+             -c http://download.cirros-cloud.net/${CIRROS_VERSION}/${CIRROS_IMAGE_FILE} \
+             -O $TOP_DIR/files/${CIRROS_IMAGE_FILE}
+    fi
+    openstack --os-cloud=devstack-admin
+              --os-region-name="$REGION_NAME" image create "cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxd" \
+              --public --container-format bare
+              --disk-format raw < $TOP_DIR/files/cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxc.tar.gz
+
     if is_service_enabled tempest; then
+        # Download and install the root-tar image from xenial
+        UBUNTU_IMAGE_FILE=xenial-server-cloudimg-amd64-root.tar.gz
+        if [! -f $TOP_DIR/files/$UBUNTU_IMAGE_FILE]; then
+            wget --progress=dot:giga -c \
+                 https://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-root.tar.gz \
+                 -O $TOP_DIR/files/xenial-server-cloudimg-amd64-root.tar.gz
+        fi
+        openstack --os-cloud=devstack-admin --os-region-name="$REGION_NAME" image create "ubuntu-16.04-lxd-root" \
+                  --public --container-format bare
+                  --disk-format raw < $TOP_DIR/files/${UBUNTU_IMAGE_FILE}
+
        TEMPEST_CONFIG=${TEMPEST_CONFIG:-$TEMPEST_DIR/etc/tempest.conf}
        TEMPEST_IMAGE=`openstack image list | grep cirros-0.3.4-x86_64-lxd | awk {'print $2'}` 
        TEMPEST_IMAGE_ALT=`openstack image list | grep ubuntu-16.04-lxd-root | awk {'print $2'}`
