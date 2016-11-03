@@ -31,7 +31,6 @@ from pylxd import exceptions as lxdcore_exceptions
 import six
 
 from nova.virt.lxd import driver
-from nova.virt.lxd import utils as container_utils
 
 MockResponse = collections.namedtuple('Response', ['status_code'])
 
@@ -84,6 +83,13 @@ class LXDDriverTest(test.NoDBTestCase):
         self.CONF.my_ip = '0.0.0.0'
         self.CONF.config_drive_format = 'iso9660'
 
+        # XXX: rockstar (03 Nov 2016) - This should be removed once
+        # everything is where it should live.
+        self.CONF2_patcher = mock.patch('nova.virt.lxd.driver.nova.conf.CONF')
+        self.CONF2 = self.CONF2_patcher.start()
+        self.CONF2.lxd.root_dir = '/lxd'
+        self.CONF2.instances_path = '/i'
+
         # NOTE: mock out fileutils to ensure that unit tests don't try
         #       to manipulate the filesystem (breaks in package builds).
         driver.fileutils = mock.Mock()
@@ -92,6 +98,7 @@ class LXDDriverTest(test.NoDBTestCase):
         super(LXDDriverTest, self).tearDown()
         self.Client_patcher.stop()
         self.CONF_patcher.stop()
+        self.CONF2_patcher.stop()
 
     def test_init_host(self):
         """init_host initializes the pylxd Client."""
@@ -402,8 +409,8 @@ class LXDDriverTest(test.NoDBTestCase):
         @mock.patch.object(drv, 'setup_image')
         @mock.patch('nova.virt.configdrive.required_by')
         def test_spawn(
-            configdrive, setup_image, plug_vifs, create_profile,
-            add_ephemeral):
+                configdrive, setup_image, plug_vifs, create_profile,
+                add_ephemeral):
             def container_get(*args, **kwargs):
                 raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
             self.client.containers.get.side_effect = container_get
@@ -447,12 +454,10 @@ class LXDDriverTest(test.NoDBTestCase):
         self._test_spawn_instance_with_network_events(
             neutron_failure='timeout')
 
-    @mock.patch('nova.virt.lxd.driver.container_utils.get_container_storage')
     @mock.patch.object(driver.utils, 'execute')
     @mock.patch('nova.virt.driver.block_device_info_get_ephemerals')
     def test_add_ephemerals_with_zfs(
-            self, block_device_info_get_ephemerals, execute,
-            get_container_storage):
+            self, block_device_info_get_ephemerals, execute):
         ctx = context.get_admin_context()
         block_device_info_get_ephemerals.return_value = [
             {'virtual_name': 'ephemerals0'}]
@@ -460,7 +465,6 @@ class LXDDriverTest(test.NoDBTestCase):
         block_device_info = mock.Mock()
         lxd_config = {'environment': {'storage': 'zfs'},
                       'config': {'storage.zfs_pool_name': 'zfs'}}
-        get_container_storage.return_value = '/path'
 
         container = mock.Mock()
         container.config = {
@@ -479,19 +483,21 @@ class LXDDriverTest(test.NoDBTestCase):
 
         expected_calls = [
             mock.call(
-                'zfs', 'create', '-o', 'mountpoint=/path', '-o', 'quota=0G',
-                'zfs/instance-00000001-ephemeral', run_as_root=True),
-            mock.call('chown', '165536', '/path', run_as_root=True)
+                'zfs', 'create', '-o',
+                'mountpoint=/i/instance-00000001/storage/ephemerals0', '-o',
+                'quota=0G', 'zfs/instance-00000001-ephemeral',
+                run_as_root=True),
+            mock.call(
+                'chown', '165536', '/i/instance-00000001/storage/ephemerals0',
+                run_as_root=True)
         ]
 
         self.assertEqual(expected_calls, execute.call_args_list)
 
-    @mock.patch('nova.virt.lxd.driver.container_utils.get_container_dir')
     @mock.patch.object(driver.utils, 'execute')
     @mock.patch('nova.virt.driver.block_device_info_get_ephemerals')
     def test_add_ephemerals_with_btrfs(
-            self, block_device_info_get_ephemerals, execute,
-            get_container_dir):
+            self, block_device_info_get_ephemerals, execute):
         ctx = context.get_admin_context()
         block_device_info_get_ephemerals.return_value = [
             {'virtual_name': 'ephemerals0'}]
@@ -499,7 +505,6 @@ class LXDDriverTest(test.NoDBTestCase):
         instance.ephemeral_gb = 1
         block_device_info = mock.Mock()
         lxd_config = {'environment': {'storage': 'btrfs'}}
-        get_container_dir.return_value = '/path'
         profile = mock.Mock()
         profile.devices = {
             'root': {
@@ -536,25 +541,26 @@ class LXDDriverTest(test.NoDBTestCase):
         expected_calls = [
             mock.call(
                 'btrfs', 'subvolume', 'create',
-                '/path/instance-00000001/ephemerals0',
+                '/var/lib/lxd/containers/instance-00000001/ephemerals0',
                 run_as_root=True),
             mock.call(
                 'btrfs', 'qgroup', 'limit', '1g',
-                '/path/instance-00000001/ephemerals0', run_as_root=True),
+                '/var/lib/lxd/containers/instance-00000001/ephemerals0',
+                run_as_root=True),
             mock.call(
-                'chown', '165536', '/path/instance-00000001/ephemerals0',
+                'chown', '165536',
+                '/var/lib/lxd/containers/instance-00000001/ephemerals0',
                 run_as_root=True)
         ]
         self.assertEqual(expected_calls, execute.call_args_list)
-        self.assertEqual(profile.devices['ephemerals0']['source'],
-                         '/path/instance-00000001/ephemerals0')
+        self.assertEqual(
+            profile.devices['ephemerals0']['source'],
+            '/var/lib/lxd/containers/instance-00000001/ephemerals0')
 
-    @mock.patch('nova.virt.lxd.driver.container_utils.get_container_storage')
     @mock.patch.object(driver.utils, 'execute')
     @mock.patch('nova.virt.driver.block_device_info_get_ephemerals')
     def test_ephemeral_with_lvm(
-            self, block_device_info_get_ephemerals, execute,
-            get_container_storage):
+            self, block_device_info_get_ephemerals, execute):
         ctx = context.get_admin_context()
         block_device_info_get_ephemerals.return_value = [
             {'virtual_name': 'ephemerals0'}]
@@ -562,7 +568,6 @@ class LXDDriverTest(test.NoDBTestCase):
         block_device_info = mock.Mock()
         lxd_config = {'environment': {'storage': 'lvm'},
                       'config': {'storage.lvm_vg_name': 'lxd'}}
-        get_container_storage.return_value = '/path'
 
         driver.fileutils = mock.Mock()
 
@@ -590,10 +595,12 @@ class LXDDriverTest(test.NoDBTestCase):
                 run_as_root=True),
             mock.call(
                 'mount', '-t', 'ext4',
-                '/dev/lxd/instance-00000001-ephemerals0', '/path',
+                '/dev/lxd/instance-00000001-ephemerals0',
+                '/i/instance-00000001/storage/ephemerals0',
                 run_as_root=True),
             mock.call(
-                'chown', '165536', '/path', run_as_root=True)]
+                'chown', '165536', '/i/instance-00000001/storage/ephemerals0',
+                run_as_root=True)]
         self.assertEqual(expected_calls, execute.call_args_list)
 
     def test_destroy(self):
@@ -647,7 +654,7 @@ class LXDDriverTest(test.NoDBTestCase):
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
         network_info = [mock.Mock()]
-        instance_dir = container_utils.get_instance_dir(instance.name)
+        instance_dir = driver.InstanceAttributes(instance).instance_dir
         block_device_info = mock.Mock()
 
         lxd_driver = driver.LXDDriver(None)
@@ -1039,8 +1046,7 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.containers.get.assert_called_once_with(instance.name)
         container.unfreeze.assert_called_once_with(wait=True)
 
-    @mock.patch('nova.virt.lxd.driver.container_utils.get_container_rescue')
-    def test_rescue(self, get_container_rescue):
+    def test_rescue(self):
         profile = mock.Mock()
         profile.devices = {
             'root': {
@@ -1052,7 +1058,6 @@ class LXDDriverTest(test.NoDBTestCase):
         container = mock.Mock()
         self.client.profiles.get.return_value = profile
         self.client.containers.get.return_value = container
-        get_container_rescue.return_value = '/path'
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
         profile.name = instance.name
@@ -1355,3 +1360,48 @@ class LXDDriverTest(test.NoDBTestCase):
                 'disk_format': 'raw',
                 'container_format': 'bare'},
             data)
+
+
+class InstanceAttributesTest(test.NoDBTestCase):
+    """Tests for InstanceAttributes."""
+
+    def setUp(self):
+        super(InstanceAttributesTest, self).setUp()
+
+        self.CONF_patcher = mock.patch('nova.virt.lxd.driver.nova.conf.CONF')
+        self.CONF = self.CONF_patcher.start()
+        self.CONF.instances_path = '/i'
+        self.CONF.lxd.root_dir = '/c'
+
+    def tearDown(self):
+        super(InstanceAttributesTest, self).tearDown()
+        self.CONF_patcher.stop()
+
+    def test_instance_dir(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        attributes = driver.InstanceAttributes(instance)
+
+        self.assertEqual(
+            '/i/instance-00000001', attributes.instance_dir)
+
+    def test_console_path(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        attributes = driver.InstanceAttributes(instance)
+
+        self.assertEqual(
+            '/var/log/lxd/instance-00000001/console.log',
+            attributes.console_path)
+
+    def test_storage_path(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+
+        attributes = driver.InstanceAttributes(instance)
+
+        self.assertEqual(
+            '/i/instance-00000001/storage',
+            attributes.storage_path)
