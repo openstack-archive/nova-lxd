@@ -24,7 +24,6 @@ from oslo_log import log as logging
 from oslo_utils import excutils
 from oslo_utils import fileutils
 
-from nova.virt.lxd import utils as container_dir
 from nova.virt.lxd import session
 from nova.virt.lxd import vif as lxd_vif
 from nova.virt import firewall
@@ -80,8 +79,9 @@ class LXDContainerMigrate(object):
             return
 
         try:
+            from nova.virt.lxd.driver import InstanceAttributes
             # Ensure that the instance directory exists
-            instance_dir = container_dir.get_instance_dir(instance.name)
+            instance_dir = InstanceAttributes(instance).instance_dir
             if not os.path.exists(instance_dir):
                 fileutils.ensure_tree(instance_dir)
 

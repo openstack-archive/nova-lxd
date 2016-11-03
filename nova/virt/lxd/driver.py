@@ -16,6 +16,7 @@
 
 from __future__ import absolute_import
 
+from collections import namedtuple
 import hashlib
 import io
 import json
@@ -49,7 +50,6 @@ from pylxd import exceptions as lxd_exceptions
 from nova.virt.lxd import migrate
 from nova.virt.lxd import vif as lxd_vif
 from nova.virt.lxd import session
-from nova.virt.lxd import utils as container_utils
 
 from nova.api.metadata import base as instance_metadata
 from nova.compute import arch
@@ -91,6 +91,23 @@ IMAGE_API = image.API()
 
 MAX_CONSOLE_BYTES = 100 * units.Ki
 NOVA_CONF = nova.conf.CONF
+
+BASE_DIR = os.path.join(
+    CONF.instances_path, CONF.image_cache_subdirectory_name)
+CONTAINER_DIR = os.path.join(CONF.lxd.root_dir, 'containers')
+
+
+_InstanceAttributes = namedtuple('InstanceAttributes', [
+    'instance_dir', 'console_path', 'storage_path'])
+
+
+def InstanceAttributes(instance):
+    """An instance adapter for nova-lxd specific attributes."""
+    instance_dir = os.path.join(nova.conf.CONF.instances_path, instance.name)
+    console_path = os.path.join('/var/log/lxd/', instance.name, 'console.log')
+    storage_path = os.path.join(instance_dir, 'storage')
+    return _InstanceAttributes(
+        instance_dir, console_path, storage_path)
 
 
 def _neutron_failed_callback(event_name, instance):
@@ -272,7 +289,7 @@ class LXDDriver(driver.ComputeDriver):
             if e.response.status_code != 404:
                 raise  # Re-raise the exception if it wasn't NotFound
 
-        instance_dir = container_utils.get_instance_dir(instance.name)
+        instance_dir = InstanceAttributes(instance).instance_dir
         if not os.path.exists(instance_dir):
             fileutils.ensure_tree(instance_dir)
 
@@ -419,7 +436,7 @@ class LXDDriver(driver.ComputeDriver):
 
         name = pwd.getpwuid(os.getuid()).pw_name
 
-        container_dir = container_utils.get_instance_dir(instance.name)
+        container_dir = InstanceAttributes(instance).instance_dir
         if os.path.exists(container_dir):
             utils.execute(
                 'chown', '-R', '{}:{}'.format(name, name),
@@ -459,10 +476,8 @@ class LXDDriver(driver.ComputeDriver):
         See `nova.virt.driver.ComputeDriver.get_console_output` for more
         information.
         """
-        console_path = container_utils.get_console_path(instance.name)
-        container_path = os.path.join(
-            container_utils.get_container_dir(instance.name),
-            instance.name)
+        console_path = InstanceAttributes(instance).console_path
+        container_path = os.path.join(CONTAINER_DIR, instance.name)
         if not os.path.exists(console_path):
             return ''
         uid = pwd.getpwuid(os.getuid()).pw_uid
@@ -696,15 +711,17 @@ class LXDDriver(driver.ComputeDriver):
         rescue = '%s-rescue' % instance.name
 
         container = self.client.containers.get(instance.name)
+        container_rootfs = os.path.join(
+            nova.conf.CONF.lxd.root_dir, 'containers', instance.name, 'rootfs')
         container.rename(rescue, wait=True)
 
         profile = self.client.profiles.get(instance.name)
+
         rescue_dir = {
             'rescue': {
-                'source': container_utils.get_container_rescue(instance.name),
+                'source': container_rootfs,
                 'path': '/mnt',
-                'type': 'disk'
-
+                'type': 'disk',
             }
         }
         profile.devices.update(rescue_dir)
@@ -1041,8 +1058,9 @@ class LXDDriver(driver.ComputeDriver):
             storage_id = container_id_map[2].split(':')[1]
 
             for ephemeral in ephemeral_storage:
-                storage_dir = container_utils.get_container_storage(
-                    ephemeral['virtual_name'], instance.name)
+                storage_dir = os.path.join(
+                    InstanceAttributes(instance).storage_path,
+                    ephemeral['virtual_name'])
                 if storage_driver == 'zfs':
                     zfs_pool = lxd_config['config']['storage.zfs_pool_name']
 
@@ -1057,8 +1075,8 @@ class LXDDriver(driver.ComputeDriver):
                     # so the ephemeral storage path is updated in the profile
                     # before the container starts.
                     storage_dir = os.path.join(
-                        container_utils.get_container_dir(instance.name),
-                        instance.name, ephemeral['virtual_name'])
+                        CONTAINER_DIR, instance.name,
+                        ephemeral['virtual_name'])
                     profile = self.client.profiles.get(instance.name)
                     storage_name = ephemeral['virtual_name']
                     profile.devices[storage_name]['source'] = storage_dir
@@ -1143,7 +1161,7 @@ class LXDDriver(driver.ComputeDriver):
             network_info=network_info, request_context=context)
 
         iso_path = os.path.join(
-            container_utils.get_instance_dir(instance.name),
+            InstanceAttributes(instance).instance_dir,
             'configdrive.iso')
 
         with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
@@ -1155,8 +1173,8 @@ class LXDDriver(driver.ComputeDriver):
                                   'error: %s'),
                               e, instance=instance)
 
-        configdrive_dir = \
-            container_utils.get_container_configdrive(instance.name)
+        configdrive_dir = os.path.join(
+            nova.conf.CONF.instances_path, instance.name, 'configdrive')
         if not os.path.exists(configdrive_dir):
             fileutils.ensure_tree(configdrive_dir)
 
@@ -1198,10 +1216,10 @@ class LXDDriver(driver.ComputeDriver):
         LOG.debug('setup_image called for instance', instance=instance)
         lock_path = str(os.path.join(CONF.instances_path, 'locks'))
 
-        container_image = \
-            container_utils.get_container_rootfs_image(image_meta)
-        container_manifest = \
-            container_utils.get_container_manifest_image(image_meta)
+        container_image = os.path.join(
+            BASE_DIR, '%s-rootfs.tar.gz' % image_meta.id)
+        container_manifest = os.path.join(
+            BASE_DIR, '%s-manifest.tar.gz' % image_meta.id)
 
         print(lock_path)
         with lockutils.lock(lock_path,
@@ -1212,7 +1230,7 @@ class LXDDriver(driver.ComputeDriver):
             if self.session.image_defined(instance):
                 return
 
-            base_dir = container_utils.BASE_DIR
+            base_dir = BASE_DIR
             if not os.path.exists(base_dir):
                 fileutils.ensure_tree(base_dir)
 
@@ -1379,8 +1397,9 @@ class LXDDriver(driver.ComputeDriver):
                 block_device_info)
             if ephemeral_storage:
                 for ephemeral in ephemeral_storage:
-                    ephemeral_src = container_utils.get_container_storage(
-                        ephemeral['virtual_name'], instance.name)
+                    ephemeral_src = os.path.join(
+                        InstanceAttributes(instance).storage_path,
+                        ephemeral['virtual_name'])
                     ephemeral_storage = {
                         ephemeral['virtual_name']: {
                             'path': '/mnt',
@@ -1426,8 +1445,8 @@ class LXDDriver(driver.ComputeDriver):
                 config['limits.cpu'] = str(vcpus)
 
             # Configure the console for the instance
-            config['raw.lxc'] = 'lxc.console.logfile=%s\n' \
-                % container_utils.get_console_path(instance_name)
+            config['raw.lxc'] = 'lxc.console.logfile={}\n'.format(
+                InstanceAttributes(instance).console_path)
 
             return config
         except Exception as ex:

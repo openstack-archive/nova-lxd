@@ -18,12 +18,10 @@ from nova import test
 from nova.virt import fake
 
 from nova.virt.lxd import driver
-from nova.virt.lxd import utils as container_dir
 import stubs
 
 
 @ddt.ddt
-@mock.patch.object(container_dir, 'CONF', stubs.MockConf())
 @mock.patch.object(driver, 'CONF', stubs.MockConf())
 class LXDTestDriver(test.NoDBTestCase):
 
