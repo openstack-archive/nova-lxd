@@ -47,7 +47,6 @@ from oslo_utils import fileutils
 import pylxd
 from pylxd import exceptions as lxd_exceptions
 
-from nova.virt.lxd import migrate
 from nova.virt.lxd import vif as lxd_vif
 from nova.virt.lxd import session
 
@@ -214,7 +213,6 @@ class LXDDriver(driver.ComputeDriver):
         # will know our cleanup of nova-lxd is complete when these
         # attributes are no longer needed.
         self.session = session.LXDAPISession()
-        self.container_migrate = migrate.LXDContainerMigrate(self)
 
     def init_host(self, host):
         """Initialize the driver on the host.
@@ -960,35 +958,87 @@ class LXDDriver(driver.ComputeDriver):
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance,
                          block_device_info=None, power_on=True):
-        return self.container_migrate.finish_migration(
-            context, migration, instance, disk_info,
-            network_info, image_meta, resize_instance,
-            block_device_info, power_on)
+        if self.session.container_defined(instance.name, instance):
+            return
+
+        try:
+            from nova.virt.lxd import driver
+            # Ensure that the instance directory exists
+            instance_dir = driver.InstanceAttributes(instance).instance_dir
+            if not os.path.exists(instance_dir):
+                fileutils.ensure_tree(instance_dir)
+
+            # Step 1 - Setup the profile on the dest host
+            self._copy_container_profile(instance, network_info)
+
+            # Step 2 - Open a websocket on the srct and and
+            #          generate the container config
+            self._container_init(migration['source_compute'], instance)
+
+            # Step 3 - Start the network and container
+            self.plug_vifs(instance, network_info)
+            self.session.container_start(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Migration failed for %(instance)s: '
+                                  '%(ex)s'),
+                              {'instance': instance.name,
+                               'ex': ex}, instance=instance)
 
     def confirm_migration(self, migration, instance, network_info):
-        return self.container_migrate.confirm_migration(migration,
-                                                        instance,
-                                                        network_info)
+        if not self.session.container_defined(instance.name, instance):
+            msg = _('Failed to find container %(instance)s') % \
+                {'instance': instance.name}
+            raise exception.NovaException(msg)
+
+        try:
+            self.session.profile_delete(instance)
+            self.session.container_destroy(instance.name,
+                                           instance)
+            self.unplug_vifs(instance, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.exception(_LE('Confirm migration failed for %(instance)s: '
+                                  '%(ex)s'), {'instance': instance.name,
+                                              'ex': ex}, instance=instance)
 
     def finish_revert_migration(self, context, instance, network_info,
                                 block_device_info=None, power_on=True):
-        return self.container_migrate.finish_revert_migration(
-            context, instance, network_info, block_device_info,
-            power_on)
+        if self.session.container_defined(instance.name, instance):
+            self.session.container_start(instance.name, instance)
 
     def pre_live_migration(self, context, instance, block_device_info,
                            network_info, disk_info, migrate_data=None):
-        self.container_migrate.pre_live_migration(
-            context, instance, block_device_info, network_info,
-            disk_info, migrate_data)
+        try:
+            for vif in network_info:
+                self.vif_driver.plug(instance, vif)
+            self.firewall_driver.setup_basic_filtering(
+                instance, network_info)
+            self.firewall_driver.prepare_instance_filter(
+                instance, network_info)
+            self.firewall_driver.apply_instance_filter(
+                instance, network_info)
+
+            self._copy_container_profile(instance, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('pre_live_migration failed for %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instance=instance)
 
     def live_migration(self, context, instance, dest,
                        post_method, recover_method, block_migration=False,
                        migrate_data=None):
-        self.container_migrate.live_migration(
-            context, instance, dest, post_method,
-            recover_method, block_migration,
-            migrate_data)
+        try:
+            self._container_init(dest, instance)
+            post_method(context, instance, dest, block_migration)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('live_migration failed for %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instance=instance)
 
     # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
     # `live_migration_force_complete`
@@ -999,20 +1049,25 @@ class LXDDriver(driver.ComputeDriver):
 
     def post_live_migration(self, context, instance, block_device_info,
                             migrate_data=None):
-        self.container_migrate.post_live_migration(
-            context, instance, block_device_info, migrate_data)
+        try:
+            self.session.container_destroy(instance.name, instance)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('post_live_migration failed for %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instance=instance)
 
     def post_live_migration_at_source(self, context, instance, network_info):
-        return self.container_migrate.post_live_migration_at_source(
-            context, instance, network_info)
-
-    def post_live_migration_at_destination(self, context, instance,
-                                           network_info,
-                                           block_migration=False,
-                                           block_device_info=None):
-        self.container_migrate.post_live_migration_at_destination(
-            context, instance, network_info, block_migration,
-            block_device_info)
+        try:
+            self.session.profile_delete(instance)
+            self.cleanup(context, instance, network_info)
+        except Exception as ex:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('post_live_migration failed for %(instance)s: '
+                              '%(reason)s'),
+                          {'instance': instance.name, 'reason': ex},
+                          instance=instance)
 
     # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
     # `check_instance_shared_storage_local`
@@ -1025,23 +1080,30 @@ class LXDDriver(driver.ComputeDriver):
                                            src_compute_info, dst_compute_info,
                                            block_migration=False,
                                            disk_over_commit=False):
-        return self.container_migrate.check_can_live_migrate_destination(
-            context, instance, src_compute_info, dst_compute_info,
-            block_migration, disk_over_commit)
+        if self.session.container_defined(instance.name, instance):
+            raise exception.InstanceExists(name=instance.name)
+
+        # XXX (zulcss) - June 14, 2016 - Workaround
+        # for LXD sending an empty migrate object
+        # that descirbes the host that the instance
+        # is being migrated to. Replace the
+        # HyperVLiveMigrateData object with an
+        # LXD named object.
+        from nova.objects import migrate_data as migrate_data_obj
+        return migrate_data_obj.HyperVLiveMigrateData()
 
     def cleanup_live_migration_destination_check(
             self, context, dest_check_data):
-        # XXX: rockstar (20 Jul 2016) - This method was renamed in newton,
-        # NOQA See https://github.com/openstack/nova/commit/3b62698235364057ec0c6811cc89ac85511876d2
-        self.container_migrate.check_can_live_migrate_destination_cleanup(
-            context, dest_check_data)
+        return
 
     def check_can_live_migrate_source(self, context, instance,
                                       dest_check_data, block_device_info=None):
-        return self.container_migrate.check_can_live_migrate_source(
-            context, instance, dest_check_data,
-            block_device_info
-        )
+        if not CONF.lxd.allow_live_migration:
+            msg = _('Live migration is not enabled.')
+            LOG.error(msg, instance=instance)
+            raise exception.MigrationPreCheckError(reason=msg)
+
+        return dest_check_data
 
     #
     # LXDDriver "private" implementation methods
@@ -1701,3 +1763,23 @@ class LXDDriver(driver.ComputeDriver):
 
         for instance in instances:
             self._reconnect_instance(context, instance)
+
+    def _container_init(self, host, instance):
+        LOG.debug('_container_init called for instnace', instance=instance)
+
+        (state, data) = (self.session.container_migrate(instance.name,
+                                                        CONF.my_ip,
+                                                        instance))
+        container_config = {
+            'name': instance.name,
+            'profiles': [instance.name],
+            'source': self.get_container_migrate(
+                data, host, instance)
+        }
+        self.session.container_init(container_config, instance, host)
+
+    def _copy_container_profile(self, instance, network_info):
+        LOG.debug('_copy_cotontainer_profile called for instnace',
+                  instance=instance)
+        container_profile = self.create_profile(instance, network_info)
+        self.session.profile_create(container_profile, instance)
