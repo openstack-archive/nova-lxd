@@ -48,7 +48,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
         vif_patcher.start()
         self.addCleanup(vif_patcher.stop)
 
-    def test_spawn_container(self):
+    @mock.patch('oslo_utils.fileutils.ensure_tree')
+    def test_spawn_container(self, mock_ensure_tree):
         """Test spawn method. Ensure that the right calls
            are made when creating a container.
         """
