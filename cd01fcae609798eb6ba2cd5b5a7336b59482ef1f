@@ -1,0 +1,8 @@
+Code-Review+2: Paul Hummer <paul@eventuallyanyway.com>
+Workflow+1: Paul Hummer <paul@eventuallyanyway.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Fri, 04 Nov 2016 14:05:18 +0000
+Reviewed-on: https://review.openstack.org/393736
+Project: openstack/nova-lxd
+Branch: refs/heads/stable/mitaka
