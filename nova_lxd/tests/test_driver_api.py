@@ -257,7 +257,7 @@ class LXDTestDriver(test.NoDBTestCase):
                          self.connection.get_console_output({}, instance))
         calls = [
             mock.call('chown', '1234:1234',
-                      '/fake/lxd/root/containers/fake-uuid/console.log',
+                      '/var/log/lxd/fake-uuid/console.log',
                       run_as_root=True),
             mock.call('chmod', '755',
                       '/fake/lxd/root/containers/fake-uuid',
