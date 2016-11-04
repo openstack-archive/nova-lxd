@@ -269,6 +269,10 @@ class LXDContainerOperations(object):
                                     os.path.join(configdrive_dir, ent))
                 utils.execute('chmod', '-R', '775', configdrive_dir,
                               run_as_root=True)
+                utils.execute('chown', '-R', '%s:%s'
+                              % (self._uid_map('/etc/subuid').rstrip(),
+                                 self._uid_map('/etc/subgid').rstrip()),
+                              configdrive_dir, run_as_root=True)
             finally:
                 if mounted:
                     utils.execute('umount', tmpdir, run_as_root=True)
@@ -550,6 +554,14 @@ class LXDContainerOperations(object):
             if destroy_vifs:
                 self.unplug_vifs(instance, network_info)
 
+            name = pwd.getpwuid(os.getuid()).pw_name
+            configdrive_dir = \
+                self.container_dir.get_container_configdrive(instance.name)
+            if os.path.exists(configdrive_dir):
+                utils.execute('chown', '-R', '%s:%s' % (name, name),
+                              configdrive_dir, run_as_root=True)
+                shutil.rmtree(configdrive_dir)
+
             container_dir = self.container_dir.get_instance_dir(instance.name)
             if os.path.exists(container_dir):
                 shutil.rmtree(container_dir)
@@ -649,3 +661,18 @@ class LXDContainerOperations(object):
 
     def stop_firewall(self, instance, network_info):
         self.firewall_driver.unfilter_instance(instance, network_info)
+
+    def _uid_map(self, subuid_f):
+        LOG.debug('Checking for subuid')
+
+        line = None
+        with open(subuid_f, 'r') as fp:
+            name = pwd.getpwuid(os.getuid()).pw_name
+            for cline in fp:
+                if cline.startswith(name + ":"):
+                    line = cline
+                    break
+            if line is None:
+                raise ValueError("%s not found in %s" % (name, subuid_f))
+            toks = line.split(":")
+            return toks[1]
