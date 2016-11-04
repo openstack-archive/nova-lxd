@@ -19,6 +19,8 @@ import mock
 from nova import test
 from nova.virt import fake
 
+from oslo_utils import fileutils
+
 from nova_lxd.nova.virt.lxd import config
 from nova_lxd.nova.virt.lxd import image
 from nova_lxd.nova.virt.lxd import operations as container_ops
@@ -48,7 +50,8 @@ class LXDTestContainerOps(test.NoDBTestCase):
         vif_patcher.start()
         self.addCleanup(vif_patcher.stop)
 
-    def test_spawn_container(self):
+    @mock.patch('oslo_utils.fileutils.ensure_tree')
+    def test_spawn_container(self, mock_ensure_tree):
         """Test spawn method. Ensure that the right calls
            are made when creating a container.
         """
