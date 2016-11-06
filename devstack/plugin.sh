@@ -12,6 +12,9 @@ NOVA_DIR=${NOVA_DIR:-$DEST/nova}
 NOVA_CONF_DIR=${NOVA_CONF_DIR:-/etc/nova}
 NOVA_CONF=${NOVA_CONF:-NOVA_CONF_DIR/nova.conf}
 
+# Package install or snappy
+SNAP_VERSION=${SNAP_VERSION:-pkg}
+
 # Configure LXD storage backends
 LXD_BACKEND_DRIVER=${LXD_BACKEND_DRIVER:default}
 LXD_DISK_IMAGE=${DATA_DIR}/lxd.img
@@ -123,6 +126,30 @@ function configure_lxd_block() {
    fi
 }
 
+function configure_snappy() {
+	if [ ! -z $SNAP_VERSION ] && is_ubuntu ; then
+		echo_summary "Configuring LXD Snap"
+
+		sudo apt-get install -y snapd
+		sudo apt remove --purge -y lxd lxd-client
+
+		case "$SNAP_VERSION" in
+			edge)
+				sudo snap install lxd --edge
+				;;
+			candidate)
+				sudo snap install lxd --candidate
+				;;
+			stable|current)
+				sudo snap install lxd
+				;;
+			*)
+				echo "$SNAP_VERSION is not a valid channel"
+				;;
+		esac
+    fi
+}
+
 function shutdown_nova-lxd() {
     # Shut the service down.
     :
@@ -140,6 +167,7 @@ if is_service_enabled nova-lxd; then
     if [[ "$1" == "stack" && "$2" == "pre-install" ]]; then
         # Set up system services
         echo_summary "Configuring system services nova-lxd"
+        conigure_snappy
         pre_install_nova-lxd
         configure_lxd_block
 
