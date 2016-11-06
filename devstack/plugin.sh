@@ -123,6 +123,25 @@ function configure_lxd_block() {
    fi
 }
 
+function configure_snappy() {
+   echo_summary "Configuring LXD snap"
+   if is_ubuntu; then
+      sudo apt-get install -y snapd
+      sudo apt remove --purge lxd lxd-client
+      if [ $SNAP_VERSION == 'edge' ];
+         sudo snap install lxd --edge
+      elif [ $SNAP_VERSION == 'candidate' ];
+         sudo snap install lxd --candidate
+      elif [ $SNAP_VERSION == 'stable' ];
+         sudo snap install lxd --stable
+      elif [ $SNAP_VERSION == 'current' ];
+         sudo snap install lxd --current
+      else
+        echo "$SNAP_VERSION is not a valid channel"
+      fi
+   fi
+}
+
 function shutdown_nova-lxd() {
     # Shut the service down.
     :
@@ -140,6 +159,7 @@ if is_service_enabled nova-lxd; then
     if [[ "$1" == "stack" && "$2" == "pre-install" ]]; then
         # Set up system services
         echo_summary "Configuring system services nova-lxd"
+        conigure_snappy
         pre_install_nova-lxd
         configure_lxd_block
 
