@@ -1,0 +1,8 @@
+Code-Review+2: Paul Hummer <paul@eventuallyanyway.com>
+Workflow+1: Paul Hummer <paul@eventuallyanyway.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 09 Nov 2016 17:51:05 +0000
+Reviewed-on: https://review.openstack.org/395342
+Project: openstack/nova-lxd
+Branch: refs/heads/master
