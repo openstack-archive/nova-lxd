@@ -112,38 +112,6 @@ class SessionEventTest(test.NoDBTestCase):
 
 
 @ddt.ddt
-class SessionImageTest(test.NoDBTestCase):
-
-    def setUp(self):
-        super(SessionImageTest, self).setUp()
-
-        self.ml = stubs.lxd_mock()
-        lxd_patcher = mock.patch('pylxd.deprecated.api.API',
-                                 mock.Mock(return_value=self.ml))
-        lxd_patcher.start()
-        self.addCleanup(lxd_patcher.stop)
-
-        self.session = session.LXDAPISession()
-
-    def test_image_defined(self):
-        """Test the image is defined in the LXD hypervisor."""
-        instance = stubs._fake_instance()
-        self.ml.alias_defined.return_value = True
-        self.assertTrue(self.session.image_defined(instance))
-        calls = [mock.call.alias_defined(instance.image_ref)]
-        self.assertEqual(calls, self.ml.method_calls)
-
-    def test_alias_create(self):
-        """Test the alias is created."""
-        instance = stubs._fake_instance()
-        alias = mock.Mock()
-        self.ml.alias_create.return_value = True
-        self.assertTrue(self.session.create_alias(alias, instance))
-        calls = [mock.call.alias_create(alias)]
-        self.assertEqual(calls, self.ml.method_calls)
-
-
-@ddt.ddt
 class SessionProfileTest(test.NoDBTestCase):
 
     def setUp(self):

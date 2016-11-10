@@ -1253,8 +1253,12 @@ class LXDDriver(driver.ComputeDriver):
                                               instance.image_ref),
                             external=True):
 
-            if self.session.image_defined(instance):
+            try:
+                self.client.images.get(instance.name)
                 return
+            except lxd_exceptions.LXDAPIException as e:
+                if e.response.status_code != 404:
+                    raise
 
             base_dir = BASE_DIR
             if not os.path.exists(base_dir):
@@ -1370,11 +1374,8 @@ class LXDDriver(driver.ComputeDriver):
                         with open(container_image, "rb") as rootfs_fd:
                             fingerprint = hashlib.sha256(
                                 meta_fd.read() + rootfs_fd.read()).hexdigest()
-                    alias_config = {
-                        'name': instance.image_ref,
-                        'target': fingerprint
-                    }
-                    self.session.create_alias(alias_config, instance)
+                    image = self.client.images.get(fingerprint)
+                    image.add_alias(instance.image_ref)
                 except Exception as ex:
                     with excutils.save_and_reraise_exception:
                         LOG.error(
