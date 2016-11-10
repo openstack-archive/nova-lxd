@@ -26,7 +26,6 @@ from nova.compute import manager
 from nova.compute import power_state
 from nova.network import model as network_model
 from nova.tests.unit import fake_instance
-from nova.tests.unit import utils as test_utils
 from pylxd import exceptions as lxdcore_exceptions
 import six
 
@@ -117,6 +116,12 @@ class LXDDriverTest(test.NoDBTestCase):
         self.CONF2.lxd.root_dir = '/lxd'
         self.CONF2.instances_path = '/i'
 
+        # LXDDriver._after_reboot reads from the database and syncs container
+        # state. These tests can't read from the database.
+        self.after_reboot_patcher = mock.patch(
+            'nova.virt.lxd.driver.LXDDriver._after_reboot')
+        self.after_reboot = self.after_reboot_patcher.start()
+
         # NOTE: mock out fileutils to ensure that unit tests don't try
         #       to manipulate the filesystem (breaks in package builds).
         driver.fileutils = mock.Mock()
@@ -126,6 +131,7 @@ class LXDDriverTest(test.NoDBTestCase):
         self.Client_patcher.stop()
         self.CONF_patcher.stop()
         self.CONF2_patcher.stop()
+        self.after_reboot_patcher.stop()
 
     def test_init_host(self):
         """init_host initializes the pylxd Client."""
@@ -428,7 +434,8 @@ class LXDDriverTest(test.NoDBTestCase):
         prepare.side_effect = fake_prepare
         drv = driver.LXDDriver(virtapi)
 
-        instance_href = test_utils.get_test_instance()
+        instance_href = fake_instance.fake_instance_obj(
+            context.get_admin_context(), name='test')
 
         @mock.patch.object(drv, '_add_ephemeral')
         @mock.patch.object(drv, 'create_profile')
