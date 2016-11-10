@@ -980,9 +980,6 @@ class LXDDriver(driver.ComputeDriver):
     def finish_migration(self, context, migration, instance, disk_info,
                          network_info, image_meta, resize_instance,
                          block_device_info=None, power_on=True):
-        if self.session.container_defined(instance.name, instance):
-            return
-
         # Ensure that the instance directory exists
         instance_dir = InstanceAttributes(instance).instance_dir
         if not os.path.exists(instance_dir):
@@ -997,18 +994,17 @@ class LXDDriver(driver.ComputeDriver):
 
         # Step 3 - Start the network and container
         self.plug_vifs(instance, network_info)
-        self.session.container_start(instance.name, instance)
+        self.client.container.get(instance.name).start(wait=True)
 
     def confirm_migration(self, migration, instance, network_info):
-        self.session.profile_delete(instance)
-        self.session.container_destroy(instance.name,
-                                       instance)
         self.unplug_vifs(instance, network_info)
+
+        self.client.profiles.get(instance.name).delete()
+        self.client.containers.get(instance.name).delete(wait=True)
 
     def finish_revert_migration(self, context, instance, network_info,
                                 block_device_info=None, power_on=True):
-        if self.session.container_defined(instance.name, instance):
-            self.session.container_start(instance.name, instance)
+        self.client.containers.get(instance.name).start(wait=True)
 
     def pre_live_migration(self, context, instance, block_device_info,
                            network_info, disk_info, migrate_data=None):
@@ -1038,7 +1034,7 @@ class LXDDriver(driver.ComputeDriver):
 
     def post_live_migration(self, context, instance, block_device_info,
                             migrate_data=None):
-        self.session.container_destroy(instance.name, instance)
+        self.client.containers.get(instance.name).delete(wait=True)
 
     def post_live_migration_at_source(self, context, instance, network_info):
         self.session.profile_delete(instance)
@@ -1051,12 +1047,15 @@ class LXDDriver(driver.ComputeDriver):
     # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
     # `check_instance_shared_storage_cleanup`
 
-    def check_can_live_migrate_destination(self, context, instance,
-                                           src_compute_info, dst_compute_info,
-                                           block_migration=False,
-                                           disk_over_commit=False):
-        if self.session.container_defined(instance.name, instance):
+    def check_can_live_migrate_destination(
+            self, context, instance, src_compute_info, dst_compute_info,
+            block_migration=False, disk_over_commit=False):
+        try:
+            self.client.containers.get(instance.name)
             raise exception.InstanceExists(name=instance.name)
+        except lxd_exceptions.LXDAPIException as e:
+            if e.response.status_code != 404:
+                raise
         return LXDLiveMigrateData()
 
     def cleanup_live_migration_destination_check(

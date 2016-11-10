@@ -1388,6 +1388,70 @@ class LXDDriverTest(test.NoDBTestCase):
                 'container_format': 'bare'},
             data)
 
+    def test_finish_revert_migration(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        network_info = []
+
+        container = mock.Mock()
+        self.client.containers.get.return_value = container
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.finish_revert_migration(ctx, instance, network_info)
+
+        container.start.assert_called_once_with(wait=True)
+
+    def test_check_can_live_migrate_destination(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        src_compute_info = mock.Mock()
+        dst_compute_info = mock.Mock()
+
+        def container_get(*args, **kwargs):
+            raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
+        self.client.containers.get.side_effect = container_get
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        retval = lxd_driver.check_can_live_migrate_destination(
+            ctx, instance, src_compute_info, dst_compute_info)
+
+        self.assertIsInstance(retval, driver.LXDLiveMigrateData)
+
+    def test_confirm_migration(self):
+        migration = mock.Mock()
+        instance = fake_instance.fake_instance_obj(
+            context.get_admin_context, name='test')
+        network_info = []
+        profile = mock.Mock()
+        container = mock.Mock()
+        self.client.profiles.get.return_value = profile
+        self.client.containers.get.return_value = container
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.confirm_migration(migration, instance, network_info)
+
+        profile.delete.assert_called_once_with()
+        container.delete.assert_called_once_with(wait=True)
+
+    def test_post_live_migration(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        container = mock.Mock()
+        self.client.containers.get.return_value = container
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.post_live_migration(context, instance, None)
+
+        container.delete.assert_called_once_with(wait=True)
+
 
 class InstanceAttributesTest(test.NoDBTestCase):
     """Tests for InstanceAttributes."""

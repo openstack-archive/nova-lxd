@@ -19,45 +19,12 @@ import nova.conf
 from nova import exception
 from nova import test
 from nova.tests.unit import fake_instance
-from nova.tests.unit import fake_network
 import pylxd
 from pylxd.deprecated import exceptions as lxd_exceptions
 
 from nova.virt.lxd import driver
-from nova.virt.lxd import session
 
 CONF = nova.conf.CONF
-
-
-class LXDTestContainerMigrate(test.NoDBTestCase):
-
-    def setUp(self):
-        super(LXDTestContainerMigrate, self).setUp()
-
-        self.driver = driver.LXDDriver(None)
-        self.context = 'fake_context'
-        self.driver.session = mock.MagicMock()
-        self.driver.config = mock.MagicMock()
-        self.driver.unplug_vifs = mock.MagicMock()
-
-    @mock.patch.object(session.LXDAPISession, 'container_defined')
-    def test_confirm_migration(self, mock_contaienr_defined):
-        """Verify that the correct migration container calls
-           are made.
-        """
-        mock_instance = fake_instance.fake_instance_obj(self.context)
-        fake_network_info = fake_network.fake_get_instance_nw_info
-        self.driver.confirm_migration(
-            mock.sentinel.migration, mock_instance, fake_network_info)
-        self.driver.session.profile_delete.assert_called_once_with(
-            mock_instance
-        )
-        self.driver.session.container_destroy.assert_called_once_with(
-            mock_instance.name, mock_instance
-        )
-        self.driver.unplug_vifs.assert_called_once_with(
-            mock_instance, fake_network_info
-        )
 
 
 class LXDTestLiveMigrate(test.NoDBTestCase):
@@ -127,17 +94,6 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
             mock.sentinel.instance, mock.sentinel.dest,
             mock.sentinel.recover_method, mock.sentinel.block_migration,
             mock.sentinel.migrate_data)
-
-    def test_post_live_migration(self):
-        """Verify that the correct post_live_migration calls
-           are made.
-        """
-        mock_instance = fake_instance.fake_instance_obj(self.context)
-        self.driver.post_live_migration(
-            mock.sentinel.context, mock_instance,
-            mock.sentinel.block_device_info, mock.sentinel.migrate_data)
-        self.driver.session.container_destroy.assert_called_once_with(
-            mock_instance.name, mock_instance)
 
     def test_live_migration_not_allowed(self):
         """Verify an exception is raised when live migration is not allowed."""
