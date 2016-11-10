@@ -1459,6 +1459,23 @@ class LXDDriverTest(test.NoDBTestCase):
 
         container.delete.assert_called_once_with(wait=True)
 
+    def test_post_live_migration_at_source(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        network_info = []
+        profile = mock.Mock()
+        self.client.profiles.get.return_value = profile
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.cleanup = mock.Mock()
+        lxd_driver.init_host(None)
+
+        lxd_driver.post_live_migration_at_source(
+            ctx, instance, network_info)
+
+        profile.delete.assert_called_once_with()
+        lxd_driver.cleanup.assert_called_once_with(ctx, instance, network_info)
+
 
 class InstanceAttributesTest(test.NoDBTestCase):
     """Tests for InstanceAttributes."""

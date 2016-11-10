@@ -986,7 +986,10 @@ class LXDDriver(driver.ComputeDriver):
             fileutils.ensure_tree(instance_dir)
 
         # Step 1 - Setup the profile on the dest host
-        self._copy_container_profile(instance, network_info)
+        profile_data = self.create_profile(instance, network_info)
+        self.client.profiles.create(
+            profile_data['name'], profile_data['config'],
+            profile_data['devices'])
 
         # Step 2 - Open a websocket on the srct and and
         #          generate the container config
@@ -1017,7 +1020,10 @@ class LXDDriver(driver.ComputeDriver):
         self.firewall_driver.apply_instance_filter(
             instance, network_info)
 
-        self._copy_container_profile(instance, network_info)
+        profile_data = self.create_profile(instance, network_info)
+        self.client.profiles.create(
+            profile_data['name'], profile_data['config'],
+            profile_data['devices'])
 
     def live_migration(self, context, instance, dest,
                        post_method, recover_method, block_migration=False,
@@ -1037,7 +1043,7 @@ class LXDDriver(driver.ComputeDriver):
         self.client.containers.get(instance.name).delete(wait=True)
 
     def post_live_migration_at_source(self, context, instance, network_info):
-        self.session.profile_delete(instance)
+        self.client.profiles.get(instance.name).delete()
         self.cleanup(context, instance, network_info)
 
     # XXX: rockstar (20 Jul 2016) - nova-lxd does not support
@@ -1510,7 +1516,7 @@ class LXDDriver(driver.ComputeDriver):
                   instance=instance)
         try:
             config = {}
-            lxd_config = self.session.get_host_config(instance)
+            lxd_config = self.client.host_info['environment']
             config.setdefault('root', {'type': 'disk', 'path': '/'})
             if str(lxd_config['storage']) in ['btrfs', 'zfs']:
                 config['root'].update({'size': '%sGB' % str(instance.root_gb)})
@@ -1684,7 +1690,7 @@ class LXDDriver(driver.ComputeDriver):
             container_url = 'https://%s:8443%s' \
                 % (CONF.my_ip, container_migrate.get('operation'))
 
-            lxd_config = self.session.get_host_config(instance)
+            lxd_config = self.client.host_info['environment']
 
             return {
                 'base_image': '',
@@ -1740,7 +1746,3 @@ class LXDDriver(driver.ComputeDriver):
                 data, host, instance)
         }
         self.session.container_init(container_config, instance, host)
-
-    def _copy_container_profile(self, instance, network_info):
-        container_profile = self.create_profile(instance, network_info)
-        self.session.profile_create(container_profile, instance)

@@ -18,8 +18,6 @@ import mock
 import nova.conf
 from nova import exception
 from nova import test
-from nova.tests.unit import fake_instance
-import pylxd
 from pylxd.deprecated import exceptions as lxd_exceptions
 
 from nova.virt.lxd import driver
@@ -37,30 +35,6 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
         self.driver.session = mock.MagicMock()
         self.driver.config = mock.MagicMock()
         self.driver.operations = mock.MagicMock()
-
-    def test_copy_container_profile(self):
-        """Verify the correct calls are made
-           when a host needs to copy a container profile.
-        """
-        self.driver.create_profile = mock.Mock()
-        self.driver.session = mock.Mock()
-        mock_instance = fake_instance.fake_instance_obj(self.context)
-        fake_network_info = []
-
-        self.driver._copy_container_profile(mock_instance, fake_network_info)
-
-        self.driver.create_profile.assert_called_once_with(
-            mock_instance, fake_network_info)
-
-    @mock.patch.object(driver.LXDDriver, '_copy_container_profile')
-    def test_pre_live_migration(self, mock_container_profile):
-        """Verify that the copy profile methos is called."""
-        self.driver.pre_live_migration(
-            mock.sentinel.context, mock.sentinel.instance,
-            mock.sentinel.block_device_info,
-            [],
-            mock.sentinel.disk_info,
-            mock.sentinel.migrate_data)
 
     @mock.patch.object(driver.LXDDriver, '_container_init')
     def test_live_migration(self, mock_container_init):
@@ -89,7 +63,7 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
         mock_container_init.side_effect = \
             lxd_exceptions.APIError(500, 'Fake')
         self.assertRaises(
-            pylxd.deprecated.exceptions.APIError,
+            lxd_exceptions.APIError,
             self.driver.live_migration, mock.sentinel.context,
             mock.sentinel.instance, mock.sentinel.dest,
             mock.sentinel.recover_method, mock.sentinel.block_migration,
