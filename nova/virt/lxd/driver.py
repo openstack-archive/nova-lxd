@@ -1260,7 +1260,7 @@ class LXDDriver(driver.ComputeDriver):
                             external=True):
 
             try:
-                self.client.images.get(instance.name)
+                self.client.images.get_by_alias(instance.image_ref)
                 return
             except lxd_exceptions.LXDAPIException as e:
                 if e.response.status_code != 404:
@@ -1381,7 +1381,7 @@ class LXDDriver(driver.ComputeDriver):
                             fingerprint = hashlib.sha256(
                                 meta_fd.read() + rootfs_fd.read()).hexdigest()
                     image = self.client.images.get(fingerprint)
-                    image.add_alias(instance.image_ref)
+                    image.add_alias(instance.image_ref, image_meta.name)
                 except Exception as ex:
                     with excutils.save_and_reraise_exception:
                         LOG.error(
