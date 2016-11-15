@@ -222,7 +222,7 @@ class LXDDriver(driver.ComputeDriver):
         self.client = None  # Initialized by init_host
         self.host = NOVA_CONF.host
         self.network_api = network.API()
-        self.vif_driver = lxd_vif.LXDGenericDriver()
+        self.vif_driver = lxd_vif.LXDGenericVifDriver()
         self.firewall_driver = firewall.load_driver(
             default='nova.virt.firewall.NoopFirewallDriver')
 
@@ -596,7 +596,7 @@ class LXDDriver(driver.ComputeDriver):
                 interfaces.append(key)
         net_device = 'eth{}'.format(len(interfaces))
 
-        network_config = self.vif_driver.get_config(instance, vif)
+        network_config = lxd_vif.get_config(vif)
         if 'bridge' in network_config:
             config_update = {
                 net_device: {
@@ -1603,7 +1603,7 @@ class LXDDriver(driver.ComputeDriver):
                 return
 
             for vifaddr in network_info:
-                cfg = self.vif_driver.get_config(instance, vifaddr)
+                cfg = lxd_vif.get_config(vifaddr)
                 if 'bridge' in cfg:
                     key = str(cfg['bridge'])
                     network_devices[key] = {
@@ -1619,7 +1619,7 @@ class LXDDriver(driver.ComputeDriver):
                         'hwaddr': str(cfg['mac_address']),
                         'type': 'nic'
                     }
-                host_device = self.vif_driver.get_vif_devname(vifaddr)
+                host_device = lxd_vif.get_vif_devname(vifaddr)
                 if host_device:
                     network_devices[key]['host_name'] = host_device
                 # Set network device quotas
