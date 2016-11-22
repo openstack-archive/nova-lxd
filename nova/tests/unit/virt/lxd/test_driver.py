@@ -37,6 +37,10 @@ MockContainer = collections.namedtuple('Container', ['name'])
 MockContainerState = collections.namedtuple(
     'ContainerState', ['status', 'memory', 'status_code'])
 
+_VIF = {
+    'devname': 'lol0', 'type': 'bridge', 'id': '0123456789abcdef',
+    'address': 'ca:fe:de:ad:be:ef'}
+
 
 def fake_connection_info(volume, location, iqn, auth=False, transport=None):
     dev_name = 'ip-%s-iscsi-%s-lun-1' % (location, iqn)
@@ -101,26 +105,56 @@ class LXDDriverTest(test.NoDBTestCase):
         self.Client = self.Client_patcher.start()
 
         self.client = mock.Mock()
+        self.client.host_info = {
+            'environment': {
+                'storage': 'zfs',
+            }
+        }
         self.Client.return_value = self.client
 
-        self.CONF_patcher = mock.patch('nova.virt.lxd.driver.CONF')
-        self.CONF = self.CONF_patcher.start()
+        self.patchers = []
+
+        CONF_patcher = mock.patch('nova.virt.lxd.driver.CONF')
+        self.patchers.append(CONF_patcher)
+        self.CONF = CONF_patcher.start()
         self.CONF.instances_path = '/path/to/instances'
         self.CONF.my_ip = '0.0.0.0'
         self.CONF.config_drive_format = 'iso9660'
 
         # XXX: rockstar (03 Nov 2016) - This should be removed once
         # everything is where it should live.
-        self.CONF2_patcher = mock.patch('nova.virt.lxd.driver.nova.conf.CONF')
-        self.CONF2 = self.CONF2_patcher.start()
+        CONF2_patcher = mock.patch('nova.virt.lxd.driver.nova.conf.CONF')
+        self.patchers.append(CONF2_patcher)
+        self.CONF2 = CONF2_patcher.start()
         self.CONF2.lxd.root_dir = '/lxd'
         self.CONF2.instances_path = '/i'
 
         # LXDDriver._after_reboot reads from the database and syncs container
         # state. These tests can't read from the database.
-        self.after_reboot_patcher = mock.patch(
+        after_reboot_patcher = mock.patch(
             'nova.virt.lxd.driver.LXDDriver._after_reboot')
-        self.after_reboot = self.after_reboot_patcher.start()
+        self.patchers.append(after_reboot_patcher)
+        self.after_reboot = after_reboot_patcher.start()
+
+        bdige_patcher = mock.patch(
+            'nova.virt.lxd.driver.driver.block_device_info_get_ephemerals')
+        self.patchers.append(bdige_patcher)
+        self.block_device_info_get_ephemerals = bdige_patcher.start()
+        self.block_device_info_get_ephemerals.return_value = []
+
+        vif_driver_patcher = mock.patch(
+            'nova.virt.lxd.driver.lxd_vif.LXDGenericVifDriver')
+        self.patchers.append(vif_driver_patcher)
+        self.LXDGenericVifDriver = vif_driver_patcher.start()
+        self.vif_driver = mock.Mock()
+        self.LXDGenericVifDriver.return_value = self.vif_driver
+
+        vif_gc_patcher = mock.patch('nova.virt.lxd.driver.lxd_vif.get_config')
+        self.patchers.append(vif_gc_patcher)
+        self.get_config = vif_gc_patcher.start()
+        self.get_config.return_value = {
+            'mac_address': '00:11:22:33:44:55', 'bridge': 'qbr0123456789a',
+        }
 
         # NOTE: mock out fileutils to ensure that unit tests don't try
         #       to manipulate the filesystem (breaks in package builds).
@@ -129,9 +163,8 @@ class LXDDriverTest(test.NoDBTestCase):
     def tearDown(self):
         super(LXDDriverTest, self).tearDown()
         self.Client_patcher.stop()
-        self.CONF_patcher.stop()
-        self.CONF2_patcher.stop()
-        self.after_reboot_patcher.stop()
+        for patcher in self.patchers:
+            patcher.stop()
 
     def test_init_host(self):
         """init_host initializes the pylxd Client."""
@@ -158,7 +191,8 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.containers.get.return_value = container
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
 
@@ -192,11 +226,12 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.containers.create.return_value = container
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()
-        network_info = [mock.Mock()]
+        network_info = [_VIF]
         block_device_info = mock.Mock()
         virtapi = manager.ComputeVirtAPI(mock.MagicMock())
 
@@ -206,11 +241,8 @@ class LXDDriverTest(test.NoDBTestCase):
         # related to these calls in spawn. They require some work before we
         # can take out these mocks and follow the real codepaths.
         lxd_driver.setup_image = mock.Mock()
-        lxd_driver.vif_driver = mock.Mock()
         lxd_driver.firewall_driver = mock.Mock()
         lxd_driver._add_ephemeral = mock.Mock()
-        lxd_driver.create_profile = mock.Mock(return_value={
-            'name': instance.name, 'config': {}, 'devices': {}})
 
         lxd_driver.spawn(
             ctx, instance, image_meta, injected_files, admin_password,
@@ -218,10 +250,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver.setup_image.assert_called_once_with(
             ctx, instance, image_meta)
-        lxd_driver.vif_driver.plug.assert_called_once_with(
+        self.vif_driver.plug.assert_called_once_with(
             instance, network_info[0])
-        lxd_driver.create_profile.assert_called_once_with(
-            instance, network_info, block_device_info)
         fd = lxd_driver.firewall_driver
         fd.setup_basic_filtering.assert_called_once_with(
             instance, network_info)
@@ -234,7 +264,8 @@ class LXDDriverTest(test.NoDBTestCase):
     def test_spawn_already_exists(self):
         """InstanceExists is raised if the container already exists."""
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()
@@ -258,11 +289,12 @@ class LXDDriverTest(test.NoDBTestCase):
         configdrive.return_value = True
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()
-        network_info = [mock.Mock()]
+        network_info = [_VIF]
         block_device_info = mock.Mock()
         virtapi = manager.ComputeVirtAPI(mock.MagicMock())
 
@@ -272,11 +304,8 @@ class LXDDriverTest(test.NoDBTestCase):
         # related to these calls in spawn. They require some work before we
         # can take out these mocks and follow the real codepaths.
         lxd_driver.setup_image = mock.Mock()
-        lxd_driver.vif_driver = mock.Mock()
         lxd_driver.firewall_driver = mock.Mock()
         lxd_driver._add_ephemeral = mock.Mock()
-        lxd_driver.create_profile = mock.Mock(return_value={
-            'name': instance.name, 'config': {}, 'devices': {}})
         lxd_driver._add_configdrive = mock.Mock()
 
         lxd_driver.spawn(
@@ -285,10 +314,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver.setup_image.assert_called_once_with(
             ctx, instance, image_meta)
-        lxd_driver.vif_driver.plug.assert_called_once_with(
+        self.vif_driver.plug.assert_called_once_with(
             instance, network_info[0])
-        lxd_driver.create_profile.assert_called_once_with(
-            instance, network_info, block_device_info)
         fd = lxd_driver.firewall_driver
         fd.setup_basic_filtering.assert_called_once_with(
             instance, network_info)
@@ -306,25 +333,25 @@ class LXDDriverTest(test.NoDBTestCase):
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
 
-        def side_effect(*args, **kwargs):
-            raise lxdcore_exceptions.LXDAPIException(MockResponse(200))
+        def profile_create(*args, **kwargs):
+            raise lxdcore_exceptions.LXDAPIException(MockResponse(500))
         self.client.containers.get.side_effect = container_get
+        self.client.profiles.create.side_effect = profile_create
         configdrive.return_value = False
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()
-        network_info = [mock.Mock()]
+        network_info = [_VIF]
         block_device_info = mock.Mock()
         virtapi = manager.ComputeVirtAPI(mock.MagicMock())
 
         lxd_driver = driver.LXDDriver(virtapi)
         lxd_driver.init_host(None)
         lxd_driver.setup_image = mock.Mock()
-        lxd_driver.vif_driver = mock.Mock()
         lxd_driver.cleanup = mock.Mock()
-        lxd_driver.create_profile = mock.Mock(side_effect=side_effect)
 
         self.assertRaises(
             lxdcore_exceptions.LXDAPIException,
@@ -340,28 +367,25 @@ class LXDDriverTest(test.NoDBTestCase):
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
 
-        def side_effect(*args, **kwargs):
-            raise lxdcore_exceptions.LXDAPIException(MockResponse(200))
+        def container_create(*args, **kwargs):
+            raise lxdcore_exceptions.LXDAPIException(MockResponse(500))
         self.client.containers.get.side_effect = container_get
+        self.client.containers.create.side_effect = container_create
         configdrive.return_value = False
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()
-        network_info = [mock.Mock()]
+        network_info = [_VIF]
         block_device_info = mock.Mock()
         virtapi = manager.ComputeVirtAPI(mock.MagicMock())
 
         lxd_driver = driver.LXDDriver(virtapi)
         lxd_driver.init_host(None)
         lxd_driver.setup_image = mock.Mock()
-        lxd_driver.vif_driver = mock.Mock()
         lxd_driver.cleanup = mock.Mock()
-        lxd_driver.create_profile = mock.Mock(return_value={
-            'name': instance.name, 'config': {}, 'devices': {}})
-        lxd_driver.client.containers.create = mock.Mock(
-            side_effect=side_effect)
 
         self.assertRaises(
             lxdcore_exceptions.LXDAPIException,
@@ -381,21 +405,19 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.containers.get.side_effect = container_get
         container = mock.Mock()
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()
-        network_info = [mock.Mock()]
+        network_info = [_VIF]
         block_device_info = mock.Mock()
         virtapi = manager.ComputeVirtAPI(mock.MagicMock())
 
         lxd_driver = driver.LXDDriver(virtapi)
         lxd_driver.init_host(None)
         lxd_driver.setup_image = mock.Mock()
-        lxd_driver.vif_driver = mock.Mock()
         lxd_driver.cleanup = mock.Mock()
-        lxd_driver.create_profile = mock.Mock(return_value={
-            'name': instance.name, 'config': {}, 'devices': {}})
         lxd_driver.client.containers.create = mock.Mock(
             side_effect=side_effect)
         container.start.side_effect = side_effect
@@ -435,27 +457,26 @@ class LXDDriverTest(test.NoDBTestCase):
         drv = driver.LXDDriver(virtapi)
 
         instance_href = fake_instance.fake_instance_obj(
-            context.get_admin_context(), name='test')
+            context.get_admin_context(), name='test', memory_mb=0)
 
         @mock.patch.object(drv, '_add_ephemeral')
-        @mock.patch.object(drv, 'create_profile')
         @mock.patch.object(drv, 'plug_vifs')
         @mock.patch.object(drv, 'setup_image')
         @mock.patch('nova.virt.configdrive.required_by')
         def test_spawn(
-                configdrive, setup_image, plug_vifs, create_profile,
-                add_ephemeral):
+                configdrive, setup_image, plug_vifs, add_ephemeral):
             def container_get(*args, **kwargs):
                 raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
             self.client.containers.get.side_effect = container_get
             configdrive.return_value = False
 
             ctx = context.get_admin_context()
-            instance = fake_instance.fake_instance_obj(ctx, name='test')
+            instance = fake_instance.fake_instance_obj(
+                ctx, name='test', memory_mb=0)
             image_meta = mock.Mock()
             injected_files = mock.Mock()
             admin_password = mock.Mock()
-            network_info = [mock.Mock()]
+            network_info = [_VIF]
             block_device_info = mock.Mock()
 
             drv.init_host(None)
@@ -495,7 +516,8 @@ class LXDDriverTest(test.NoDBTestCase):
         ctx = context.get_admin_context()
         block_device_info_get_ephemerals.return_value = [
             {'virtual_name': 'ephemerals0'}]
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         block_device_info = mock.Mock()
         lxd_config = {'environment': {'storage': 'zfs'},
                       'config': {'storage.zfs_pool_name': 'zfs'}}
@@ -535,7 +557,8 @@ class LXDDriverTest(test.NoDBTestCase):
         ctx = context.get_admin_context()
         block_device_info_get_ephemerals.return_value = [
             {'virtual_name': 'ephemerals0'}]
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         instance.ephemeral_gb = 1
         block_device_info = mock.Mock()
         lxd_config = {'environment': {'storage': 'btrfs'}}
@@ -598,7 +621,8 @@ class LXDDriverTest(test.NoDBTestCase):
         ctx = context.get_admin_context()
         block_device_info_get_ephemerals.return_value = [
             {'virtual_name': 'ephemerals0'}]
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         block_device_info = mock.Mock()
         lxd_config = {'environment': {'storage': 'lvm'},
                       'config': {'storage.lvm_vg_name': 'lxd'}}
@@ -642,8 +666,9 @@ class LXDDriverTest(test.NoDBTestCase):
         mock_container.status = 'Running'
         self.client.containers.get.return_value = mock_container
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
-        network_info = [mock.Mock()]
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
+        network_info = [_VIF]
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
@@ -663,8 +688,9 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.containers.get.side_effect = side_effect
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
-        network_info = [mock.Mock()]
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
+        network_info = [_VIF]
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
@@ -686,20 +712,20 @@ class LXDDriverTest(test.NoDBTestCase):
         getpwuid.return_value = pwuid
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
-        network_info = [mock.Mock()]
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
+        network_info = [_VIF]
         instance_dir = driver.InstanceAttributes(instance).instance_dir
         block_device_info = mock.Mock()
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
-        lxd_driver.vif_driver = mock.Mock()
         lxd_driver.firewall_driver = mock.Mock()
         lxd_driver._remove_ephemeral = mock.Mock()
 
         lxd_driver.cleanup(ctx, instance, network_info, block_device_info)
 
-        lxd_driver.vif_driver.unplug.assert_called_once_with(
+        self.vif_driver.unplug.assert_called_once_with(
             instance, network_info[0])
         lxd_driver.firewall_driver.unfilter_instance.assert_called_once_with(
             instance, network_info)
@@ -718,7 +744,8 @@ class LXDDriverTest(test.NoDBTestCase):
             {'virtual_name': 'ephemerals0'}]
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         block_device_info = mock.Mock()
         lxd_config = {'environment': {'storage': 'zfs'},
                       'config': {'storage.zfs_pool_name': 'zfs'}}
@@ -744,7 +771,8 @@ class LXDDriverTest(test.NoDBTestCase):
             {'virtual_name': 'ephemerals0'}]
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         block_device_info = mock.Mock()
         lxd_config = {'environment': {'storage': 'lvm'},
                       'config': {'storage.lvm_vg_name': 'lxd'}}
@@ -768,7 +796,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
     def test_reboot(self):
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
@@ -784,7 +813,8 @@ class LXDDriverTest(test.NoDBTestCase):
     @mock.patch.object(driver.utils, 'execute')
     def test_get_console_output(self, execute, _open):
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         expected_calls = [
             mock.call(
                 'chown', '1234:1234', '/var/log/lxd/{}/console.log'.format(
@@ -835,7 +865,8 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.profiles.get.return_value = profile
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         image_meta = None
         vif = {
             'id': '0123456789abcdef',
@@ -846,10 +877,6 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
-        lxd_driver.vif_driver = mock.Mock()
-        lxd_driver.vif_driver.get_config.return_value = {
-            'mac_address': '00:11:22:33:44:55', 'bridge': 'qbr0123456789a',
-        }
         lxd_driver.firewall_driver = mock.Mock()
 
         lxd_driver.attach_interface(instance, image_meta, vif)
@@ -876,7 +903,8 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.profiles.get.return_value = profile
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         vif = {
             'id': '0123456789abcdef',
             'type': network_model.VIF_TYPE_OVS,
@@ -886,11 +914,10 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
-        lxd_driver.vif_driver = mock.Mock()
 
         lxd_driver.detach_interface(instance, vif)
 
-        lxd_driver.vif_driver.unplug.assert_called_once_with(
+        self.vif_driver.unplug.assert_called_once_with(
             instance, vif)
         self.assertEqual(['root'], sorted(profile.devices.keys()))
         profile.save.assert_called_once_with(wait=True)
@@ -902,18 +929,14 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.profiles.get.return_value = profile
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         dest = '0.0.0.0'
         flavor = mock.Mock()
         network_info = []
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
-        # XXX: rockstar (12 Jul 2016) - This is a weird fault line for the
-        # legacy code and the new updated logic. I *suspect* this is probably
-        # okay until we remove create_profile entirely (see its XXX comment).
-        lxd_driver.create_profile = mock.Mock(return_value={
-            'name': instance.name, 'config': {}, 'devices': {}})
 
         lxd_driver.migrate_disk_and_power_off(
             ctx, instance, dest, flavor, network_info)
@@ -927,7 +950,8 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.containers.get.return_value = container
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         dest = '0.0.0.1'
         flavor = mock.Mock()
         network_info = []
@@ -953,7 +977,8 @@ class LXDDriverTest(test.NoDBTestCase):
         minor.return_value = 32
         major.return_value = 8
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         connection_info = fake_connection_info(
             {'id': 1, 'name': 'volume-00000001'},
             '10.0.2.15:3260', 'iqn.2010-10.org.openstack:volume-00000001',
@@ -1006,7 +1031,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
         self.client.profiles.get.return_value = profile
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         connection_info = fake_connection_info(
             {'id': 1, 'name': 'volume-00000001'},
             '10.0.2.15:3260', 'iqn.2010-10.org.openstack:volume-00000001',
@@ -1028,7 +1054,8 @@ class LXDDriverTest(test.NoDBTestCase):
         container = mock.Mock()
         self.client.containers.get.return_value = container
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
@@ -1042,7 +1069,8 @@ class LXDDriverTest(test.NoDBTestCase):
         container = mock.Mock()
         self.client.containers.get.return_value = container
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
@@ -1056,7 +1084,8 @@ class LXDDriverTest(test.NoDBTestCase):
         container = mock.Mock()
         self.client.containers.get.return_value = container
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
@@ -1070,7 +1099,8 @@ class LXDDriverTest(test.NoDBTestCase):
         container = mock.Mock()
         self.client.containers.get.return_value = container
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
@@ -1093,9 +1123,10 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.profiles.get.return_value = profile
         self.client.containers.get.return_value = container
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         profile.name = instance.name
-        network_info = [mock.Mock()]
+        network_info = [_VIF]
         image_meta = mock.Mock()
         rescue_password = mock.Mock()
         rescue = '%s-rescue' % instance.name
@@ -1136,8 +1167,9 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.profiles.get.return_value = profile
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
-        network_info = [mock.Mock()]
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
+        network_info = [_VIF]
         rescue = '%s-rescue' % instance.name
 
         lxd_driver = driver.LXDDriver(None)
@@ -1159,7 +1191,8 @@ class LXDDriverTest(test.NoDBTestCase):
         container.status = 'Running'
         self.client.containers.get.return_value = container
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
@@ -1173,7 +1206,8 @@ class LXDDriverTest(test.NoDBTestCase):
         container.status = 'Stopped'
         self.client.containers.get.return_value = container
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
@@ -1241,7 +1275,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
     def test_refresh_instance_security_rules(self):
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         firewall = mock.Mock()
 
         lxd_driver = driver.LXDDriver(None)
@@ -1253,7 +1288,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
     def test_ensure_filtering_rules_for_instance(self):
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         firewall = mock.Mock()
         network_info = object()
 
@@ -1284,7 +1320,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
     def test_unfilter_instance(self):
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         firewall = mock.Mock()
         network_info = object()
 
@@ -1339,7 +1376,8 @@ class LXDDriverTest(test.NoDBTestCase):
         }
 
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
 
         lxd_driver = driver.LXDDriver(None)
         result = lxd_driver.get_volume_connector(instance)
@@ -1374,7 +1412,8 @@ class LXDDriverTest(test.NoDBTestCase):
         data = mock.Mock()
         image.export.return_value = data
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         image_id = mock.Mock()
         update_task_state = mock.Mock()
         snapshot = {'name': mock.Mock()}
@@ -1397,7 +1436,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
     def test_finish_revert_migration(self):
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         network_info = []
 
         container = mock.Mock()
@@ -1412,7 +1452,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
     def test_check_can_live_migrate_destination(self):
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         src_compute_info = mock.Mock()
         dst_compute_info = mock.Mock()
 
@@ -1431,7 +1472,7 @@ class LXDDriverTest(test.NoDBTestCase):
     def test_confirm_migration(self):
         migration = mock.Mock()
         instance = fake_instance.fake_instance_obj(
-            context.get_admin_context, name='test')
+            context.get_admin_context, name='test', memory_mb=0)
         network_info = []
         profile = mock.Mock()
         container = mock.Mock()
@@ -1448,7 +1489,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
     def test_post_live_migration(self):
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         container = mock.Mock()
         self.client.containers.get.return_value = container
 
@@ -1461,7 +1503,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
     def test_post_live_migration_at_source(self):
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
         network_info = []
         profile = mock.Mock()
         self.client.profiles.get.return_value = profile
@@ -1475,6 +1518,43 @@ class LXDDriverTest(test.NoDBTestCase):
 
         profile.delete.assert_called_once_with()
         lxd_driver.cleanup.assert_called_once_with(ctx, instance, network_info)
+
+
+class LXDDriverPrivateMethodsTest(LXDDriverTest):
+    """Tests for private methods of nova.virt.lxd.driver.LXDDriver."""
+
+    def test_generate_profile_data(self):
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
+        network_info = []
+        block_device_info = None
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        name, config, devices = lxd_driver._generate_profile_data(
+            instance, network_info, block_device_info)
+
+        expected_config = {
+            'boot.autostart': 'True',
+            'limits.cpu': '1',
+            'limits.memory': '0MB',
+            'raw.lxc': (
+                'lxc.console.logfile=/var/log/lxd/{}/console.log\n'.format(
+                    instance.name)),
+        }
+        expected_devices = {
+            'root': {
+                'path': '/',
+                'size': '0GB',
+                'type': 'disk'
+            },
+        }
+
+        self.assertEqual(instance.name, name)
+        self.assertEqual(expected_config, config)
+        self.assertEqual(expected_devices, devices)
 
 
 class InstanceAttributesTest(test.NoDBTestCase):
@@ -1494,7 +1574,8 @@ class InstanceAttributesTest(test.NoDBTestCase):
 
     def test_instance_dir(self):
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
 
         attributes = driver.InstanceAttributes(instance)
 
@@ -1503,7 +1584,8 @@ class InstanceAttributesTest(test.NoDBTestCase):
 
     def test_console_path(self):
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
 
         attributes = driver.InstanceAttributes(instance)
 
@@ -1513,7 +1595,8 @@ class InstanceAttributesTest(test.NoDBTestCase):
 
     def test_storage_path(self):
         ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
 
         attributes = driver.InstanceAttributes(instance)
 
