@@ -240,7 +240,6 @@ class LXDDriverTest(test.NoDBTestCase):
         # XXX: rockstar (6 Jul 2016) - There are a number of XXX comments
         # related to these calls in spawn. They require some work before we
         # can take out these mocks and follow the real codepaths.
-        lxd_driver.setup_image = mock.Mock()
         lxd_driver.firewall_driver = mock.Mock()
         lxd_driver._add_ephemeral = mock.Mock()
 
@@ -248,8 +247,6 @@ class LXDDriverTest(test.NoDBTestCase):
             ctx, instance, image_meta, injected_files, admin_password,
             network_info, block_device_info)
 
-        lxd_driver.setup_image.assert_called_once_with(
-            ctx, instance, image_meta)
         self.vif_driver.plug.assert_called_once_with(
             instance, network_info[0])
         fd = lxd_driver.firewall_driver
@@ -303,7 +300,6 @@ class LXDDriverTest(test.NoDBTestCase):
         # XXX: rockstar (6 Jul 2016) - There are a number of XXX comments
         # related to these calls in spawn. They require some work before we
         # can take out these mocks and follow the real codepaths.
-        lxd_driver.setup_image = mock.Mock()
         lxd_driver.firewall_driver = mock.Mock()
         lxd_driver._add_ephemeral = mock.Mock()
         lxd_driver._add_configdrive = mock.Mock()
@@ -312,8 +308,6 @@ class LXDDriverTest(test.NoDBTestCase):
             ctx, instance, image_meta, injected_files, admin_password,
             network_info, block_device_info)
 
-        lxd_driver.setup_image.assert_called_once_with(
-            ctx, instance, image_meta)
         self.vif_driver.plug.assert_called_once_with(
             instance, network_info[0])
         fd = lxd_driver.firewall_driver
@@ -350,7 +344,6 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver = driver.LXDDriver(virtapi)
         lxd_driver.init_host(None)
-        lxd_driver.setup_image = mock.Mock()
         lxd_driver.cleanup = mock.Mock()
 
         self.assertRaises(
@@ -384,7 +377,6 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver = driver.LXDDriver(virtapi)
         lxd_driver.init_host(None)
-        lxd_driver.setup_image = mock.Mock()
         lxd_driver.cleanup = mock.Mock()
 
         self.assertRaises(
@@ -416,7 +408,6 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver = driver.LXDDriver(virtapi)
         lxd_driver.init_host(None)
-        lxd_driver.setup_image = mock.Mock()
         lxd_driver.cleanup = mock.Mock()
         lxd_driver.client.containers.create = mock.Mock(
             side_effect=side_effect)
@@ -461,10 +452,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
         @mock.patch.object(drv, '_add_ephemeral')
         @mock.patch.object(drv, 'plug_vifs')
-        @mock.patch.object(drv, 'setup_image')
         @mock.patch('nova.virt.configdrive.required_by')
-        def test_spawn(
-                configdrive, setup_image, plug_vifs, add_ephemeral):
+        def test_spawn(configdrive, plug_vifs, add_ephemeral):
             def container_get(*args, **kwargs):
                 raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
             self.client.containers.get.side_effect = container_get
