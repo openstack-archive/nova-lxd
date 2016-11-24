@@ -110,9 +110,9 @@ function init_nova-lxd() {
 function configure_lxd_block() {
    echo_summary "Configure LXD storage backend"
    if is_ubuntu; then
-      if [ $LXD_BACKEND_DRIVER == "default" ]; then
+      if [ "$LXD_BACKEND_DRIVER" == "default" ]; then
          echo "Nothing to be done"
-      elif [ $LXD_BACKEND_DRIVER == "zfs" ]; then
+      elif [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
          echo "Configuring ZFS backend"
          truncate -s $LXD_LOOPBACK_DISK_SIZE $LXD_DISK_IMAGE
          sudo apt-get install -y zfs
@@ -130,7 +130,7 @@ function shutdown_nova-lxd() {
 
 function cleanup_nova-lxd() {
     # Cleanup the service.
-    if [ $LXD_BACKEND_DRIVER == "zfs" ]; then
+    if [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
        sudo zpool destroy ${LXD_ZFS_ZPOOL}
     fi
 }
