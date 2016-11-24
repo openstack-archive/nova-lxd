@@ -1493,33 +1493,26 @@ class LXDDriver(driver.ComputeDriver):
                           {'instance': instance.name, 'ex': ex},
                           instance=instance)
 
-    def _reconnect_instance(self, context, instance):
-        '''Reconnect instance ports.'''
-
-        # Check instance state
-        if (instance.vm_state != vm_states.STOPPED):
-            return
-        try:
-            network_info = self.network_api.get_instance_nw_info(
-                context, instance)
-        except exception.InstanceNotFound:
-            network_info = network_model.NetworkInfo()
-
-        # Plug in the network
-        self.plug_vifs(instance, network_info)
-        self.firewall_driver.setup_basic_filtering(instance, network_info)
-        self.firewall_driver.prepare_instance_filter(instance, network_info)
-        self.firewall_driver.apply_instance_filter(instance, network_info)
-
     def _after_reboot(self):
-        '''Actions to take after the host has been rebooted.'''
-
+        """Perform sync operation after host reboot."""
         context = nova.context.get_admin_context()
         instances = objects.InstanceList.get_by_host(
             context, self.host, expected_attrs=['info_cache', 'metadata'])
 
         for instance in instances:
-            self._reconnect_instance(context, instance)
+            if (instance.vm_state != vm_states.STOPPED):
+                continue
+            try:
+                network_info = self.network_api.get_instance_nw_info(
+                    context, instance)
+            except exception.InstanceNotFound:
+                network_info = network_model.NetworkInfo()
+
+            self.plug_vifs(instance, network_info)
+            self.firewall_driver.setup_basic_filtering(instance, network_info)
+            self.firewall_driver.prepare_instance_filter(
+                instance, network_info)
+            self.firewall_driver.apply_instance_filter(instance, network_info)
 
     def _container_init(self, host, instance):
         (state, data) = (self.session.container_migrate(instance.name,
