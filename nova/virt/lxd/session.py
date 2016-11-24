@@ -106,39 +106,6 @@ class LXDAPISession(object):
                      'reason': ex}, instance=instance)
 
     #
-    # Image related API methods.
-    #
-    def image_upload(self, data, headers, instance):
-        """Upload an image to the local LXD image store
-
-        :param data: image data
-        :param headers: image headers
-        :param instance: The nova instance
-
-        """
-        LOG.debug('upload_image called for instance', instance=instance)
-        try:
-            client = self.get_session()
-            (state, data) = client.image_upload(data=data,
-                                                headers=headers)
-            # XXX - zulcss (Dec 8, 2015) - Work around for older
-            # versions of LXD.
-            if 'operation' in data:
-                self.operation_wait(data.get('operation'), instance)
-        except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD API %(instance)s:'
-                    '%(reason)s') % {'instance': instance.image_ref,
-                                     'reason': ex}
-            LOG.error(msg)
-            raise exception.NovaException(msg)
-        except Exception as e:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Error from LXD during image upload'
-                              '%(instance)s: %(reason)s'),
-                          {'instance': instance.image_ref, 'reason': e},
-                          instance=instance)
-
-    #
     # Operation methods
     #
 
