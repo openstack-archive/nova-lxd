@@ -1,4 +1,3 @@
-# Copyright 2011 Justin Santa Barbara
 # Copyright 2015 Canonical Ltd
 # All Rights Reserved.
 #
@@ -17,7 +16,6 @@
 from __future__ import absolute_import
 
 import collections
-import hashlib
 import io
 import json
 import os
@@ -27,7 +25,6 @@ import shutil
 import socket
 import tarfile
 import tempfile
-import uuid
 
 import eventlet
 import nova.conf
@@ -90,9 +87,9 @@ IMAGE_API = image.API()
 MAX_CONSOLE_BYTES = 100 * units.Ki
 NOVA_CONF = nova.conf.CONF
 
-BASE_DIR = os.path.join(
-    CONF.instances_path, CONF.image_cache_subdirectory_name)
 CONTAINER_DIR = os.path.join(CONF.lxd.root_dir, 'containers')
+
+ACCEPTABLE_IMAGE_FORMATS = {'raw', 'root-tar', 'squashfs'}
 
 
 _InstanceAttributes = collections.namedtuple('InstanceAttributes', [
@@ -301,10 +298,61 @@ def _make_network_config(instance, network_info):
     return network_devices
 
 
+def _sync_glance_image_to_lxd(client, context, image_ref):
+    """Sync an image from glance to LXD image store.
+
+    The image from glance can't go directly into the LXD image store,
+    as LXD needs some extra metadata connected to it.
+
+    The image is stored in the LXD image store with an alias to
+    the image_ref. This way, it will only copy over once.
+    """
+    lock_path = os.path.join(CONF.instances_path, 'locks')
+    with lockutils.lock(
+            lock_path, external=True,
+            lock_file_prefix='lxd-image-{}'.format(image_ref)):
+
+        try:
+            image_file = tempfile.mkstemp()[1]
+            manifest_file = tempfile.mkstemp()[1]
+
+            image = IMAGE_API.get(context, image_ref)
+            if image.get('disk_format') not in ACCEPTABLE_IMAGE_FORMATS:
+                raise exception.ImageUnacceptable(
+                    image_id=image_ref, reason=_('Bad image format'))
+            IMAGE_API.download(context, image_ref, dest_path=image_file)
+
+            metadata = {
+                'architecture': image.get(
+                    'hw_architecture', obj_fields.Architecture.from_host()),
+                'creation_date': int(os.stat(image_file).st_ctime)}
+            metadata_yaml = json.dumps(
+                metadata, sort_keys=True, indent=4,
+                separators=(',', ': '),
+                ensure_ascii=False).encode('utf-8') + b"\n"
+
+            tarball = tarfile.open(manifest_file, "w:gz")
+            tarinfo = tarfile.TarInfo(name='metadata.yaml')
+            tarinfo.size = len(metadata_yaml)
+            tarball.addfile(tarinfo, io.BytesIO(metadata_yaml))
+            tarball.close()
+
+            with open(manifest_file, 'rb') as manifest:
+                with open(image_file, 'rb') as image:
+                    image = client.images.create(
+                        image.read(), metadata=manifest.read(),
+                        wait=True)
+            image.add_alias(image_ref, '')
+
+        finally:
+            os.unlink(image_file)
+            os.unlink(manifest_file)
+
+
 class LXDLiveMigrateData(migrate_data.LiveMigrateData):
     """LiveMigrateData for LXD."""
-    VERSION = '1.0'
 
+    VERSION = '1.0'
     fields = {}
 
 
@@ -378,7 +426,6 @@ class LXDDriver(driver.ComputeDriver):
 
     def get_info(self, instance):
         """Return an InstanceInfo object for the instance."""
-
         container = self.client.containers.get(instance.name)
 
         state = container.state()
@@ -407,7 +454,6 @@ class LXDDriver(driver.ComputeDriver):
         See `nova.virt.driver.ComputeDriver.spawn` for more
         information.
         """
-
         try:
             self.client.containers.get(instance.name)
             raise exception.InstanceExists(name=instance.name)
@@ -419,12 +465,15 @@ class LXDDriver(driver.ComputeDriver):
         if not os.path.exists(instance_dir):
             fileutils.ensure_tree(instance_dir)
 
-        # Fetch image from glance
-        # XXX: rockstar (6 Jul 2016) - The use of setup_image here is
-        # a little strange. setup_image is nat a driver required method,
-        # and is only called in this one place. It may be a candidate for
-        # refactoring.
-        self.setup_image(context, instance, image_meta)
+        # Check to see if LXD already has a copy of the image. If not,
+        # fetch it.
+        try:
+            self.client.images.get_by_alias(instance.image_ref)
+        except lxd_exceptions.LXDAPIException as e:
+            if e.response.status_code != 404:
+                raise
+            _sync_glance_image_to_lxd(
+                self.client, context, instance.image_ref)
 
         # Plug in the network
         if network_info:
@@ -792,7 +841,7 @@ class LXDDriver(driver.ComputeDriver):
 
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
-        """Rescue a LXD container
+        """Rescue a LXD container.
 
         Rescuing a instance requires a number of steps. First,
         the failed container is stopped. Next, '-rescue', is
@@ -805,7 +854,6 @@ class LXDDriver(driver.ComputeDriver):
         See 'nova.virt.driver.ComputeDriver.rescue` for more
         information.
         """
-
         rescue = '%s-rescue' % instance.name
 
         container = self.client.containers.get(instance.name)
@@ -838,7 +886,7 @@ class LXDDriver(driver.ComputeDriver):
         container.start(wait=True)
 
     def unrescue(self, instance, network_info):
-        """Unrescue an instance
+        """Unrescue an instance.
 
         Unrescue a container that has previously been rescued.
         First the rescue containerisremoved. Next the rootfs
@@ -1291,175 +1339,6 @@ class LXDDriver(driver.ComputeDriver):
                     utils.execute('umount', tmpdir, run_as_root=True)
 
         return configdrive_dir
-
-    def setup_image(self, context, instance, image_meta):
-        """Download an image from glance and upload it to LXD
-
-        :param context: context object
-        :param instance: The nova instance
-        :param image_meta: Image dict returned by nova.image.glance
-        """
-        LOG.debug('setup_image called for instance', instance=instance)
-        lock_path = str(os.path.join(CONF.instances_path, 'locks'))
-
-        container_image = os.path.join(
-            BASE_DIR, '%s-rootfs.tar.gz' % image_meta.id)
-        container_manifest = os.path.join(
-            BASE_DIR, '%s-manifest.tar.gz' % image_meta.id)
-
-        with lockutils.lock(lock_path,
-                            lock_file_prefix=('lxd-image-%s' %
-                                              instance.image_ref),
-                            external=True):
-
-            try:
-                self.client.images.get_by_alias(instance.image_ref)
-                return
-            except lxd_exceptions.LXDAPIException as e:
-                if e.response.status_code != 404:
-                    raise
-
-            base_dir = BASE_DIR
-            if not os.path.exists(base_dir):
-                fileutils.ensure_tree(base_dir)
-
-            try:
-                # Inspect image for the correct format
-                try:
-                    # grab the disk format of the image
-                    img_meta = IMAGE_API.get(context, instance.image_ref)
-                    disk_format = img_meta.get('disk_format')
-                    if not disk_format:
-                        reason = _('Bad image format')
-                        raise exception.ImageUnacceptable(
-                            image_id=instance.image_ref, reason=reason)
-
-                    if disk_format not in ['raw', 'root-tar']:
-                        reason = _(
-                            'nova-lxd does not support images in %s format. '
-                            'You should upload an image in raw or root-tar '
-                            'format.') % disk_format
-                        raise exception.ImageUnacceptable(
-                            image_id=instance.image_ref, reason=reason)
-                except Exception as ex:
-                    reason = _('Bad Image format: %(ex)s') \
-                        % {'ex': ex}
-                    raise exception.ImageUnacceptable(
-                        image_id=instance.image_ref, reason=reason)
-
-                # Fetch the image from glance
-                with fileutils.remove_path_on_error(container_image):
-                    IMAGE_API.download(context, instance.image_ref,
-                                       dest_path=container_image)
-
-                # Generate the LXD manifest for the image
-                metadata_yaml = None
-                try:
-                    # Create a basic LXD manifest from the image properties
-                    image_arch = image_meta.properties.get('hw_architecture')
-                    if image_arch is None:
-                        image_arch = obj_fields.Architecture.from_host()
-                    metadata = {
-                        'architecture': image_arch,
-                        'creation_date': int(os.stat(container_image).st_ctime)
-                    }
-
-                    metadata_yaml = json.dumps(
-                        metadata, sort_keys=True, indent=4,
-                        separators=(',', ': '),
-                        ensure_ascii=False).encode('utf-8') + b"\n"
-                except Exception as ex:
-                    with excutils.save_and_reraise_exception():
-                        LOG.error(
-                            _LE('Failed to generate manifest for %(image)s: '
-                                '%(reason)s'),
-                            {'image': instance.name, 'ex': ex},
-                            instance=instance)
-                try:
-                    # Compress the manifest using tar
-                    target_tarball = tarfile.open(container_manifest, "w:gz")
-                    metadata_file = tarfile.TarInfo()
-                    metadata_file.size = len(metadata_yaml)
-                    metadata_file.name = "metadata.yaml"
-                    target_tarball.addfile(metadata_file,
-                                           io.BytesIO(metadata_yaml))
-                    target_tarball.close()
-                except Exception as ex:
-                    with excutils.save_and_reraise_exception():
-                        LOG.error(_LE('Failed to generate manifest tarball for'
-                                      ' %(image)s: %(reason)s'),
-                                  {'image': instance.name, 'ex': ex},
-                                  instance=instance)
-
-                # Upload the image to the local LXD image store
-                headers = {}
-
-                boundary = str(uuid.uuid1())
-
-                # Create the binary blob to upload the file to LXD
-                tmpdir = tempfile.mkdtemp()
-                upload_path = os.path.join(tmpdir, "upload")
-                body = open(upload_path, 'wb+')
-
-                for name, path in [("metadata", (container_manifest)),
-                                   ("rootfs", container_image)]:
-                    filename = os.path.basename(path)
-                    body.write(bytearray("--%s\r\n" % boundary, "utf-8"))
-                    body.write(bytearray("Content-Disposition: form-data; "
-                                         "name=%s; filename=%s\r\n" %
-                                         (name, filename), "utf-8"))
-                    body.write("Content-Type: application/octet-stream\r\n")
-                    body.write("\r\n")
-                    with open(path, "rb") as fd:
-                        shutil.copyfileobj(fd, body)
-                    body.write("\r\n")
-
-                body.write(bytearray("--%s--\r\n" % boundary, "utf-8"))
-                body.write('\r\n')
-                body.close()
-
-                headers['Content-Type'] = "multipart/form-data; boundary=%s" \
-                    % boundary
-
-                # Upload the file to LXD and then remove the tmpdir.
-                self.session.image_upload(
-                    data=open(upload_path, 'rb'), headers=headers,
-                    instance=instance)
-                shutil.rmtree(tmpdir)
-
-                # Setup the LXD alias for the image
-                try:
-                    with open((container_manifest), 'rb') as meta_fd:
-                        with open(container_image, "rb") as rootfs_fd:
-                            fingerprint = hashlib.sha256(
-                                meta_fd.read() + rootfs_fd.read()).hexdigest()
-                    image = self.client.images.get(fingerprint)
-                    image.add_alias(instance.image_ref, image_meta.name)
-                except Exception as ex:
-                    with excutils.save_and_reraise_exception:
-                        LOG.error(
-                            _LE('Failed to setup alias for %(image)s:'
-                                ' %(ex)s'), {'image': instance.image_ref,
-                                             'ex': ex}, instance=instance)
-
-                # Remove image and manifest when done.
-                if os.path.exists(container_image):
-                    os.unlink(container_image)
-
-                if os.path.exists(container_manifest):
-                    os.unlink(container_manifest)
-
-            except Exception as ex:
-                with excutils.save_and_reraise_exception():
-                    LOG.error(_LE('Failed to upload %(image)s to LXD: '
-                                  '%(reason)s'),
-                              {'image': instance.image_ref,
-                               'reason': ex}, instance=instance)
-                    if os.path.exists(container_image):
-                        os.unlink(container_image)
-
-                    if os.path.exists(container_manifest):
-                        os.unlink(container_manifest)
 
     def get_container_migrate(self, container_migrate, host, instance):
         """Create the image source for a migrating container
