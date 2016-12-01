@@ -52,7 +52,7 @@ from nova.virt.lxd import session
 
 from nova.api.metadata import base as instance_metadata
 from nova.objects import migrate_data
-from nova.compute import arch
+from nova.objects.fields import Architecture as arch
 from nova.virt import configdrive
 from nova.compute import hv_type
 from nova.compute import power_state
