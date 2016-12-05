@@ -1270,3 +1270,29 @@ class LXDDriverTest(test.NoDBTestCase):
                 'disk_format': 'raw',
                 'container_format': 'bare'},
             data)
+
+    def test_container_isolated(self):
+        self.client.host_info = {'api_extensions': ['id_map']}
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance.flavor.extra_specs = {'lxd_isolated': True}
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        config = lxd_driver.config_instance_options({}, instance)
+        self.assertEqual({'security.idmap.isolated': 'True',
+                          'boot.autostart': 'True'}, config)
+
+    def test_container_isolated_unsupported(self):
+        self.client.host_info = {'api_extensions': []}
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(ctx, name='test')
+        instance.flavor.extra_specs = {'lxd_isolated': True}
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        self.assertRaises(
+            exception.NovaException,
+            lxd_driver.config_instance_options, {}, instance)
