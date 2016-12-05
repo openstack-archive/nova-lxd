@@ -16,6 +16,7 @@
 import ddt
 import mock
 
+from nova import exception
 from nova import test
 from nova.tests.unit import fake_network
 
@@ -132,3 +133,22 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         config = self.config.config_instance_options({}, instance)
         self.assertEqual({'security.privileged': 'True',
                           'boot.autostart': 'True'}, config)
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_extensions',
+                       mock.Mock(return_value=['id_map']))
+    def test_container_isolated(self):
+        instance = stubs._fake_instance()
+        instance.flavor.extra_specs = {'lxd_isolated': True}
+        config = self.config.config_instance_options({}, instance)
+        self.assertEqual({'security.idmap.isolated': 'True',
+                          'boot.autostart': 'True'}, config)
+
+    @mock.patch.object(session.LXDAPISession, 'get_host_extensions',
+                       mock.Mock(return_value=[]))
+    def test_container_isolated_unsupported(self):
+        instance = stubs._fake_instance()
+        instance.flavor.extra_specs = {'lxd_isolated': True}
+
+        self.assertRaises(
+            exception.NovaException,
+            self.config.config_instance_options, {}, instance)

@@ -830,6 +830,10 @@ class LXDAPISession(object):
                                       'ex': ex}
             LOG.error(msg)
 
+    def get_host_extensions(self):
+        client = self.get_session()
+        return client.host_config().get('api_extensions', [])
+
     #
     # Migrate methods
     #

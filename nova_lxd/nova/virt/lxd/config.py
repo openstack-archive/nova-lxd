@@ -174,6 +174,16 @@ class LXDContainerConfig(object):
         if lxd_privileged_allowed:
             config['security.privileged'] = 'True'
 
+        lxd_isolated = flavor.extra_specs.get(
+            'lxd_isolated', False)
+        if lxd_isolated:
+            extensions = self.session.get_host_extensions()
+            if 'id_map' in extensions:
+                config['security.idmap.isolated'] = 'True'
+            else:
+                msg = _('Host does not support isolated instances')
+                raise exception.NovaException(msg)
+
         return config
 
     def configure_container_root(self, instance):
