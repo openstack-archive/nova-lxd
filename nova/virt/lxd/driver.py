@@ -54,9 +54,7 @@ from nova.api.metadata import base as instance_metadata
 from nova.objects import fields as obj_fields
 from nova.objects import migrate_data
 from nova.virt import configdrive
-from nova.compute import hv_type
 from nova.compute import power_state
-from nova.compute import vm_mode
 from nova.compute import vm_states
 from nova.virt import hardware
 from oslo_utils import units
@@ -926,10 +924,14 @@ class LXDDriver(driver.ComputeDriver):
             'cpu_info': jsonutils.dumps(cpu_info),
             'hypervisor_hostname': socket.gethostname(),
             'supported_instances': [
-                (obj_fields.Architecture.I686, hv_type.LXD, vm_mode.EXE),
-                (obj_fields.Architecture.X86_64, hv_type.LXD, vm_mode.EXE),
-                (obj_fields.Architecture.I686, hv_type.LXC, vm_mode.EXE),
-                (obj_fields.Architecture.X86_64, hv_type.LXC, vm_mode.EXE),
+                (obj_fields.Architecture.I686, obj_fields.HVType.LXD,
+                 fields.VMMode.EXE),
+                (obj_fields.Architecture.X86_64, obj_fields.HVType.LXD,
+                 fields.VMMode.EXE),
+                (obj_fields.Architecture.I686, obj_fields.HVType.LXC,
+                 fields.VMMode.EXE),
+                (obj_fields.Architecture.X86_64, obj_fields.HVType.LXC,
+                 fields.VMMode.EXE),
             ],
             'numa_topology': None,
         }
