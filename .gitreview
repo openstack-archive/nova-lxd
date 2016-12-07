@@ -1,4 +1,5 @@
 [gerrit]
 host=review.openstack.org
 port=29418
-project=openstack/nova-compute-lxd.git
+project=openstack/nova-lxd.git
+defaultbranch=stable/mitaka

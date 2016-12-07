@@ -164,18 +164,18 @@ class LXDContainerConfig(object):
         # Determine if we require a nested container
         flavor = instance.flavor
         lxd_nested_allowed = flavor.extra_specs.get(
-            'lxd_nested_allowed', False)
+            'lxd:nested_allowed', False)
         if lxd_nested_allowed:
             config['security.nesting'] = 'True'
 
         # Determine if we require a privileged container
         lxd_privileged_allowed = flavor.extra_specs.get(
-            'lxd_privileged_allowed', False)
+            'lxd:privileged_allowed', False)
         if lxd_privileged_allowed:
             config['security.privileged'] = 'True'
 
         lxd_isolated = flavor.extra_specs.get(
-            'lxd_isolated', False)
+            'lxd:isolated', False)
         if lxd_isolated:
             extensions = self.session.get_host_extensions()
             if 'id_map' in extensions:

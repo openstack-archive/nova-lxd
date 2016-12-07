@@ -21,6 +21,12 @@
             "description": "Containers created as Privileged have elevated powers on the compute host. You should not set this option on containers that you don't fully trust.",
             "type": "string",
             "default": false
+        },
+        "lxd:isolated": {
+            "title": "Create idmap isolated containers",
+            "description": "Containers created as idmap isolated will run under different subuid/subgid ranges from other containers on the same host, decreasing the risk of cross container compromises within a single compute host.",
+            "type": "string",
+            "default": false
         }
     }
 }
