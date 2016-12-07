@@ -1433,7 +1433,7 @@ class LXDDriver(driver.ComputeDriver):
             config['security.privileged'] = 'True'
 
         lxd_isolated = flavor.extra_specs.get(
-            'lxd_isolated', False)
+            'lxd:isolated', False)
         if lxd_isolated:
             extensions = self.client.host_info.get('api_extensions', [])
             if 'id_map' in extensions:
