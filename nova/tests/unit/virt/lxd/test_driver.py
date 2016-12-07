@@ -1275,7 +1275,7 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.host_info = {'api_extensions': ['id_map']}
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
-        instance.flavor.extra_specs = {'lxd_isolated': True}
+        instance.flavor.extra_specs = {'lxd:isolated': True}
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
@@ -1288,7 +1288,7 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.host_info = {'api_extensions': []}
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(ctx, name='test')
-        instance.flavor.extra_specs = {'lxd_isolated': True}
+        instance.flavor.extra_specs = {'lxd:isolated': True}
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
