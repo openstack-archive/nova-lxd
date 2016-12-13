@@ -15,7 +15,6 @@
 
 from __future__ import absolute_import
 
-import collections
 import io
 import json
 import os
@@ -45,7 +44,9 @@ import pylxd
 from pylxd import exceptions as lxd_exceptions
 
 from nova.virt.lxd import vif as lxd_vif
+from nova.virt.lxd import common
 from nova.virt.lxd import session
+from nova.virt.lxd import storage
 
 from nova.api.metadata import base as instance_metadata
 from nova.objects import fields as obj_fields
@@ -87,22 +88,9 @@ IMAGE_API = image.API()
 MAX_CONSOLE_BYTES = 100 * units.Ki
 NOVA_CONF = nova.conf.CONF
 
-CONTAINER_DIR = os.path.join(CONF.lxd.root_dir, 'containers')
-
 ACCEPTABLE_IMAGE_FORMATS = {'raw', 'root-tar', 'squashfs'}
-
-
-_InstanceAttributes = collections.namedtuple('InstanceAttributes', [
-    'instance_dir', 'console_path', 'storage_path'])
-
-
-def InstanceAttributes(instance):
-    """An instance adapter for nova-lxd specific attributes."""
-    instance_dir = os.path.join(nova.conf.CONF.instances_path, instance.name)
-    console_path = os.path.join('/var/log/lxd/', instance.name, 'console.log')
-    storage_path = os.path.join(instance_dir, 'storage')
-    return _InstanceAttributes(
-        instance_dir, console_path, storage_path)
+BASE_DIR = os.path.join(
+    CONF.instances_path, CONF.image_cache_subdirectory_name)
 
 
 def _neutron_failed_callback(event_name, instance):
@@ -461,7 +449,7 @@ class LXDDriver(driver.ComputeDriver):
             if e.response.status_code != 404:
                 raise  # Re-raise the exception if it wasn't NotFound
 
-        instance_dir = InstanceAttributes(instance).instance_dir
+        instance_dir = common.InstanceAttributes(instance).instance_dir
         if not os.path.exists(instance_dir):
             fileutils.ensure_tree(instance_dir)
 
@@ -527,10 +515,9 @@ class LXDDriver(driver.ComputeDriver):
                 self.cleanup(
                     context, instance, network_info, block_device_info)
 
-        # XXX: rockstar (6 Jul 2016) - _add_ephemeral is only used here,
-        # and hasn't really been audited. It may need a cleanup
         lxd_config = self.client.host_info
-        self._add_ephemeral(block_device_info, lxd_config, instance)
+        storage.attach_ephemeral(
+            self.client, block_device_info, lxd_config, instance)
         if configdrive.required_by(instance):
             configdrive_path = self._add_configdrive(
                 context, instance,
@@ -600,14 +587,12 @@ class LXDDriver(driver.ComputeDriver):
             self.unplug_vifs(instance, network_info)
             self.firewall_driver.unfilter_instance(instance, network_info)
 
-        # XXX: zulcss (14 Jul 2016) - _remove_ephemeral is only used here,
-        # and hasn't really been audited. It may need a cleanup
         lxd_config = self.client.host_info
-        self._remove_ephemeral(block_device_info, lxd_config, instance)
+        storage.detach_ephemeral(block_device_info, lxd_config, instance)
 
         name = pwd.getpwuid(os.getuid()).pw_name
 
-        container_dir = InstanceAttributes(instance).instance_dir
+        container_dir = common.InstanceAttributes(instance).instance_dir
         if os.path.exists(container_dir):
             utils.execute(
                 'chown', '-R', '{}:{}'.format(name, name),
@@ -644,14 +629,15 @@ class LXDDriver(driver.ComputeDriver):
         See `nova.virt.driver.ComputeDriver.get_console_output` for more
         information.
         """
-        console_path = InstanceAttributes(instance).console_path
-        container_path = os.path.join(CONTAINER_DIR, instance.name)
+        instance_attrs = common.InstanceAttributes(instance)
+        console_path = instance_attrs.console_path
         if not os.path.exists(console_path):
             return ''
         uid = pwd.getpwuid(os.getuid()).pw_uid
         utils.execute(
             'chown', '%s:%s' % (uid, uid), console_path, run_as_root=True)
-        utils.execute('chmod', '755', container_path, run_as_root=True)
+        utils.execute(
+            'chmod', '755', instance_attrs.container_path, run_as_root=True)
         with open(console_path, 'rb') as f:
             log_data, _ = utils.last_bytes(f, MAX_CONSOLE_BYTES)
             return log_data
@@ -1046,7 +1032,7 @@ class LXDDriver(driver.ComputeDriver):
                          network_info, image_meta, resize_instance,
                          block_device_info=None, power_on=True):
         # Ensure that the instance directory exists
-        instance_dir = InstanceAttributes(instance).instance_dir
+        instance_dir = common.InstanceAttributes(instance).instance_dir
         if not os.path.exists(instance_dir):
             fileutils.ensure_tree(instance_dir)
 
@@ -1134,7 +1120,7 @@ class LXDDriver(driver.ComputeDriver):
         by the same name. The profile is sync'd with the configuration of
         the container. When the container is deleted, so is the profile.
         """
-        instance_attributes = InstanceAttributes(instance)
+        instance_attributes = common.InstanceAttributes(instance)
 
         config = {
             'boot.autostart': 'True',  # Start when host reboots
@@ -1180,100 +1166,6 @@ class LXDDriver(driver.ComputeDriver):
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the
     # comment can be removed.
-    def _add_ephemeral(self, block_device_info, lxd_config, instance):
-        ephemeral_storage = driver.block_device_info_get_ephemerals(
-            block_device_info)
-        if ephemeral_storage:
-            storage_driver = lxd_config['environment']['storage']
-
-            container = self.client.containers.get(instance.name)
-            container_id_map = container.config[
-                'volatile.last_state.idmap'].split(',')
-            storage_id = container_id_map[2].split(':')[1]
-
-            for ephemeral in ephemeral_storage:
-                storage_dir = os.path.join(
-                    InstanceAttributes(instance).storage_path,
-                    ephemeral['virtual_name'])
-                if storage_driver == 'zfs':
-                    zfs_pool = lxd_config['config']['storage.zfs_pool_name']
-
-                    utils.execute(
-                        'zfs', 'create',
-                        '-o', 'mountpoint=%s' % storage_dir,
-                        '-o', 'quota=%sG' % instance.ephemeral_gb,
-                              '%s/%s-ephemeral' % (zfs_pool, instance.name),
-                        run_as_root=True)
-                elif storage_driver == 'btrfs':
-                    # We re-use the same btrfs subvolumes that LXD uses,
-                    # so the ephemeral storage path is updated in the profile
-                    # before the container starts.
-                    storage_dir = os.path.join(
-                        CONTAINER_DIR, instance.name,
-                        ephemeral['virtual_name'])
-                    profile = self.client.profiles.get(instance.name)
-                    storage_name = ephemeral['virtual_name']
-                    profile.devices[storage_name]['source'] = storage_dir
-                    profile.save()
-
-                    utils.execute(
-                        'btrfs', 'subvolume', 'create', storage_dir,
-                        run_as_root=True)
-                    utils.execute(
-                        'btrfs', 'qgroup', 'limit',
-                        '%sg' % instance.ephemeral_gb, storage_dir,
-                        run_as_root=True)
-                elif storage_driver == 'lvm':
-                    fileutils.ensure_tree(storage_dir)
-
-                    lvm_pool = lxd_config['config']['storage.lvm_vg_name']
-                    lvm_volume = '%s-%s' % (instance.name,
-                                            ephemeral['virtual_name'])
-                    lvm_path = '/dev/%s/%s' % (lvm_pool, lvm_volume)
-
-                    cmd = (
-                        'lvcreate', '-L', '%sG' % instance.ephemeral_gb,
-                        '-n', lvm_volume, lvm_pool)
-                    utils.execute(*cmd, run_as_root=True, attempts=3)
-
-                    utils.execute('mkfs', '-t', 'ext4',
-                                  lvm_path, run_as_root=True)
-                    cmd = ('mount', '-t', 'ext4', lvm_path, storage_dir)
-                    utils.execute(*cmd, run_as_root=True)
-                else:
-                    reason = _('Unsupport LXD storage detected. Supported'
-                               ' storage drivers are zfs and btrfs.')
-                    raise exception.NovaException(reason)
-
-                utils.execute(
-                    'chown', storage_id,
-                    storage_dir, run_as_root=True)
-
-    def _remove_ephemeral(self, block_device_info, lxd_config, instance):
-        """Remove empeheral device from the instance."""
-        ephemeral_storage = driver.block_device_info_get_ephemerals(
-            block_device_info)
-        if ephemeral_storage:
-            storage_driver = lxd_config['environment']['storage']
-
-            for ephemeral in ephemeral_storage:
-                if storage_driver == 'zfs':
-                    zfs_pool = \
-                        lxd_config['config']['storage.zfs_pool_name']
-
-                    utils.execute(
-                        'zfs', 'destroy',
-                        '%s/%s-ephemeral' % (zfs_pool, instance.name),
-                        run_as_root=True)
-                if storage_driver == 'lvm':
-                    lvm_pool = lxd_config['config']['storage.lvm_vg_name']
-
-                    lvm_path = '/dev/%s/%s-%s' % (
-                        lvm_pool, instance.name, ephemeral['virtual_name'])
-
-                    utils.execute('umount', lvm_path, run_as_root=True)
-                    utils.execute('lvremove', '-f', lvm_path, run_as_root=True)
-
     def _add_configdrive(self, context, instance,
                          injected_files, admin_password, network_info):
         """Create configdrive for the instance."""
@@ -1295,7 +1187,7 @@ class LXDDriver(driver.ComputeDriver):
             network_info=network_info, request_context=context)
 
         iso_path = os.path.join(
-            InstanceAttributes(instance).instance_dir,
+            common.InstanceAttributes(instance).instance_dir,
             'configdrive.iso')
 
         with configdrive.ConfigDriveBuilder(instance_md=inst_md) as cdb:
