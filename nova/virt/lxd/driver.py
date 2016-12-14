@@ -45,7 +45,6 @@ from pylxd import exceptions as lxd_exceptions
 
 from nova.virt.lxd import vif as lxd_vif
 from nova.virt.lxd import common
-from nova.virt.lxd import session
 from nova.virt.lxd import storage
 
 from nova.api.metadata import base as instance_metadata
@@ -374,11 +373,6 @@ class LXDDriver(driver.ComputeDriver):
             use_multipath=CONF.libvirt.volume_use_multipath,
             device_scan_attempts=CONF.libvirt.num_iscsi_scan_tries,
             transport='default')
-
-        # XXX: rockstar (5 Jul 2016) - These attributes are temporary. We
-        # will know our cleanup of nova-lxd is complete when these
-        # attributes are no longer needed.
-        self.session = session.LXDAPISession()
 
     def init_host(self, host):
         """Initialize the driver on the host.
@@ -1042,7 +1036,7 @@ class LXDDriver(driver.ComputeDriver):
 
         # Step 2 - Open a websocket on the srct and and
         #          generate the container config
-        self._container_init(migration['source_compute'], instance)
+        self._migrate(migration['source_compute'], instance)
 
         # Step 3 - Start the network and container
         self.plug_vifs(instance, network_info)
@@ -1075,7 +1069,7 @@ class LXDDriver(driver.ComputeDriver):
     def live_migration(self, context, instance, dest,
                        post_method, recover_method, block_migration=False,
                        migrate_data=None):
-        self._container_init(dest, instance)
+        self._migrate(dest, instance)
         post_method(context, instance, dest, block_migration)
 
     def post_live_migration(self, context, instance, block_device_info,
@@ -1232,40 +1226,6 @@ class LXDDriver(driver.ComputeDriver):
 
         return configdrive_dir
 
-    def get_container_migrate(self, container_migrate, host, instance):
-        """Create the image source for a migrating container
-
-        :container_migrate: the container websocket information
-        :host: the source host
-        :instance: nova instance object
-        return dictionary of the image source
-        """
-        LOG.debug('get_container_migrate called for instance',
-                  instance=instance)
-        try:
-            # Generate the container config
-            container_metadata = container_migrate['metadata']
-
-            container_url = 'https://%s:8443%s' \
-                % (CONF.my_ip, container_migrate.get('operation'))
-
-            lxd_config = self.client.host_info['environment']
-
-            return {
-                'base_image': '',
-                'mode': 'pull',
-                'certificate': lxd_config['certificate'],
-                'operation': container_url,
-                'secrets': container_metadata['metadata'],
-                'type': 'migration'
-            }
-        except Exception as ex:
-            with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Failed to configure migation source '
-                              '%(instance)s: %(ex)s'),
-                          {'instance': instance.name, 'ex': ex},
-                          instance=instance)
-
     def _after_reboot(self):
         """Perform sync operation after host reboot."""
         context = nova.context.get_admin_context()
@@ -1287,14 +1247,11 @@ class LXDDriver(driver.ComputeDriver):
                 instance, network_info)
             self.firewall_driver.apply_instance_filter(instance, network_info)
 
-    def _container_init(self, host, instance):
-        (state, data) = (self.session.container_migrate(instance.name,
-                                                        CONF.my_ip,
-                                                        instance))
-        container_config = {
-            'name': instance.name,
-            'profiles': [instance.name],
-            'source': self.get_container_migrate(
-                data, host, instance)
-        }
-        self.session.container_init(container_config, instance, host)
+    def _migrate(self, source_host, instance):
+        """Migrate an instance from source."""
+        source_client = pylxd.Client(
+            endpoint='https://{}'.format(source_host), verify=False)
+        container = source_client.containers.get(instance.name)
+        data = container.generate_migration_data()
+
+        self.containers.create(data, wait=True)

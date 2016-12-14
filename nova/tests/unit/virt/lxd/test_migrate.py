@@ -36,8 +36,8 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
         self.driver.config = mock.MagicMock()
         self.driver.operations = mock.MagicMock()
 
-    @mock.patch.object(driver.LXDDriver, '_container_init')
-    def test_live_migration(self, mock_container_init):
+    @mock.patch.object(driver.LXDDriver, '_migrate')
+    def test_live_migration(self, mock_migrate):
         """Verify that the correct live migration calls
            are made.
         """
@@ -48,19 +48,19 @@ class LXDTestLiveMigrate(test.NoDBTestCase):
             mock.sentinel.dest, mock_post_method,
             mock.sentinel.recover_method, mock.sentinel.block_migration,
             mock.sentinel.migrate_data)
-        mock_container_init.assert_called_once_with(mock.sentinel.dest,
-                                                    mock.sentinel.instance)
+        mock_migrate.assert_called_once_with(mock.sentinel.dest,
+                                             mock.sentinel.instance)
         mock_post_method.assert_called_once_with(
             mock.sentinel.context, mock.sentinel.instance, mock.sentinel.dest,
             mock.sentinel.block_migration)
 
-    @mock.patch.object(driver.LXDDriver, '_container_init')
-    def test_live_migration_failed(self, mock_container_init):
+    @mock.patch.object(driver.LXDDriver, '_migrate')
+    def test_live_migration_failed(self, mock_migrate):
         """Verify that an exception is raised when live-migration
            fails.
         """
         self.flags(my_ip='fakeip')
-        mock_container_init.side_effect = \
+        mock_migrate.side_effect = \
             lxd_exceptions.APIError(500, 'Fake')
         self.assertRaises(
             lxd_exceptions.APIError,
