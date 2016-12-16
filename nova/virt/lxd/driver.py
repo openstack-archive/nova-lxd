@@ -45,6 +45,7 @@ from pylxd import exceptions as lxd_exceptions
 
 from nova.virt.lxd import vif as lxd_vif
 from nova.virt.lxd import common
+from nova.virt.lxd import flavor
 from nova.virt.lxd import session
 from nova.virt.lxd import storage
 
@@ -175,115 +176,6 @@ def _get_power_state(lxd_state):
         if lxd_state in lxd_states:
             return nova_state
     raise ValueError('Unknown LXD power state: {}'.format(lxd_state))
-
-
-def _make_disk_quota_config(instance):
-    md = instance.flavor.extra_specs
-    disk_config = {}
-    md_namespace = 'quota:'
-    params = ['disk_read_iops_sec', 'disk_read_bytes_sec',
-              'disk_write_iops_sec', 'disk_write_bytes_sec',
-              'disk_total_iops_sec', 'disk_total_bytes_sec']
-
-    # Get disk quotas from flavor metadata and cast the values to int
-    q = {}
-    for param in params:
-        q[param] = int(md.get(md_namespace + param, 0))
-
-    # Bytes and iops are not separate config options in a container
-    # profile - we let Bytes take priority over iops if both are set.
-    # Align all limits to MiB/s, which should be a sensible middle road.
-    if q.get('disk_read_iops_sec'):
-        disk_config['limits.read'] = \
-            ('%s' + 'iops') % q['disk_read_iops_sec']
-    if q.get('disk_read_bytes_sec'):
-        disk_config['limits.read'] = \
-            ('%s' + 'MB') % (q['disk_read_bytes_sec'] / units.Mi)
-    if q.get('disk_write_iops_sec'):
-        disk_config['limits.write'] = \
-            ('%s' + 'iops') % q['disk_write_iops_sec']
-    if q.get('disk_write_bytes_sec'):
-        disk_config['limits.write'] = \
-            ('%s' + 'MB') % (q['disk_write_bytes_sec'] / units.Mi)
-
-    # If at least one of the above limits has been defined, do not set
-    # the "max" quota (which would apply to both read and write)
-    minor_quota_defined = any(
-        q.get(param) for param in
-        ['disk_read_iops_sec', 'disk_write_iops_sec',
-         'disk_read_bytes_sec', 'disk_write_bytes_sec'])
-    if q.get('disk_total_iops_sec') and not minor_quota_defined:
-        disk_config['limits.max'] = \
-            ('%s' + 'iops') % q['disk_total_iops_sec']
-    if q.get('disk_total_bytes_sec') and not minor_quota_defined:
-        disk_config['limits.max'] = \
-            ('%s' + 'MB') % (q['disk_total_bytes_sec'] / units.Mi)
-    return disk_config
-
-
-def _make_network_config(instance, network_info):
-    network_devices = {}
-
-    if not network_info:
-        return
-
-    for vifaddr in network_info:
-        cfg = lxd_vif.get_config(vifaddr)
-        if 'bridge' in cfg:
-            key = str(cfg['bridge'])
-            network_devices[key] = {
-                'nictype': 'bridged',
-                'hwaddr': str(cfg['mac_address']),
-                'parent': str(cfg['bridge']),
-                'type': 'nic'
-            }
-        else:
-            key = 'unbridged'
-            network_devices[key] = {
-                'nictype': 'p2p',
-                'hwaddr': str(cfg['mac_address']),
-                'type': 'nic'
-            }
-        host_device = lxd_vif.get_vif_devname(vifaddr)
-        if host_device:
-            network_devices[key]['host_name'] = host_device
-
-        # Set network device quotas
-        md = instance.flavor.extra_specs
-        network_config = {}
-        md_namespace = 'quota:'
-        params = ['vif_inbound_average', 'vif_inbound_peak',
-                  'vif_outbound_average', 'vif_outbound_peak']
-
-        # Get network quotas from flavor metadata and cast the values to int
-        q = {}
-        for param in params:
-            q[param] = int(md.get(md_namespace + param, 0))
-
-        # Since LXD does not implement average NIC IO and number of burst
-        # bytes, we take the max(vif_*_average, vif_*_peak) to set the peak
-        # network IO and simply ignore the burst bytes.
-        # Align values to MBit/s (8 * powers of 1000 in this case), having
-        # in mind that the values are recieved in Kilobytes/s.
-        vif_inbound_limit = max(
-            q.get('vif_inbound_average'),
-            q.get('vif_inbound_peak')
-        )
-        if vif_inbound_limit:
-            network_config['limits.ingress'] = \
-                ('%s' + 'Mbit') % (vif_inbound_limit * units.k * 8 / units.M)
-
-        vif_outbound_limit = max(
-            q.get('vif_outbound_average'),
-            q.get('vif_outbound_peak')
-        )
-        if vif_outbound_limit:
-            network_config['limits.egress'] = \
-                ('%s' + 'Mbit') % (vif_outbound_limit * units.k * 8 / units.M)
-
-        network_devices[key].update(network_config)
-
-    return network_devices
 
 
 def _sync_glance_image_to_lxd(client, context, image_ref):
@@ -490,9 +382,8 @@ class LXDDriver(driver.ComputeDriver):
 
         # Create the profile
         try:
-            profile_data = self._generate_profile_data(
-                instance, network_info, block_device_info)
-            profile = self.client.profiles.create(*profile_data)
+            profile = flavor.to_profile(
+                self.client, instance, network_info, block_device_info)
         except lxd_exceptions.LXDAPIException as e:
             with excutils.save_and_reraise_exception():
                 self.cleanup(
@@ -748,19 +639,15 @@ class LXDDriver(driver.ComputeDriver):
         profile.save(wait=True)
 
     def migrate_disk_and_power_off(
-            self, context, instance, dest, flavor, network_info,
+            self, context, instance, dest, _flavor, network_info,
             block_device_info=None, timeout=0, retry_interval=0):
 
         if CONF.my_ip == dest:
             # Make sure that the profile for the container is up-to-date to
             # the actual state of the container.
-            name, config, devices = self._generate_profile_data(
-                instance, network_info, block_device_info)
-
-            profile = self.client.profiles.get(name)
-            profile.devices = devices
-            profile.config = config
-            profile.save()
+            flavor.to_profile(
+                self.client, instance, network_info, block_device_info,
+                update=True)
         container = self.client.containers.get(instance.name)
         container.stop(wait=True)
         return ''
@@ -1037,8 +924,7 @@ class LXDDriver(driver.ComputeDriver):
             fileutils.ensure_tree(instance_dir)
 
         # Step 1 - Setup the profile on the dest host
-        profile_data = self._generate_profile_data(instance, network_info)
-        self.client.profiles.create(*profile_data)
+        flavor.to_profile(instance, network_info, block_device_info)
 
         # Step 2 - Open a websocket on the srct and and
         #          generate the container config
@@ -1069,8 +955,7 @@ class LXDDriver(driver.ComputeDriver):
         self.firewall_driver.apply_instance_filter(
             instance, network_info)
 
-        profile_data = self._generate_profile_data(instance, network_info)
-        self.client.profiles.create(*profile_data)
+        flavor.to_profile(instance, network_info, block_device_info)
 
     def live_migration(self, context, instance, dest,
                        post_method, recover_method, block_migration=False,
@@ -1112,56 +997,6 @@ class LXDDriver(driver.ComputeDriver):
     #
     # LXDDriver "private" implementation methods
     #
-    def _generate_profile_data(
-            self, instance, network_info, block_device_info=None):
-        """Generate a LXD profile configuration.
-
-        Every container created via nova-lxd has a profile assigned to it
-        by the same name. The profile is sync'd with the configuration of
-        the container. When the container is deleted, so is the profile.
-        """
-        instance_attributes = common.InstanceAttributes(instance)
-
-        config = {
-            'boot.autostart': 'True',  # Start when host reboots
-        }
-        if instance.flavor.extra_specs.get('lxd:nested_allowed', False):
-            config['security.nesting'] = 'True'
-        if instance.flavor.extra_specs.get('lxd:privileged_allowed', False):
-            config['security.privileged'] = 'True'
-        mem = instance.memory_mb
-        if mem >= 0:
-            config['limits.memory'] = '%sMB' % mem
-        vcpus = instance.flavor.vcpus
-        if vcpus >= 0:
-            config['limits.cpu'] = str(vcpus)
-        config['raw.lxc'] = 'lxc.console.logfile={}\n'.format(
-            instance_attributes.console_path)
-
-        devices = {}
-        lxd_config = self.client.host_info['environment']
-        devices.setdefault('root', {'type': 'disk', 'path': '/'})
-        if str(lxd_config['storage']) in ['btrfs', 'zfs']:
-            devices['root'].update({'size': '%sGB' % str(instance.root_gb)})
-        devices['root'].update(_make_disk_quota_config(instance))
-
-        ephemeral_storage = driver.block_device_info_get_ephemerals(
-            block_device_info)
-        if ephemeral_storage:
-            for ephemeral in ephemeral_storage:
-                ephemeral_src = os.path.join(
-                    instance_attributes.storage_path,
-                    ephemeral['virtual_name'])
-                devices[ephemeral['virtual_name']] = {
-                    'path': '/mnt',
-                    'source': ephemeral_src,
-                    'type': 'disk',
-                }
-        if network_info:
-            devices.update(_make_network_config(instance, network_info))
-
-        return instance.name, config, devices
-
     # XXX: rockstar (21 Nov 2016) - The methods and code below this line
     # have not been through the cleanup process. We know the cleanup process
     # is complete when there is no more code below this comment, and the

@@ -530,11 +530,12 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.cleanup.assert_called_once_with(
             ctx, instance, network_info, None)
 
+    @mock.patch('nova.virt.lxd.driver.network')
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('pwd.getpwuid')
     @mock.patch('shutil.rmtree')
     @mock.patch.object(driver.utils, 'execute')
-    def test_cleanup(self, execute, rmtree, getpwuid):
+    def test_cleanup(self, execute, rmtree, getpwuid, _):
         mock_profile = mock.Mock()
         self.client.profiles.get.return_value = mock_profile
         pwuid = mock.Mock()
@@ -734,11 +735,12 @@ class LXDDriverTest(test.NoDBTestCase):
         self.assertEqual(0, self.client.profiles.get.call_count)
         container.stop.assert_called_once_with(wait=True)
 
+    @mock.patch('nova.virt.lxd.driver.network')
     @mock.patch('os.major')
     @mock.patch('os.minor')
     @mock.patch('os.stat')
     @mock.patch('os.path.realpath')
-    def test_attach_volume(self, realpath, stat, minor, major):
+    def test_attach_volume(self, realpath, stat, minor, major, _):
         profile = mock.Mock()
         self.client.profiles.get.return_value = profile
         realpath.return_value = '/dev/sdc'
@@ -1287,40 +1289,3 @@ class LXDDriverTest(test.NoDBTestCase):
 
         profile.delete.assert_called_once_with()
         lxd_driver.cleanup.assert_called_once_with(ctx, instance, network_info)
-
-
-class LXDDriverPrivateMethodsTest(LXDDriverTest):
-    """Tests for private methods of nova.virt.lxd.driver.LXDDriver."""
-
-    def test_generate_profile_data(self):
-        ctx = context.get_admin_context()
-        instance = fake_instance.fake_instance_obj(
-            ctx, name='test', memory_mb=0)
-        network_info = []
-        block_device_info = None
-
-        lxd_driver = driver.LXDDriver(None)
-        lxd_driver.init_host(None)
-
-        name, config, devices = lxd_driver._generate_profile_data(
-            instance, network_info, block_device_info)
-
-        expected_config = {
-            'boot.autostart': 'True',
-            'limits.cpu': '1',
-            'limits.memory': '0MB',
-            'raw.lxc': (
-                'lxc.console.logfile=/var/log/lxd/{}/console.log\n'.format(
-                    instance.name)),
-        }
-        expected_devices = {
-            'root': {
-                'path': '/',
-                'size': '0GB',
-                'type': 'disk'
-            },
-        }
-
-        self.assertEqual(instance.name, name)
-        self.assertEqual(expected_config, config)
-        self.assertEqual(expected_devices, devices)
