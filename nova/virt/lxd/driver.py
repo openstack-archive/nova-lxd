@@ -1240,8 +1240,8 @@ class LXDDriver(driver.ComputeDriver):
         :instance: nova instance object
         return dictionary of the image source
         """
-        LOG.debug('get_container_migrate called for instance',
-                  instance=instance)
+        LOG.debug('get_container_migrate called for %(instance)s',
+                  {'instance': instance})
         try:
             # Generate the container config
             container_metadata = container_migrate['metadata']

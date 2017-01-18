@@ -74,7 +74,8 @@ class LXDAPISession(object):
         :param host: perform initialization on perfered host
 
         """
-        LOG.debug('container_init called for instance', instance=instance)
+        LOG.debug('container_init called for %(instance)s',
+                  {'instance': instance})
         try:
             LOG.info(_LI('Creating container %(instance)s with'
                          ' %(image)s'), {'instance': instance.name,
@@ -115,7 +116,8 @@ class LXDAPISession(object):
         :param operation_id: The operation to wait for.
         :param instance: nova instace object
         """
-        LOG.debug('wait_for_container for instance', instance=instance)
+        LOG.debug('wait_for_container for %(instance)s',
+                  {'instance': instance})
         try:
             client = self.get_session(host=host)
             if not client.wait_container_operation(operation_id, 200, -1):
@@ -135,7 +137,8 @@ class LXDAPISession(object):
                           instance=instance)
 
     def operation_info(self, operation_id, instance, host=None):
-        LOG.debug('operation_info called for instance', instance=instance)
+        LOG.debug('operation_info called for %(instance)s',
+                  {'instance': instance})
         try:
             client = self.get_session(host=host)
             return client.operation_info(operation_id)
@@ -164,7 +167,8 @@ class LXDAPISession(object):
         :return: dictionary of the container keys
 
         """
-        LOG.debug('container_migrate called for instance', instance=instance)
+        LOG.debug('container_migrate called for %(instance)s',
+                  {'instance': instance})
         try:
             LOG.info(_LI('Migrating instance %(instance)s with '
                          '%(image)s'), {'instance': instance_name,
