@@ -103,7 +103,7 @@ class TestServerBasicOps(manager.ScenarioTest):
             # TODO(clarkb) construct network_data from known network
             # instance info and do direct comparison.
 
-    @test.idempotent_id('7fff3fb3-91d8-4fd0-bd7d-0204f1f180ba')
+    @decorators.idempotent_id('7fff3fb3-91d8-4fd0-bd7d-0204f1f180ba')
     @test.attr(type='smoke')
     @test.services('compute', 'network')
     def test_server_basic_ops(self):
