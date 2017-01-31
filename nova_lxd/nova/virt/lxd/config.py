@@ -224,11 +224,15 @@ class LXDContainerConfig(object):
 
             for vifaddr in network_info:
                 cfg = self.vif_driver.get_config(instance, vifaddr)
-                network_devices[str(cfg['bridge'])] = \
+                key = str(cfg['bridge'])
+                network_devices[key] = \
                     {'nictype': 'bridged',
                      'hwaddr': str(cfg['mac_address']),
-                     'parent': str(cfg['bridge']),
+                     'parent': key,
                      'type': 'nic'}
+                host_device = self.vif_driver.get_vif_devname(vifaddr)
+                if host_device:
+                    network_devices[key]['host_name'] = host_device
                 return network_devices
         except Exception as ex:
             with excutils.save_and_reraise_exception():
