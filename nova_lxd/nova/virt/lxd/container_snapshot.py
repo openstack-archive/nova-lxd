@@ -147,6 +147,7 @@ class LXDSnapshot(object):
             snapshot = IMAGE_API.get(context, image_id)
             data = self.session.container_export(fingerprint, instance)
             image_meta = {'name': snapshot['name'],
+                          'container_format': 'bare',
                           'disk_format': 'raw'}
             IMAGE_API.update(context, image_id, image_meta, data)
         except Exception as ex:
