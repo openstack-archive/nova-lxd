@@ -1307,6 +1307,7 @@ class LXDDriverPrivateMethodsTest(LXDDriverTest):
 
         expected_config = {
             'boot.autostart': 'True',
+            'environment.CLOUD_PLATFORM': 'OpenStack Nova',
             'limits.cpu': '1',
             'limits.memory': '0MB',
             'raw.lxc': (
