@@ -87,7 +87,10 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         config = {}
         container_config = self.config.config_instance_options(config,
                                                                instance)
-        self.assertEqual({'boot.autostart': 'True'}, container_config)
+        self.assertEqual(
+            {'boot.autostart': 'True',
+             'environment.product_name': 'OpenStack Nova'},
+            container_config)
 
     def test_create_container_source(self):
         instance = stubs._fake_instance()
@@ -125,6 +128,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         instance.flavor.extra_specs = {'lxd:nested_allowed': True}
         config = self.config.config_instance_options({}, instance)
         self.assertEqual({'security.nesting': 'True',
+                          'environment.product_name': 'OpenStack Nova',
                           'boot.autostart': 'True'}, config)
 
     def test_container_privileged_container(self):
@@ -132,6 +136,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         instance.flavor.extra_specs = {'lxd:privileged_allowed': True}
         config = self.config.config_instance_options({}, instance)
         self.assertEqual({'security.privileged': 'True',
+                          'environment.product_name': 'OpenStack Nova',
                           'boot.autostart': 'True'}, config)
 
     @mock.patch.object(session.LXDAPISession, 'get_host_extensions',
@@ -141,6 +146,7 @@ class LXDTestContainerConfig(test.NoDBTestCase):
         instance.flavor.extra_specs = {'lxd:isolated': True}
         config = self.config.config_instance_options({}, instance)
         self.assertEqual({'security.idmap.isolated': 'True',
+                          'environment.product_name': 'OpenStack Nova',
                           'boot.autostart': 'True'}, config)
 
     @mock.patch.object(session.LXDAPISession, 'get_host_extensions',
