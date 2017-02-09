@@ -1124,6 +1124,7 @@ class LXDDriver(driver.ComputeDriver):
 
         config = {
             'boot.autostart': 'True',  # Start when host reboots
+            'environment.CLOUD_PLATFORM': 'OpenStack Nova',
         }
         if instance.flavor.extra_specs.get('lxd:nested_allowed', False):
             config['security.nesting'] = 'True'
