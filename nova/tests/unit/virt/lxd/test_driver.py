@@ -1282,6 +1282,7 @@ class LXDDriverTest(test.NoDBTestCase):
 
         config = lxd_driver.config_instance_options({}, instance)
         self.assertEqual({'security.idmap.isolated': 'True',
+                          'environment.product_name': 'OpenStack Nova',
                           'boot.autostart': 'True'}, config)
 
     def test_container_isolated_unsupported(self):
