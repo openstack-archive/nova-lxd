@@ -1418,6 +1418,7 @@ class LXDDriver(driver.ComputeDriver):
 
         # Set the container to autostart when the host reboots
         config['boot.autostart'] = 'True'
+        config['environment.product_name'] = 'OpenStack Nova'
 
         # Determine if we require a nested container
         flavor = instance.flavor
