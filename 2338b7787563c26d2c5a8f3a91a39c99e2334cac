@@ -1,0 +1,8 @@
+Code-Review+2: Chuck Short <chuck.short@canonical.com>
+Workflow+1: Chuck Short <chuck.short@canonical.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 22 Feb 2017 20:50:22 +0000
+Reviewed-on: https://review.openstack.org/436750
+Project: openstack/nova-lxd
+Branch: refs/heads/stable/ocata
