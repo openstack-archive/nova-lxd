@@ -586,7 +586,7 @@ class LXDDriver(driver.ComputeDriver):
 
         self.storage_driver.disconnect_volume(connection_info['data'], None)
 
-    def attach_interface(self, instance, image_meta, vif):
+    def attach_interface(self, context, instance, image_meta, vif):
         self.vif_driver.plug(instance, vif)
         self.firewall_driver.setup_basic_filtering(instance, vif)
 
@@ -620,7 +620,7 @@ class LXDDriver(driver.ComputeDriver):
         profile.devices.update(config_update)
         profile.save(wait=True)
 
-    def detach_interface(self, instance, vif):
+    def detach_interface(self, context, instance, vif):
         self.vif_driver.unplug(instance, vif)
 
         profile = self.client.profiles.get(instance.name)

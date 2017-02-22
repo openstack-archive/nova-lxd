@@ -650,7 +650,7 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.init_host(None)
         lxd_driver.firewall_driver = mock.Mock()
 
-        lxd_driver.attach_interface(instance, image_meta, vif)
+        lxd_driver.attach_interface(ctx, instance, image_meta, vif)
 
         self.assertTrue('eth1' in profile.devices)
         self.assertEqual(expected, profile.devices['eth1'])
@@ -686,7 +686,7 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
 
-        lxd_driver.detach_interface(instance, vif)
+        lxd_driver.detach_interface(ctx, instance, vif)
 
         self.vif_driver.unplug.assert_called_once_with(
             instance, vif)
