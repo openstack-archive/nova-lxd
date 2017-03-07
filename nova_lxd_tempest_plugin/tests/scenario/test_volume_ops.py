@@ -26,8 +26,9 @@ from tempest import exceptions
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest.lib import exceptions as lib_exc
-from tempest.scenario import manager
 from tempest import test
+
+from nova_lxd_tempest_plugin.tests.scenario import manager
 
 CONF = config.CONF
 LOG = logging.getLogger(__name__)
