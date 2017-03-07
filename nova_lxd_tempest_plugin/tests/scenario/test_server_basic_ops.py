@@ -19,8 +19,9 @@ import json
 from tempest import config
 from tempest import exceptions
 from tempest.lib.common.utils import test_utils
-from tempest.scenario import manager
 from tempest import test
+
+from nova_lxd_tempest_plugin.tests.scenario import manager
 
 CONF = config.CONF
 
