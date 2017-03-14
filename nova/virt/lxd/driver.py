@@ -412,12 +412,29 @@ class LXDDriver(driver.ComputeDriver):
             profile = self.client.profiles.get(instance.name)
             config_drive = {
                 'configdrive': {
-                    'path': '/var/lib/cloud/data',
+                    'path': '/dev/sr0',
                     'source': configdrive_path,
                     'type': 'disk',
                 }
             }
+
+            for i in range(7):
+                config_drive.update({
+                    'loop{}'.format(i): {
+                        'path': '/dev/loop{}'.format(i),
+                        'type': 'unix-block',
+                    }
+                })
             profile.devices.update(config_drive)
+
+            profile.config.update({
+                'security.privileged': 'true'
+            })
+
+            raw_lxc = profile.config.get('raw.lxc')
+            raw_lxc = '{}{}'.format(raw_lxc, 'lxc.aa_profile = unconfined\n')
+            profile.config.update({'raw.lxc': raw_lxc})
+
             profile.save()
 
         try:
@@ -1028,38 +1045,10 @@ class LXDDriver(driver.ComputeDriver):
                                   'error: %s'),
                               e, instance=instance)
 
-        configdrive_dir = os.path.join(
-            nova.conf.CONF.instances_path, instance.name, 'configdrive')
-        if not os.path.exists(configdrive_dir):
-            fileutils.ensure_tree(configdrive_dir)
+        utils.execute('chown', '-R', storage_id, iso_path,
+                      run_as_root=True)
 
-        with utils.tempdir() as tmpdir:
-            mounted = False
-            try:
-                _, err = utils.execute('mount',
-                                       '-o',
-                                       'loop,uid=%d,gid=%d' % (os.getuid(),
-                                                               os.getgid()),
-                                       iso_path, tmpdir,
-                                       run_as_root=True)
-                mounted = True
-
-                # Copy and adjust the files from the ISO so that we
-                # dont have the ISO mounted during the life cycle of the
-                # instance and the directory can be removed once the instance
-                # is terminated
-                for ent in os.listdir(tmpdir):
-                    shutil.copytree(os.path.join(tmpdir, ent),
-                                    os.path.join(configdrive_dir, ent))
-                    utils.execute('chmod', '-R', '775', configdrive_dir,
-                                  run_as_root=True)
-                    utils.execute('chown', '-R', storage_id, configdrive_dir,
-                                  run_as_root=True)
-            finally:
-                if mounted:
-                    utils.execute('umount', tmpdir, run_as_root=True)
-
-        return configdrive_dir
+        return iso_path
 
     def _after_reboot(self):
         """Perform sync operation after host reboot."""
