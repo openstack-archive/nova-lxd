@@ -191,7 +191,7 @@ _DEVICE_FILTER_MAP = [
 def to_profile(client, instance, network_info, block_info, update=False):
     """Convert a nova flavor to a lxd profile.
 
-    Every instance container created via nova-lxd has a profiled by the
+    Every instance container created via nova-lxd has a profile by the
     same name. The profile is sync'd with the configuration of the container.
     When the instance container is deleted, so is the profile.
     """
