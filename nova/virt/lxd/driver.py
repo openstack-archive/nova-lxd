@@ -918,7 +918,8 @@ class LXDDriver(driver.ComputeDriver):
             fileutils.ensure_tree(instance_dir)
 
         # Step 1 - Setup the profile on the dest host
-        flavor.to_profile(instance, network_info, block_device_info)
+        flavor.to_profile(self.client,
+                          instance, network_info, block_device_info)
 
         # Step 2 - Open a websocket on the srct and and
         #          generate the container config
@@ -949,7 +950,8 @@ class LXDDriver(driver.ComputeDriver):
         self.firewall_driver.apply_instance_filter(
             instance, network_info)
 
-        flavor.to_profile(instance, network_info, block_device_info)
+        flavor.to_profile(self.client,
+                          instance, network_info, block_device_info)
 
     def live_migration(self, context, instance, dest,
                        post_method, recover_method, block_migration=False,
