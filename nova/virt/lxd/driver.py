@@ -65,8 +65,6 @@ from oslo_utils import excutils
 from nova.virt import firewall
 
 _ = i18n._
-_LW = i18n._LW
-_LE = i18n._LE
 
 lxd_opts = [
     cfg.StrOpt('root_dir',
@@ -94,8 +92,8 @@ BASE_DIR = os.path.join(
 
 
 def _neutron_failed_callback(event_name, instance):
-    LOG.error(_LE('Neutron Reported failure on event '
-                  '%(event)s for instance %(uuid)s'),
+    LOG.error('Neutron Reported failure on event '
+              '%(event)s for instance %(uuid)s',
               {'event': event_name, 'uuid': instance.name},
               instance=instance)
     if CONF.vif_plugging_is_fatal:
@@ -365,8 +363,8 @@ class LXDDriver(driver.ComputeDriver):
                         error_callback=_neutron_failed_callback):
                     self.plug_vifs(instance, network_info)
             except eventlet.timeout.Timeout:
-                LOG.warn(_LW('Timeout waiting for vif plugging callback for '
-                             'instance %(uuid)s'), {'uuid': instance['name']})
+                LOG.warn('Timeout waiting for vif plugging callback for '
+                         'instance %(uuid)s', {'uuid': instance['name']})
                 if CONF.vif_plugging_is_fatal:
                     self.destroy(
                         context, instance, network_info, block_device_info)
@@ -452,8 +450,8 @@ class LXDDriver(driver.ComputeDriver):
             container.delete(wait=True)
         except lxd_exceptions.LXDAPIException as e:
             if e.response.status_code == 404:
-                LOG.warning(_LW('Failed to delete instance. '
-                                'Container does not exist for %(instance)s.'),
+                LOG.warning('Failed to delete instance. '
+                            'Container does not exist for %(instance)s.',
                             {'instance': instance.name})
             else:
                 raise
@@ -488,8 +486,8 @@ class LXDDriver(driver.ComputeDriver):
             self.client.profiles.get(instance.name).delete()
         except lxd_exceptions.LXDAPIException as e:
             if e.response.status_code == 404:
-                LOG.warning(_LW('Failed to delete instance. '
-                                'Profile does not exist for %(instance)s.'),
+                LOG.warning('Failed to delete instance. '
+                            'Profile does not exist for %(instance)s.',
                             {'instance': instance.name})
             else:
                 raise
@@ -1026,8 +1024,8 @@ class LXDDriver(driver.ComputeDriver):
                 cdb.make_drive(iso_path)
             except processutils.ProcessExecutionError as e:
                 with excutils.save_and_reraise_exception():
-                    LOG.error(_LE('Creating config drive failed with '
-                                  'error: %s'),
+                    LOG.error('Creating config drive failed with '
+                              'error: %s',
                               e, instance=instance)
 
         configdrive_dir = os.path.join(

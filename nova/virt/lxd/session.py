@@ -27,8 +27,6 @@ from pylxd.deprecated import api
 from pylxd.deprecated import exceptions as lxd_exceptions
 
 _ = i18n._
-_LE = i18n._LE
-_LI = i18n._LI
 
 CONF = nova.conf.CONF
 LOG = logging.getLogger(__name__)
@@ -54,7 +52,7 @@ class LXDAPISession(object):
         except Exception as ex:
             # notify the compute host that the connection failed
             # via an rpc call
-            LOG.exception(_LE('Connection to LXD failed'))
+            LOG.exception('Connection to LXD failed')
             payload = dict(ip=CONF.host,
                            method='_connect',
                            reason=ex)
@@ -76,8 +74,8 @@ class LXDAPISession(object):
         """
         LOG.debug('container_init called for instance', instance=instance)
         try:
-            LOG.info(_LI('Creating container %(instance)s with'
-                         ' %(image)s'), {'instance': instance.name,
+            LOG.info('Creating container %(instance)s with'
+                     ' %(image)s', {'instance': instance.name,
                                          'image': instance.image_ref})
 
             client = self.get_session(host=host)
@@ -90,8 +88,8 @@ class LXDAPISession(object):
                 msg = data.get('err') or data['metadata']
                 raise exception.NovaException(msg)
 
-            LOG.info(_LI('Successfully created container %(instance)s with'
-                         ' %(image)s'), {'instance': instance.name,
+            LOG.info('Successfully created container %(instance)s with'
+                     ' %(image)s', {'instance': instance.name,
                                          'image': instance.image_ref})
         except lxd_exceptions.APIError as ex:
             msg = _('Failed to communicate with LXD API %(instance)s:'
@@ -101,7 +99,7 @@ class LXDAPISession(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
-                    _LE('Failed to create container %(instance)s: %(reason)s'),
+                    'Failed to create container %(instance)s: %(reason)s',
                     {'instance': instance.name,
                      'reason': ex}, instance=instance)
 
@@ -129,8 +127,8 @@ class LXDAPISession(object):
             raise exception.NovaException(msg)
         except Exception as e:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Error from LXD during operation wait'
-                              '%(instance)s: %(reason)s'),
+                LOG.error('Error from LXD during operation wait'
+                              '%(instance)s: %(reason)s',
                           {'instance': instance.image_ref, 'reason': e},
                           instance=instance)
 
@@ -147,8 +145,8 @@ class LXDAPISession(object):
             raise exception.NovaException(msg)
         except Exception as e:
             with excutils.save_and_reraise_exception():
-                LOG.error(_LE('Error from LXD during operation_info '
-                              '%(instance)s: %(reason)s'),
+                LOG.error('Error from LXD during operation_info '
+                              '%(instance)s: %(reason)s',
                           {'instance': instance.image_ref, 'reason': e},
                           instance=instance)
 
@@ -166,15 +164,15 @@ class LXDAPISession(object):
         """
         LOG.debug('container_migrate called for instance', instance=instance)
         try:
-            LOG.info(_LI('Migrating instance %(instance)s with '
-                         '%(image)s'), {'instance': instance_name,
-                                        'image': instance.image_ref})
+            LOG.info('Migrating instance %(instance)s with '
+                     '%(image)s', {'instance': instance_name,
+                                   'image': instance.image_ref})
 
             client = self.get_session()
             (state, data) = client.container_migrate(instance_name)
 
-            LOG.info(_LI('Successfully initialized migration for instance '
-                         '%(instance)s with %(image)s'),
+            LOG.info('Successfully initialized migration for instance '
+                     '%(instance)s with %(image)s',
                      {'instance': instance.name,
                       'image': instance.image_ref})
             return (state, data)
@@ -186,6 +184,6 @@ class LXDAPISession(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error(
-                    _LE('Failed to migrate container %(instance)s: %('
-                        'reason)s'), {'instance': instance.name,
-                                      'reason': ex}, instance=instance)
+                    'Failed to migrate container %(instance)s: %('
+                    'reason)s', {'instance': instance.name,
+                                 'reason': ex}, instance=instance)
