@@ -757,16 +757,18 @@ class LXDDriverTest(test.NoDBTestCase):
             auth=True)
         mountpoint = '/dev/sdd'
 
+        driver.brick_get_connector = mock.MagicMock()
+        driver.brick_get_connector_properties = mock.MagicMock()
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
-
-        lxd_driver.storage_driver.connect_volume = mock.MagicMock()
+        # driver.brick_get_connector = mock.MagicMock()
+        # lxd_driver.storage_driver.connect_volume = mock.MagicMock()
         lxd_driver.attach_volume(
             ctx, connection_info, instance, mountpoint, None, None, None)
 
         lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
-        lxd_driver.storage_driver.connect_volume.assert_called_once_with(
-            connection_info['data'])
+        # driver.brick_get_connector.connect_volume.assert_called_once_with(
+        #     connection_info['data'])
         profile.save.assert_called_once_with()
 
     def test_detach_volume(self):
@@ -814,7 +816,8 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
 
-        lxd_driver.storage_driver.disconnect_volume = mock.MagicMock()
+        driver.brick_get_connector = mock.MagicMock()
+        driver.brick_get_connector_properties = mock.MagicMock()
         lxd_driver.detach_volume(connection_info, instance, mountpoint, None)
 
         lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
