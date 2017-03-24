@@ -412,7 +412,7 @@ class LXDDriver(driver.ComputeDriver):
             profile = self.client.profiles.get(instance.name)
             config_drive = {
                 'configdrive': {
-                    'path': '/var/lib/cloud/data',
+                    'path': '/config-drive',
                     'source': configdrive_path,
                     'type': 'disk',
                 }
