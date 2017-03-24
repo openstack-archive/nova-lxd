@@ -327,6 +327,7 @@ class LXDDriver(driver.ComputeDriver):
                     'path': '/config-drive',
                     'source': configdrive_path,
                     'type': 'disk',
+                    'readonly': True,
                 }
             }
             profile.devices.update(config_drive)
