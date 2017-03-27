@@ -111,6 +111,50 @@ class LXDContainerConfig(object):
                                                              instance,
                                                              network_info))
 
+            # If flavor allows docker execution, update profile config with
+            # required settings to allow docker to run properly in the container
+            flavor = instance.flavor 
+            if flavor.extra_specs.get('lxd_docker_allowed', False): 
+                config['config']['security.nesting'] = 'True'
+                config['config']['security.privileged'] = 'True' 
+                config['config']['linux.kernel_modules'] = 'overlay, nf_nat'
+                docker_devices = {}
+                docker_devices['aadisable'] = \
+                    { 'path': '/sys/module/apparmor/parameters/enabled',
+                      'source': '/dev/null',
+                      'type': 'disk'}
+                docker_devices['fuse'] = \
+                    { 'path': '/dev/fuse',
+                      'type': 'unix-char'}
+                docker_devices['tuntap'] = \
+                    { 'path': '/dev/net/tun',
+                      'type': 'unix-char'}
+                docker_devices['loop0'] = \
+                    { 'path': '/dev/loop0',
+                        'type': 'unix-block'}
+                docker_devices['loop1'] = \
+                    { 'path': '/dev/loop1',
+                        'type': 'unix-block'}
+                docker_devices['loop2'] = \
+                    { 'path': '/dev/loop2',		
+                       'type': 'unix-block'}		
+                docker_devices['loop3'] = \		
+                    { 'path': '/dev/loop3',		
+                       'type': 'unix-block'}
+                docker_devices['loop4'] = \		
+                    { 'path': '/dev/loop4',		
+                       'type': 'unix-block'}
+                docker_devices['loop5'] = \		
+                    { 'path': '/dev/loop5',		
+                       'type': 'unix-block'}
+                docker_devices['loop6'] = \		
+                    { 'path': '/dev/loop6',		
+                       'type': 'unix-block'}
+                docker_devices['loop7'] = \		
+                    { 'path': '/dev/loop7',		
+                       'type': 'unix-block'}
+                config['devices'].update(docker_devices)
+                
             return config
         except Exception as ex:
             with excutils.save_and_reraise_exception():
