@@ -84,7 +84,7 @@ def attach_ephemeral(client, block_device_info, lxd_config, instance):
                 utils.execute(*cmd, run_as_root=True)
             else:
                 reason = _('Unsupport LXD storage detected. Supported'
-                           ' storage drivers are zfs and btrfs.')
+                           ' storage drivers are zfs, btrfs, and lvm.')
                 raise exception.NovaException(reason)
 
             utils.execute(
