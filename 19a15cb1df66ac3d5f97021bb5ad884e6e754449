@@ -1,0 +1,8 @@
+Code-Review+2: Chuck Short <chuck.short@canonical.com>
+Workflow+1: Chuck Short <chuck.short@canonical.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 05 Apr 2017 13:38:09 +0000
+Reviewed-on: https://review.openstack.org/451044
+Project: openstack/nova-lxd
+Branch: refs/heads/master
