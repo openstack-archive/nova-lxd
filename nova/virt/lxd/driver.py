@@ -226,6 +226,43 @@ def _sync_glance_image_to_lxd(client, context, image_ref):
             os.unlink(manifest_file)
 
 
+def brick_get_connector_properties(multipath=False, enforce_multipath=False):
+    """Wrapper to automatically set root_helper in brick calls.
+    :param multipath: A boolean indicating whether the connector can
+                      support multipath.
+    :param enforce_multipath: If True, it raises exception when multipath=True
+                              is specified but multipathd is not running.
+                              If False, it falls back to multipath=False
+                              when multipathd is not running.
+    """
+
+    root_helper = utils.get_root_helper()
+    return connector.get_connector_properties(root_helper,
+                                              CONF.my_ip,
+                                              multipath,
+                                              enforce_multipath)
+
+
+def brick_get_connector(protocol, driver=None,
+                        use_multipath=False,
+                        device_scan_attempts=3,
+                        *args, **kwargs):
+    """Wrapper to get a brick connector object.
+    This automatically populates the required protocol as well
+    as the root_helper needed to execute commands.
+    """
+
+    root_helper = utils.get_root_helper()
+    if protocol.upper() == "RBD":
+        kwargs['do_local_attach'] = True
+    return connector.InitiatorConnector.factory(
+        protocol, root_helper,
+        driver=driver,
+        use_multipath=use_multipath,
+        device_scan_attempts=device_scan_attempts,
+        *args, **kwargs)
+
+
 class LXDLiveMigrateData(migrate_data.LiveMigrateData):
     """LiveMigrateData for LXD."""
 
@@ -257,12 +294,6 @@ class LXDDriver(driver.ComputeDriver):
         self.vif_driver = lxd_vif.LXDGenericVifDriver()
         self.firewall_driver = firewall.load_driver(
             default='nova.virt.firewall.NoopFirewallDriver')
-
-        self.storage_driver = connector.InitiatorConnector.factory(
-            'ISCSI', utils.get_root_helper(),
-            use_multipath=CONF.libvirt.volume_use_multipath,
-            device_scan_attempts=CONF.libvirt.num_iscsi_scan_tries,
-            transport='default')
 
     def init_host(self, host):
         """Initialize the driver on the host.
@@ -546,8 +577,9 @@ class LXDDriver(driver.ComputeDriver):
         more information/
         """
         profile = self.client.profiles.get(instance.name)
-
-        device_info = self.storage_driver.connect_volume(
+        protocol = connection_info['driver_volume_type']
+        storage_driver = brick_get_connector(protocol)
+        device_info = storage_driver.connect_volume(
             connection_info['data'])
         disk = os.stat(os.path.realpath(device_info['path']))
         vol_id = connection_info['data']['volume_id']
@@ -583,7 +615,9 @@ class LXDDriver(driver.ComputeDriver):
             del profile.devices[vol_id]
             profile.save()
 
-        self.storage_driver.disconnect_volume(connection_info['data'], None)
+        protocol = connection_info['driver_volume_type']
+        storage_driver = brick_get_connector(protocol)
+        storage_driver.disconnect_volume(connection_info['data'], None)
 
     def attach_interface(self, context, instance, image_meta, vif):
         self.vif_driver.plug(instance, vif)
