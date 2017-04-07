@@ -1040,13 +1040,91 @@ class LXDDriverTest(test.NoDBTestCase):
                                 '\n'),
             meminfo,
         ]
-
+        lxd_config = {
+            'environment': {
+                'storage': 'dir',
+            },
+            'config' : {}
+        }
         lxd_driver = driver.LXDDriver(None)
+        lxd_driver.client = mock.MagicMock()
+        lxd_driver.client.host_info = lxd_config
         value = lxd_driver.get_available_resource(None)
         # This is funky, but json strings make for fragile tests.
         value['cpu_info'] = json.loads(value['cpu_info'])
 
         self.assertEqual(expected, value)
+
+    @mock.patch('socket.gethostname', mock.Mock(return_value='fake_hostname'))
+    @mock.patch('nova.virt.lxd.driver.open')
+    @mock.patch.object(driver.utils, 'execute')
+    def test_get_available_resource_zfs(self, execute, open):
+        expected = {
+            'cpu_info': {
+                "features": "fake flag goes here",
+                "model": "Fake CPU",
+                "topology": {"sockets": "10", "threads": "4", "cores": "5"},
+                "arch": "x86_64", "vendor": "FakeVendor"
+            },
+            'hypervisor_hostname': 'fake_hostname',
+            'hypervisor_type': 'lxd',
+            'hypervisor_version': '011',
+            'local_gb': 2222,
+            'local_gb_used': 200,
+            'memory_mb': 10000,
+            'memory_mb_used': 8000,
+            'numa_topology': None,
+            'supported_instances': [
+                ('i686', 'lxd', 'exe'),
+                ('x86_64', 'lxd', 'exe'),
+                ('i686', 'lxc', 'exe'),
+                ('x86_64', 'lxc', 'exe')],
+            'vcpus': 200,
+            'vcpus_used': 0}
+
+
+        execute.side_effect = [
+            ('Model name:          Fake CPU\n'
+             'Vendor ID:           FakeVendor\n'
+             'Socket(s):           10\n'
+             'Core(s) per socket:  5\n'
+             'Thread(s) per core:  4\n\n',
+             None),
+            ('2.17T\n', None),
+            ('200.4G\n', None),
+            ('1.8T\n', None)
+        ]
+
+        meminfo = mock.MagicMock()
+        meminfo.__enter__.return_value = six.moves.cStringIO(
+            'MemTotal: 10240000 kB\n'
+            'MemFree:   2000000 kB\n'
+            'Buffers:     24000 kB\n'
+            'Cached:      24000 kB\n')
+
+        open.side_effect = [
+            six.moves.cStringIO('flags: fake flag goes here\n'
+                                'processor: 2\n'
+                                '\n'),
+            meminfo,
+        ]
+        lxd_config = {
+            'environment': {
+                'storage': 'zfs',
+            },
+            'config' : {
+                'storage.zfs_pool_name': 'lxd',
+            }
+        }
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.client = mock.MagicMock()
+        lxd_driver.client.host_info = lxd_config
+        value = lxd_driver.get_available_resource(None)
+        # This is funky, but json strings make for fragile tests.
+        value['cpu_info'] = json.loads(value['cpu_info'])
+
+        self.assertEqual(expected, value)
+
 
     def test_refresh_instance_security_rules(self):
         ctx = context.get_admin_context()
