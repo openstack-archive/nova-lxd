@@ -62,6 +62,7 @@ import psutil
 from oslo_concurrency import lockutils
 from nova.compute import task_states
 from oslo_utils import excutils
+from oslo_utils import strutils
 from nova.virt import firewall
 
 _ = i18n._
@@ -155,6 +156,28 @@ def _get_fs_info(path):
     total = hddinfo.f_blocks * hddinfo.f_bsize
     available = hddinfo.f_bavail * hddinfo.f_bsize
     used = total - available
+    return {'total': total,
+            'available': available,
+            'used': used}
+
+
+def _get_zpool_info(pool):
+    """Get free/used/total disk space in a zfs pool."""
+    def _get_zpool_attribute(attribute):
+        value, err = utils.execute('zpool', 'list',
+                                   '-o', attribute,
+                                   '-H', pool,
+                                   run_as_root=True)
+        if err:
+            msg = _('Unable to parse zpool output.')
+            raise exception.NovaException(msg)
+        value = strutils.string_to_bytes('{}B'.format(value.strip()),
+                                         return_int=True)
+        return value
+
+    total = _get_zpool_attribute('size')
+    used = _get_zpool_attribute('alloc')
+    available = _get_zpool_attribute('free')
     return {'total': total,
             'available': available,
             'used': used}
@@ -858,7 +881,19 @@ class LXDDriver(driver.ComputeDriver):
                  int(cpu_topology['threads']))
 
         local_memory_info = _get_ram_usage()
-        local_disk_info = _get_fs_info(CONF.lxd.root_dir)
+
+        lxd_config = self.client.host_info
+
+        # NOTE(jamespage): ZFS storage report is very LXD 2.0.x
+        #                  centric and will need to be updated
+        #                  to support LXD storage pools
+        storage_driver = lxd_config['environment']['storage']
+        if storage_driver == 'zfs':
+            local_disk_info = _get_zpool_info(
+                lxd_config['config']['storage.zfs_pool_name']
+            )
+        else:
+            local_disk_info = _get_fs_info(CONF.lxd.root_dir)
 
         data = {
             'vcpus': vcpus,
