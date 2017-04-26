@@ -72,6 +72,9 @@ lxd_opts = [
     cfg.StrOpt('root_dir',
                default='/var/lib/lxd/',
                help='Default LXD directory'),
+    cfg.StrOpt('pool',
+               default=None,
+               help='LXD Storate pool to use'),
     cfg.IntOpt('timeout',
                default=-1,
                help='Default LXD timeout'),
@@ -423,6 +426,21 @@ class LXDDriver(driver.ComputeDriver):
                 'alias': instance.image_ref,
             },
         }
+        if nova.conf.CONF.lxd.pool:
+            print("LXD Pool is: {}".format(nova.conf.CONF.lxd.pool))
+            extensions = self.client.host_info.get('api_extensions', [])
+            if 'storage' in extensions:
+                container_config['devices'] = {
+                    'root': {
+                        'path': '/',
+                        'pool': nova.conf.CONF.lxd.pool,
+                        'type': 'disk',
+                    }
+                }
+            else:
+                msg = _('Host does not have storage pool support')
+                raise exception.NovaException(msg)
+
         try:
             container = self.client.containers.create(
                 container_config, wait=True)
