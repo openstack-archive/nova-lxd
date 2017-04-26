@@ -41,6 +41,11 @@ class ToProfileTest(test.NoDBTestCase):
         self.CONF = CONF_patcher.start()
         self.CONF.instances_path = '/i'
 
+        CONF_patcher = mock.patch('nova.virt.lxd.flavor.CONF')
+        self.patchers.append(CONF_patcher)
+        self.CONF2 = CONF_patcher.start()
+        self.CONF2.lxd.pool = None
+
     def tearDown(self):
         super(ToProfileTest, self).tearDown()
         for patcher in self.patchers:
@@ -99,6 +104,35 @@ class ToProfileTest(test.NoDBTestCase):
             },
         }
 
+        flavor.to_profile(self.client, instance, network_info, block_info)
+
+        self.client.profiles.create.assert_called_once_with(
+            instance.name, expected_config, expected_devices)
+
+    def test_storage_pools(self):
+        self.client.host_info['api_extensions'].append('storage')
+        self.CONF2.lxd.pool = 'test_pool'
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
+        network_info = []
+        block_info = []
+        expected_config = {
+            'environment.product_name': 'OpenStack Nova',
+            'limits.cpu': '1',
+            'limits.memory': '0MB',
+            'raw.lxc': (
+                'lxc.console.logfile=/var/log/lxd/{}/console.log\n'.format(
+                    instance.name))
+        }
+        expected_devices = {
+            'root': {
+                'path': '/',
+                'type': 'disk',
+                'pool': 'test_pool',
+                'size': '0GB'
+            },
+        }
         flavor.to_profile(self.client, instance, network_info, block_info)
 
         self.client.profiles.create.assert_called_once_with(
