@@ -17,12 +17,14 @@ import os
 from nova import exception
 from nova import i18n
 from nova.virt import driver
+from oslo_config import cfg
 from oslo_utils import units
 
 from nova.virt.lxd import common
 from nova.virt.lxd import vif
 
 _ = i18n._
+CONF = cfg.CONF
 
 
 def _base_config(instance, _):
@@ -111,10 +113,18 @@ def _root(instance, client, *_):
     if specs.get('quota:disk_total_bytes_sec') and not minor_quota_defined:
         device['limits.max'] = '{}MB'.format(
             int(specs['quota:disk_total_bytes_sec']) // units.Mi)
+    if CONF.lxd.pool:
+        print("LXD Pool is: {}".format(CONF.lxd.pool))
+        extensions = client.host_info.get('api_extensions', [])
+        if 'storage' in extensions:
+            device['pool'] = CONF.lxd.pool
+        else:
+            msg = _('Host does not have storage pool support')
+            raise exception.NovaException(msg)
     return {'root': device}
 
 
-def _ephemeral_storage(instance, _, __, block_info):
+def _ephemeral_storage(instance, client, __, block_info):
     instance_attributes = common.InstanceAttributes(instance)
     ephemeral_storage = driver.block_device_info_get_ephemerals(block_info)
     if ephemeral_storage:
@@ -123,11 +133,20 @@ def _ephemeral_storage(instance, _, __, block_info):
             ephemeral_src = os.path.join(
                 instance_attributes.storage_path,
                 ephemeral['virtual_name'])
-            devices[ephemeral['virtual_name']] = {
+            device = {
                 'path': '/mnt',
                 'source': ephemeral_src,
                 'type': 'disk',
             }
+            if CONF.lxd.pool:
+                print("LXD Pool is: {}".format(CONF.lxd.pool))
+                extensions = client.host_info.get('api_extensions', [])
+                if 'storage' in extensions:
+                    device['pool'] = CONF.lxd.pool
+                else:
+                    msg = _('Host does not have storage pool support')
+                    raise exception.NovaException(msg)
+            devices[ephemeral['virtual_name']] = device
         return devices
 
 
