@@ -98,36 +98,54 @@ def _root(instance, client, *_):
             specs['quota:disk_write_iops_sec'])
 
     if specs.get('quota:disk_read_bytes_sec'):
-        device['limits.read'] = '{}MB'.format(
-            int(specs['quota:disk_read_bytes_sec']) / units.Mi)
+        device['limits.read'] = '{}MB'.format(int(
+            int(specs['quota:disk_read_bytes_sec']) / units.Mi))
     if specs.get('quota:disk_write_bytes_sec'):
-        device['limits.write'] = '{}MB'.format(
-            int(specs['quota:disk_write_bytes_sec']) / units.Mi)
+        device['limits.write'] = '{}MB'.format(int(
+            int(specs['quota:disk_write_bytes_sec']) / units.Mi))
 
     minor_quota_defined = 'limits.write' in device or 'limits.read' in device
     if specs.get('quota:disk_total_iops_sec') and not minor_quota_defined:
         device['limits.max'] = '{}iops'.format(
             specs['quota:disk_total_iops_sec'])
     if specs.get('quota:disk_total_bytes_sec') and not minor_quota_defined:
-        device['limits.max'] = '{}MB'.format(
-            int(specs['quota:disk_total_bytes_sec']) / units.Mi)
+        device['limits.max'] = '{}MB'.format(int(
+            int(specs['quota:disk_total_bytes_sec']) / units.Mi))
+    if specs.get('pool'):
+        print("LXD Pool is: {}".format(specs.get('pool')))
+        extensions = client.host_info.get('api_extensions', [])
+        if 'storage' in extensions:
+            device['pool'] = specs.get('pool')
+        else:
+            msg = _('Host does not have storage pool support')
+            raise exception.NovaException(msg)
     return {'root': device}
 
 
-def _ephemeral_storage(instance, _, __, block_info):
+def _ephemeral_storage(instance, client, __, block_info):
     instance_attributes = common.InstanceAttributes(instance)
     ephemeral_storage = driver.block_device_info_get_ephemerals(block_info)
     if ephemeral_storage:
+        specs = instance.flavor.extra_specs
         devices = {}
         for ephemeral in ephemeral_storage:
             ephemeral_src = os.path.join(
                 instance_attributes.storage_path,
                 ephemeral['virtual_name'])
-            devices[ephemeral['virtual_name']] = {
+            device = {
                 'path': '/mnt',
                 'source': ephemeral_src,
                 'type': 'disk',
             }
+            if specs.get('pool'):
+                print("LXD Pool is: {}".format(specs.get('pool')))
+                extensions = client.host_info.get('api_extensions', [])
+                if 'storage' in extensions:
+                    device['pool'] = specs.get('pool')
+                else:
+                    msg = _('Host does not have storage pool support')
+                    raise exception.NovaException(msg)
+            devices[ephemeral['virtual_name']] = device
         return devices
 
 
@@ -168,16 +186,16 @@ def _network(instance, _, network_info, __):
             int(specs.get('quota:vif_inbound_peak', 0)),
         )
         if vif_inbound_limit:
-            devices[key]['limits.ingress'] = '{}Mbit'.format(
-                vif_inbound_limit * units.k * 8 / units.M)
+            devices[key]['limits.ingress'] = '{}Mbit'.format(int(
+                vif_inbound_limit * units.k * 8 / units.M))
 
         vif_outbound_limit = max(
             int(specs.get('quota:vif_outbound_average', 0)),
             int(specs.get('quota:vif_outbound_peak', 0)),
         )
         if vif_outbound_limit:
-            devices[key]['limits.egress'] = '{}Mbit'.format(
-                vif_outbound_limit * units.k * 8 / units.M)
+            devices[key]['limits.egress'] = '{}Mbit'.format(int(
+                vif_outbound_limit * units.k * 8 / units.M))
     return devices
 
 

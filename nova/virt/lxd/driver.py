@@ -423,6 +423,7 @@ class LXDDriver(driver.ComputeDriver):
                 'alias': instance.image_ref,
             },
         }
+
         try:
             container = self.client.containers.create(
                 container_config, wait=True)
