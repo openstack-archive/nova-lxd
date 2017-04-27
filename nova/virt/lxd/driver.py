@@ -897,10 +897,10 @@ class LXDDriver(driver.ComputeDriver):
 
         data = {
             'vcpus': vcpus,
-            'memory_mb': local_memory_info['total'] / units.Mi,
-            'memory_mb_used': local_memory_info['used'] / units.Mi,
-            'local_gb': local_disk_info['total'] / units.Gi,
-            'local_gb_used': local_disk_info['used'] / units.Gi,
+            'memory_mb': int(local_memory_info['total'] / units.Mi),
+            'memory_mb_used': int(local_memory_info['used'] / units.Mi),
+            'local_gb': int(local_disk_info['total'] / units.Gi),
+            'local_gb_used': int(local_disk_info['used'] / units.Gi),
             'vcpus_used': 0,
             'hypervisor_type': 'lxd',
             'hypervisor_version': '011',

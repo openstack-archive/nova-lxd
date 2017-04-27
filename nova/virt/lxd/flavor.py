@@ -97,20 +97,23 @@ def _root(instance, client, *_):
         device['limits.write'] = '{}iops'.format(
             specs['quota:disk_write_iops_sec'])
 
+    # The multiple int casts below are handling a cast of the final division
+    # result, while the second cast is casting the specs[] content to an int
+    # so that we can use it in division
     if specs.get('quota:disk_read_bytes_sec'):
-        device['limits.read'] = '{}MB'.format(
-            int(specs['quota:disk_read_bytes_sec']) / units.Mi)
+        device['limits.read'] = '{}MB'.format(int(
+            int(specs['quota:disk_read_bytes_sec']) / units.Mi))
     if specs.get('quota:disk_write_bytes_sec'):
-        device['limits.write'] = '{}MB'.format(
-            int(specs['quota:disk_write_bytes_sec']) / units.Mi)
+        device['limits.write'] = '{}MB'.format(int(
+            int(specs['quota:disk_write_bytes_sec']) / units.Mi))
 
     minor_quota_defined = 'limits.write' in device or 'limits.read' in device
     if specs.get('quota:disk_total_iops_sec') and not minor_quota_defined:
         device['limits.max'] = '{}iops'.format(
             specs['quota:disk_total_iops_sec'])
     if specs.get('quota:disk_total_bytes_sec') and not minor_quota_defined:
-        device['limits.max'] = '{}MB'.format(
-            int(specs['quota:disk_total_bytes_sec']) / units.Mi)
+        device['limits.max'] = '{}MB'.format(int(
+            int(specs['quota:disk_total_bytes_sec']) / units.Mi))
     return {'root': device}
 
 
@@ -169,7 +172,7 @@ def _network(instance, _, network_info, __):
         )
         if vif_inbound_limit:
             devices[key]['limits.ingress'] = '{}Mbit'.format(
-                vif_inbound_limit * units.k * 8 / units.M)
+                int(vif_inbound_limit * units.k * 8 / units.M))
 
         vif_outbound_limit = max(
             int(specs.get('quota:vif_outbound_average', 0)),
@@ -177,7 +180,7 @@ def _network(instance, _, network_info, __):
         )
         if vif_outbound_limit:
             devices[key]['limits.egress'] = '{}Mbit'.format(
-                vif_outbound_limit * units.k * 8 / units.M)
+                int(vif_outbound_limit * units.k * 8 / units.M))
     return devices
 
 
