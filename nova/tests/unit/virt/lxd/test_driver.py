@@ -128,6 +128,7 @@ class LXDDriverTest(test.NoDBTestCase):
         self.patchers.append(CONF2_patcher)
         self.CONF2 = CONF2_patcher.start()
         self.CONF2.lxd.root_dir = '/lxd'
+        self.CONF2.lxd.pool = None
         self.CONF2.instances_path = '/i'
 
         # LXDDriver._after_reboot reads from the database and syncs container
