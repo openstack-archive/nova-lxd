@@ -653,8 +653,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver.attach_interface(ctx, instance, image_meta, vif)
 
-        self.assertTrue('eth1' in profile.devices)
-        self.assertEqual(expected, profile.devices['eth1'])
+        self.assertTrue('qbr0123456789a' in profile.devices)
+        self.assertEqual(expected, profile.devices['qbr0123456789a'])
         profile.save.assert_called_once_with(wait=True)
 
     def test_detach_interface(self):
