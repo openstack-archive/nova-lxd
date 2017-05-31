@@ -163,16 +163,17 @@ def _network(instance, _, network_info, __):
                 'parent': str(cfg['bridge']),
                 'type': 'nic'
             }
+            host_device = vif.get_vif_devname(vifaddr)
+            if host_device:
+                devices[key]['host_name'] = host_device
         else:
-            key = 'unbridged'
+            key = vif.get_vif_devname(vifaddr)
             devices[key] = {
-                'nictype': 'p2p',
+                'nictype': 'physical',
                 'hwaddr': str(cfg['mac_address']),
+                'parent': vif.get_vif_internal_devname(vifaddr),
                 'type': 'nic'
             }
-        host_device = vif.get_vif_devname(vifaddr)
-        if host_device:
-            devices[key]['host_name'] = host_device
 
         specs = instance.flavor.extra_specs
         # Since LXD does not implement average NIC IO and number of burst
