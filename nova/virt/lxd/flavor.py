@@ -166,7 +166,7 @@ def _network(instance, _, network_info, __):
         else:
             key = 'unbridged'
             devices[key] = {
-                'nictype': 'p2p',
+                'nictype': 'physical',
                 'hwaddr': str(cfg['mac_address']),
                 'type': 'nic'
             }
