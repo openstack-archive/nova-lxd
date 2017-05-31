@@ -33,6 +33,11 @@ VIF = network_model.VIF(
     id='0123456789abcdef', address='ca:fe:de:ad:be:ef',
     network=NETWORK, type=network_model.VIF_TYPE_OVS,
     devname='tap-012-345-678', ovs_interfaceid='9abc-def-000')
+TAP_VIF = network_model.VIF(
+    id='0123456789abcdef', address='ca:fe:de:ad:be:ee',
+    network=NETWORK, type=network_model.VIF_TYPE_TAP,
+    devname='tap-014-345-678',
+    details={'mac_address': 'aa:bb:cc:dd:ee:ff'})
 INSTANCE = fake_instance.fake_instance_obj(
     context.get_admin_context(), name='test')
 
@@ -140,7 +145,7 @@ class LXDGenericVifDriverTest(test.NoDBTestCase):
         self.vif_driver = vif.LXDGenericVifDriver()
 
     @mock.patch('nova.virt.lxd.vif.os_vif')
-    def test_plug(self, os_vif):
+    def test_plug_ovs(self, os_vif):
         self.vif_driver.plug(INSTANCE, VIF)
 
         self.assertEqual(
@@ -149,10 +154,20 @@ class LXDGenericVifDriverTest(test.NoDBTestCase):
             'instance-00000001', os_vif.plug.call_args[0][1].name)
 
     @mock.patch('nova.virt.lxd.vif.os_vif')
-    def test_unplug(self, os_vif):
+    def test_unplug_ovs(self, os_vif):
         self.vif_driver.unplug(INSTANCE, VIF)
 
         self.assertEqual(
             'tap-012-345-678', os_vif.unplug.call_args[0][0].vif_name)
         self.assertEqual(
             'instance-00000001', os_vif.unplug.call_args[0][1].name)
+
+    @mock.patch('nova.virt.lxd.vif.os_vif')
+    def test_plug_tap(self, os_vif):
+        self.vif_driver.plug(INSTANCE, TAP_VIF)
+        os_vif.plug.assert_not_called()
+
+    @mock.patch('nova.virt.lxd.vif.os_vif')
+    def test_unplug_tap(self, os_vif):
+        self.vif_driver.unplug(INSTANCE, TAP_VIF)
+        os_vif.plug.assert_not_called()

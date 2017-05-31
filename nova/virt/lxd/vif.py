@@ -11,12 +11,17 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
+from oslo_log import log as logging
+
 from nova import conf
 from nova import exception
 from nova.network import model as network_model
 from nova.network import os_vif_util
 
 import os_vif
+
+LOG = logging.getLogger(__name__)
 
 
 def get_vif_devname(vif):
@@ -73,13 +78,45 @@ class LXDGenericVifDriver(object):
         os_vif.initialize()
 
     def plug(self, instance, vif):
+        vif_type = vif['type']
         instance_info = os_vif_util.nova_to_osvif_instance(instance)
-        vif_obj = os_vif_util.nova_to_osvif_vif(vif)
 
-        os_vif.plug(vif_obj, instance_info)
+        # Try os-vif codepath first
+        vif_obj = os_vif_util.nova_to_osvif_vif(vif)
+        if vif_obj is not None:
+            os_vif.plug(vif_obj, instance_info)
+            return
+
+        # Legacy non-os-vif codepath
+        func = getattr(self, 'plug_%s' % vif_type, None)
+        if not func:
+            raise exception.InternalError(
+                "Unexpected vif_type=%s" % vif_type
+            )
+        func(instance, vif)
 
     def unplug(self, instance, vif):
+        vif_type = vif['type']
         instance_info = os_vif_util.nova_to_osvif_instance(instance)
-        vif_obj = os_vif_util.nova_to_osvif_vif(vif)
 
-        os_vif.unplug(vif_obj, instance_info)
+        # Try os-vif codepath first
+        vif_obj = os_vif_util.nova_to_osvif_vif(vif)
+        if vif_obj is not None:
+            os_vif.unplug(vif_obj, instance_info)
+            return
+
+        # Legacy non-os-vif codepath
+        func = getattr(self, 'unplug_%s' % vif_type, None)
+        if not func:
+            raise exception.InternalError(
+                "Unexpected vif_type=%s" % vif_type
+            )
+        func(instance, vif)
+
+    def plug_tap(self, instance, vif):
+        '''Dummy plug method for tap devices, creation deferred to LXD'''
+        pass
+
+    def unplug_tap(self, instance, vif):
+        '''Dummy unplug method for tap devices, deletion deferred to LXD'''
+        pass
