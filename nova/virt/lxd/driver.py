@@ -662,14 +662,12 @@ class LXDDriver(driver.ComputeDriver):
 
         profile = self.client.profiles.get(instance.name)
 
-        interfaces = []
-        for key, val in profile.devices.items():
-            if key.startswith('eth'):
-                interfaces.append(key)
-        net_device = 'eth{}'.format(len(interfaces))
-
         network_config = lxd_vif.get_config(vif)
+
+        # XXX(jamespage): Refactor into vif module so code is shared
+        #                 across hotplug and instance creation.
         if 'bridge' in network_config:
+            net_device = network_config['bridge']
             config_update = {
                 net_device: {
                     'nictype': 'bridged',
@@ -679,10 +677,12 @@ class LXDDriver(driver.ComputeDriver):
                 }
             }
         else:
+            net_device = lxd_vif.get_vif_devname(vif)
             config_update = {
                 net_device: {
-                    'nictype': 'p2p',
+                    'nictype': 'physical',
                     'hwaddr': vif['address'],
+                    'parent': lxd_vif.get_vif_internal_devname(vif),
                     'type': 'nic',
                 }
             }
@@ -691,16 +691,19 @@ class LXDDriver(driver.ComputeDriver):
         profile.save(wait=True)
 
     def detach_interface(self, context, instance, vif):
-        self.vif_driver.unplug(instance, vif)
-
         profile = self.client.profiles.get(instance.name)
         to_remove = None
+        # XXX(jamespage): refactor to use actual key
+        #                 which switch to consistent
+        #                 device naming in the profile.
         for key, val in profile.devices.items():
             if val.get('hwaddr') == vif['address']:
                 to_remove = key
                 break
         del profile.devices[to_remove]
         profile.save(wait=True)
+
+        self.vif_driver.unplug(instance, vif)
 
     def migrate_disk_and_power_off(
             self, context, instance, dest, _flavor, network_info,
