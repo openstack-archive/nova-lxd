@@ -651,14 +651,10 @@ class LXDDriver(driver.ComputeDriver):
 
         profile = self.client.profiles.get(instance.name)
 
-        interfaces = []
-        for key, val in profile.devices.items():
-            if key.startswith('eth'):
-                interfaces.append(key)
-        net_device = 'eth{}'.format(len(interfaces))
-
         network_config = lxd_vif.get_config(vif)
+
         if 'bridge' in network_config:
+            net_device = network_config['bridge']
             config_update = {
                 net_device: {
                     'nictype': 'bridged',
@@ -668,10 +664,12 @@ class LXDDriver(driver.ComputeDriver):
                 }
             }
         else:
+            net_device = lxd_vif.get_vif_devname(vif)
             config_update = {
                 net_device: {
-                    'nictype': 'p2p',
+                    'nictype': 'physical',
                     'hwaddr': vif['address'],
+                    'parent': lxd_vif.get_vif_internal_devname(vif),
                     'type': 'nic',
                 }
             }
