@@ -61,8 +61,7 @@ class SessionContainerTest(test.NoDBTestCase):
         self.ml.container_init.return_value = side_effect
         self.ml.operation_info.return_value = \
             (200, fake_api.fake_container_state(200))
-        self.assertEqual(None,
-                         self.session.container_init(config, instance))
+        self.assertIsNone(self.session.container_init(config, instance))
         calls = [mock.call.container_init(config),
                  mock.call.wait_container_operation(
                      '/1.0/operation/1234', 200, -1),
@@ -105,7 +104,6 @@ class SessionEventTest(test.NoDBTestCase):
         instance = stubs._fake_instance()
         operation_id = mock.Mock()
         self.ml.wait_container_operation.return_value = True
-        self.assertEqual(None,
-                         self.session.operation_wait(operation_id, instance))
+        self.assertIsNone(self.session.operation_wait(operation_id, instance))
         self.ml.wait_container_operation.assert_called_with(operation_id,
                                                             200, -1)
