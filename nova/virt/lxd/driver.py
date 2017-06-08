@@ -553,8 +553,6 @@ class LXDDriver(driver.ComputeDriver):
         container.save(wait=True)
 
     def detach_interface(self, instance, vif):
-        self.vif_driver.unplug(instance, vif)
-
         container = self.client.containers.get(instance.name)
         to_remove = None
         for key, val in container.expanded_devices.items():
@@ -563,6 +561,8 @@ class LXDDriver(driver.ComputeDriver):
                 break
         del container.expanded_devices[to_remove]
         container.save(wait=True)
+
+        self.vif_driver.unplug(instance, vif)
 
     def migrate_disk_and_power_off(
             self, context, instance, dest, flavor, network_info,
