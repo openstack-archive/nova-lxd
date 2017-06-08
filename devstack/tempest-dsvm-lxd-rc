@@ -34,21 +34,6 @@ r="$r(?:.*\[.*\bslow\b.*\])"
 # (zulcss) nova-lxd does not support booting ami/aki images
 r="$r|(?:tempest\.scenario\.test_minimum_basic\.TestMinimumBasicScenario\.test_minimum_basic_scenario)"
 
-# XXX: zulcss (18 Oct 2016) Tries to configure networking in the container but fails
-r="$r|(?:tempest\.scenario\.test_network_advanced_server_ops\.TestNetworkAdvancedServerOps\.test_server_connectivity_pause_unpause)"
-
-# XXX: zulcss (18 Oct 2016) Could not connect to instance after rebuild takes place
-r="$r|(?:tempest\.scenario\.test_network_advanced_server_ops\.TestNetworkAdvancedServerOps\.test_server_connectivity_rebuild)"
-
-# XXX: zulcss (18 Oct 2016) Could not connect to instance
-r="$r|(?:tempest\.scenario\.test_network_advanced_server_ops\.TestNetworkAdvancedServerOps\.test_server_connectivity_suspend_resume)"
-
-# XXX: zulcss (18 Oct 2016) Tried to configure neworking in the container but fails
-r="$r(?:tempest\.scenario\.test_network_v6\.TestGettingAddress.\test_dualnet_multi_prefix_dhcpv6_stateless)"
-
-# XXX: zulcss (18 Oct 2016) Could not connect to instance
-r="$r|(?:tempest\.scenario\.test_snapshot_pattern\.TestSnapshotPattern.test_snapshot_pattern)"
-
 # XXX: zulcss (18 Oct 2016) nova-lxd does not support booting from ebs volumes
 r="$r|(?:tempest\.scenario\.test_volume_boot_pattern\.TestVolumeBootPattern\.test_create_ebs_image_and_check_boot)"
 r="$r|(?:tempest\.scenario\.test_volume_boot_pattern\.TestVolumeBootPattern\.test_volume_boot_pattern)"
@@ -56,29 +41,43 @@ r="$r|(?:tempest\.scenario\.test_volume_boot_pattern\.TestVolumeBootPatternV2\.t
 r="$r|(?:tempest\.scenario\.test_volume_boot_pattern\.TestVolumeBootPatternV2\.test_volume_boot_pattern)"
 
 # XXX: zulcss (18 Oct 2016) tempest test only passes when there is more than 10 lines in the
-#  console output.
+#  console output, and cirros LXD consoles have only a single line of output
 r="$r|(?:tempest\.api\.compute\.servers\.test_server_actions\.ServerActionsTestJSON\.test_get_console_output_with_unlimited_size)"
+# tempest.api.compute.servers.test_server_actions.ServerActionsTestJSON.test_get_console_output_with_unlimited_size
 
-# XXX: zulcss (18 Oct 2016) Tried to configure networkin the container but fails
-r="$r|(?:tempest\.api\.compute\.servers\.test_server_actions\.ServerActionsTestJSON\.test_get_console_output_with_unlimited_size)"
-
-# XXX: zulcss (18 Oct 2016) Interface attaching times out
-r="$r|(:tempest\.scenario\.test_network_basic_ops\.TestNetworkBasicOps\.test_port_security_macspoofing_port)"
-
-# XXX: zulcss (18 Oct 2016) Could not connect to instance
-r="$r|(?:tempest\.scenario\.test_network_v6\.TestGettingAddress\.test_dualnet_multi_prefix_dhcpv6_stateless)"
-
-# XXX: zulcss (18 Oct 2016) Could not connect to instance
-r="$r|(?:tempest\.scenario\.test_snapshot_pattern\.TestSnapshotPattern\.test_snapshot_pattern)"
-
-# XXX: zulcss (18 Oct 2016) Could not connect to instance
+# XXX: jamespage (09 June 2017) veth pair nics not detected/configured by tempest
+# https://review.openstack.org/#/c/472641/
 r="$r|(?:tempest\.scenario\.test_network_basic_ops\.TestNetworkBasicOps\.test_hotplug_nic)"
-
-# XXX: zulcss (18 Oct 2016) Could not connect to instance
 r="$r|(?:tempest\.scenario\.test_network_basic_ops\.TestNetworkBasicOps\.test_port_security_macspoofing_port)"
+#tempest.scenario.test_network_basic_ops.TestNetworkBasicOps.test_hotplug_nic
+#tempest.scenario.test_network_basic_ops.TestNetworkBasicOps.test_port_security_macspoofing_port
+
+# XXX: jamespage (09 June 2017) veth pair nics not detected/configured by tempest
+# https://review.openstack.org/#/c/472641/
+# XXX: jamespage (09 June 2017) instance not accessible via floating IP.
+r="$r|(?:tempest\.scenario\.test_network_v6\.TestGettingAddress\.test_dualnet_multi_prefix_dhcpv6_stateless)"
+r="$r|(?:tempest\.scenario\.test_network_v6\.TestGettingAddress\.test_dualnet_multi_prefix_slaac)"
+#tempest.scenario.test_network_v6.TestGettingAddress.test_dualnet_multi_prefix_dhcpv6_stateless
+#tempest.scenario.test_network_v6.TestGettingAddress.test_dualnet_multi_prefix_slaac
 
 # XXX: zulcss (18 Oct 2016) Could not connect to instance
-r="$r|(?:tempest\.scenario\.test_network_advanced_server_ops\.TestNetworkAdvancedServerOps\.test_server_connectivity_suspend_resume)"
+#r="$r|(?:tempest\.scenario\.test_network_advanced_server_ops\.TestNetworkAdvancedServerOps\.test_server_connectivity_suspend_resume)"
+
+# XXX: jamespage (08 June 2017): test failures with a mismatch in the number of disks reported
+r="$r|(?:tempest\.api\.compute\.admin\.test_create_server\.ServersWithSpecificFlavorTestJSON\.test_verify_created_server_ephemeral_disk)"
+#tempest.api.compute.admin.test_create_server.ServersWithSpecificFlavorTestJSON.test_verify_created_server_ephemeral_disk
+
+# XXX: jamespage (08 June 2017): nova-lxd driver does not support device tagging
+r="$r|(?:tempest\.api\.compute\.servers\.test_device_tagging.*)"
+#tempest.api.compute.servers.test_device_tagging.DeviceTaggingTestV2_42.test_device_tagging
+#tempest.api.compute.servers.test_device_tagging.DeviceTaggingTestV2_42.test_device_tagging
+
+# XXX: jamespage (08 June 2017): mismatching output on LXD instance use-case
+#tempest.api.compute.volumes.test_attach_volume.AttachVolumeTestJSON.test_attach_detach_volume
+#tempest.api.compute.volumes.test_attach_volume.AttachVolumeShelveTestJSON.test_attach_detach_volume
+r="$r|(?:tempest\.api\.compute\.volumes\.test_attach_volume\.AttachVolumeTestJSON\.test_attach_detach_volume)"
+r="$r|(?:tempest\.api\.compute\.volumes\.test_attach_volume\.AttachVolumeShelveTestJSON\.test_attach_detach_volume)"
+#testtools.matchers._impl.MismatchError: u'NAME  MAJ:MIN RM        SIZE RO TYPE MOUNTPOINT\nsda     8:0    0  1073741824  0 disk \nsdb     8:16   0  1073741824  0 disk \nvda   253:0    0 85899345920  0 disk \nvdb   253:16   0 42949672960  0 disk ' matches Contains('\nsdb ')
 
 r="$r).*$"
 
