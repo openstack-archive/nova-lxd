@@ -21,5 +21,6 @@
 
 source $BASE/new/devstack/functions
 
-localrc_path=$BASE/new/devstack/localrc
-echo "LXD_BACKEND_DRIVER=zfs" >> $localrc_path
+DEVSTACK_LOCAL_CONFIG+=$'\n'"LXD_BACKEND_DRIVER=zfs"
+
+export DEVSTACK_LOCAL_CONFIG
