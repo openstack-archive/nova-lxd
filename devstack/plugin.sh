@@ -78,20 +78,9 @@ function init_nova-lxd() {
               --disk-format raw < $TOP_DIR/files/cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxc.tar.gz
 
     if is_service_enabled tempest; then
-        # Download and install the root-tar image from xenial
-        UBUNTU_IMAGE_FILE=xenial-server-cloudimg-amd64-root.tar.gz
-        if [ ! -f $TOP_DIR/files/$UBUNTU_IMAGE_FILE ]; then
-            wget --progress=dot:giga -c \
-                 https://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-root.tar.gz \
-                 -O $TOP_DIR/files/xenial-server-cloudimg-amd64-root.tar.gz
-        fi
-        openstack --os-cloud=devstack-admin --os-region-name="$REGION_NAME" image create "ubuntu-16.04-lxd-root" \
-                  --public --container-format bare \
-                  --disk-format raw < $TOP_DIR/files/${UBUNTU_IMAGE_FILE}
-
        TEMPEST_CONFIG=${TEMPEST_CONFIG:-$TEMPEST_DIR/etc/tempest.conf}
-       TEMPEST_IMAGE=`openstack image list | grep cirros-0.3.4-x86_64-lxd | awk {'print $2'}` 
-       TEMPEST_IMAGE_ALT=`openstack image list | grep ubuntu-16.04-lxd-root | awk {'print $2'}`
+       TEMPEST_IMAGE=`openstack image list | grep cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxd | awk {'print $2'}`
+       TEMPEST_IMAGE_ALT=$TEMPEST_IMAGE
        iniset $TEMPEST_CONFIG image disk_formats "ami,ari,aki,vhd,raw,iso,root-tar"
        iniset $TEMPEST_CONFIG compute volume_device_name sdb
        iniset $TEMPEST_CONFIG compute-feature-enabled shelve False
