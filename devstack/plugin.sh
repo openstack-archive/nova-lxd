@@ -77,33 +77,28 @@ function init_nova-lxd() {
               --public --container-format bare \
               --disk-format raw < $TOP_DIR/files/cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxc.tar.gz
 
-    if is_service_enabled tempest; then
-        # Download and install the root-tar image from xenial
-        UBUNTU_IMAGE_FILE=xenial-server-cloudimg-amd64-root.tar.gz
-        if [ ! -f $TOP_DIR/files/$UBUNTU_IMAGE_FILE ]; then
-            wget --progress=dot:giga -c \
-                 https://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-root.tar.gz \
-                 -O $TOP_DIR/files/xenial-server-cloudimg-amd64-root.tar.gz
-        fi
-        openstack --os-cloud=devstack-admin --os-region-name="$REGION_NAME" image create "ubuntu-16.04-lxd-root" \
-                  --public --container-format bare \
-                  --disk-format raw < $TOP_DIR/files/${UBUNTU_IMAGE_FILE}
-
-       TEMPEST_CONFIG=${TEMPEST_CONFIG:-$TEMPEST_DIR/etc/tempest.conf}
-       TEMPEST_IMAGE=`openstack image list | grep cirros-0.3.4-x86_64-lxd | awk {'print $2'}` 
-       TEMPEST_IMAGE_ALT=`openstack image list | grep ubuntu-16.04-lxd-root | awk {'print $2'}`
-       iniset $TEMPEST_CONFIG image disk_formats "ami,ari,aki,vhd,raw,iso,root-tar"
-       iniset $TEMPEST_CONFIG compute volume_device_name sdb
-       iniset $TEMPEST_CONFIG compute-feature-enabled shelve False
-       iniset $TEMPEST_CONFIG compute-feature-enabled resize False
-       iniset $TEMPEST_CONFIG compute-feature-enabled attach_encrypted_volume False
-       iniset $TEMPEST_CONFIG compute image_ref $TEMPEST_IMAGE
-       iniset $TEMPEST_CONFIG compute image_ref_alt $TEMPEST_IMAGE_ALT
-    fi
-
     if is_service_enabled cinder; then
        # Enable user namespace for ext4, this has only been tested on xenial+
        echo Y | sudo tee /sys/module/ext4/parameters/userns_mounts
+    fi
+}
+
+function test_config_nova-lxd() {
+    # Configure tempest or other tests as required
+    if is_service_enabled tempest; then
+       TEMPEST_CONFIG=${TEMPEST_CONFIG:-$TEMPEST_DIR/etc/tempest.conf}
+       TEMPEST_IMAGE=`openstack image list | grep cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxd | awk {'print $2'}`
+       TEMPEST_IMAGE_ALT=$TEMPEST_IMAGE
+       iniset $TEMPEST_CONFIG image disk_formats "ami,ari,aki,vhd,raw,iso,root-tar"
+       iniset $TEMPEST_CONFIG compute volume_device_name sdb
+       # TODO(jamespage): Review and update
+       iniset $TEMPEST_CONFIG compute-feature-enabled shelve False
+       iniset $TEMPEST_CONFIG compute-feature-enabled resize False
+       iniset $TEMPEST_CONFIG compute-feature-enabled config_drive False
+       iniset $TEMPEST_CONFIG compute-feature-enabled attach_encrypted_volume False
+       iniset $TEMPEST_CONFIG compute image_ref $TEMPEST_IMAGE
+       iniset $TEMPEST_CONFIG compute image_ref_alt $TEMPEST_IMAGE_ALT
+       iniset $TEMPEST_CONFIG scenario img_file cirros-${CIRROS_VERSION}-${CIRROS_ARCH}-lxc.tar.gz
     fi
 }
 
@@ -157,6 +152,11 @@ if is_service_enabled nova-lxd; then
         # Initialize and start the nova-lxd service
         echo_summary "Initializing nova-lxd"
         init_nova-lxd
+
+    elif [[ "$1" == "stack" && "$2" == "test-config" ]]; then
+        # Configure any testing configuration
+        echo_summary "Test configuration - nova-lxd"
+        test_config_nova-lxd
     fi
 
     if [[ "$1" == "unstack" ]]; then
