@@ -22,4 +22,4 @@ LOGDIR=/opt/stack/logs
 
 # Collect logs from the containers
 sudo mkdir -p $LOGDIR/containers/
-cp -rp /var/log/lxd/* $LOGDIR/containers 
+sudo cp -rp /var/log/lxd/* $LOGDIR/containers
