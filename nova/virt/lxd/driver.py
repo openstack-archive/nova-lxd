@@ -194,6 +194,17 @@ def _sync_glance_image_to_lxd(client, context, image_ref):
             lock_path, external=True,
             lock_file_prefix='lxd-image-{}'.format(image_ref)):
 
+        # NOTE(jamespage): Re-query by image_ref to ensure
+        #                  that another process did not
+        #                  sneak infront of this one and create
+        #                  the same image already.
+        try:
+            client.images.get_by_alias(image_ref)
+            return
+        except lxd_exceptions.LXDAPIException as e:
+            if e.response.status_code != 404:
+                raise
+
         try:
             image_file = tempfile.mkstemp()[1]
             manifest_file = tempfile.mkstemp()[1]
