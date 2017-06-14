@@ -76,8 +76,8 @@ def _get_tap_config(vif):
 
 
 CONFIG_GENERATORS = {
-    'bridge': _get_bridge_config,
-    'ovs': _get_ovs_config,
+    'bridge': _get_tap_config,
+    'ovs': _get_tap_config,
     'tap': _get_tap_config,
 }
 
@@ -106,6 +106,7 @@ class LXDGenericVifDriver(object):
         # Try os-vif codepath first
         vif_obj = os_vif_util.nova_to_osvif_vif(vif)
         if vif_obj is not None:
+            self.create_veth_pair(instance, vif)
             os_vif.plug(vif_obj, instance_info)
             return
 
@@ -124,6 +125,7 @@ class LXDGenericVifDriver(object):
         # Try os-vif codepath first
         vif_obj = os_vif_util.nova_to_osvif_vif(vif)
         if vif_obj is not None:
+            self.delete_vif(instance, vif)
             os_vif.unplug(vif_obj, instance_info)
             return
 
@@ -137,6 +139,23 @@ class LXDGenericVifDriver(object):
 
     def plug_tap(self, instance, vif):
         """Plug a VIF_TYPE_TAP virtual interface."""
+        self.create_veth_pair(instance, vif)
+
+    def unplug_tap(self, instance, vif):
+        """Unplug a VIF_TYPE_TAP virtual interface."""
+        self.delete_vif(instance, vif)
+
+    def delete_vif(self, instance, vif):
+        """Delete a vif"""
+        dev = get_vif_devname(vif)
+        try:
+            linux_net.delete_net_dev(dev)
+        except processutils.ProcessExecutionError:
+            LOG.exception("Failed while unplugging vif",
+                          instance=instance)
+
+    def create_veth_pair(self, instance, vif):
+        """Create a veth pair mimicing a tapXXX device"""
         dev1_name = get_vif_devname(vif)
         dev2_name = dev1_name.replace('tap', 'tin')
         network = vif.get('network')
@@ -145,12 +164,3 @@ class LXDGenericVifDriver(object):
         #                  so that a) security rules get applied on the host
         #                  and b) that the container can still be wired.
         _create_veth_pair(dev1_name, dev2_name, mtu)
-
-    def unplug_tap(self, instance, vif):
-        """Unplug a VIF_TYPE_TAP virtual interface."""
-        dev = get_vif_devname(vif)
-        try:
-            linux_net.delete_net_dev(dev)
-        except processutils.ProcessExecutionError:
-            LOG.exception("Failed while unplugging vif",
-                          instance=instance)
