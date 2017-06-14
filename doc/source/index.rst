@@ -14,6 +14,7 @@ Contents:
    usage
    contributing
    exclusive_machine
+   vif_wiring
 
 Indices and tables
 ==================
