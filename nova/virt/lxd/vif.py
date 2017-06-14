@@ -18,11 +18,13 @@ from oslo_log import log as logging
 from nova import conf
 from nova import exception
 from nova import utils
-from nova.network import linux_net
 from nova.network import model as network_model
 from nova.network import os_vif_util
 
+from vif_plug_ovs import linux_net
+
 import os_vif
+
 
 LOG = logging.getLogger(__name__)
 
@@ -93,6 +95,66 @@ def get_config(vif):
             'Unsupported vif type: {}'.format(vif_type))
 
 
+# VIF_TYPE_OVS = 'ovs'
+def _post_plug_wiring_ovs(vif):
+    config = get_config(vif)
+    network = vif.get('network')
+    mtu = network.get_meta('mtu') if network else None
+    v1_name = get_vif_devname(vif)
+    v2_name = get_vif_internal_devname(vif)
+    if not linux_net.device_exists(v1_name):
+        linux_net.create_veth_pair(v1_name, v2_name, mtu)
+        linux_net.add_bridge_port(config['bridge'], v1_name)
+    else:
+        linux_net.update_veth_pair(v1_name, v2_name, mtu)
+
+
+# VIF_TYPE_BRIDGE = 'bridge'
+def _post_plug_wiring_bridge(vif):
+    config = get_config(vif)
+    network = vif.get('network')
+    mtu = network.get_meta('mtu') if network else None
+    v1_name = get_vif_devname(vif)
+    v2_name = get_vif_internal_devname(vif)
+    if not linux_net.device_exists(v1_name):
+        linux_net.create_veth_pair(v1_name, v2_name, mtu)
+        linux_net.add_bridge_port(config['bridge'], v1_name)
+    else:
+        linux_net.update_veth_pair(v1_name, v2_name, mtu)
+
+
+# VIF_TYPE_TAP = 'tap'
+def _post_plug_wiring_tap(vif):
+    pass
+
+
+POST_PLUG_WIRING = {
+    'bridge': _post_plug_wiring_bridge,
+    'ovs': _post_plug_wiring_ovs,
+    'tap': _post_plug_wiring_tap,
+}
+
+
+def _post_plug_wiring(vif):
+    """Perform nova-lxd specific post os-vif plug processing
+
+    :param vif: a nova.network.model.VIF instance
+
+    Perform any post os-vif plug wiring requires to network
+    the instance LXD container with the underlying Neutron
+    network infrastructure
+    """
+
+    LOG.debug("Performing post plug wiring for VIF %s", vif)
+    vif_type = vif['type']
+
+    try:
+        POST_PLUG_WIRING[vif_type](vif)
+    except KeyError:
+        raise exception.NovaException(
+            'Unsupported vif type: {}'.format(vif_type))
+
+
 class LXDGenericVifDriver(object):
     """Generic VIF driver for LXD networking."""
 
@@ -107,15 +169,16 @@ class LXDGenericVifDriver(object):
         vif_obj = os_vif_util.nova_to_osvif_vif(vif)
         if vif_obj is not None:
             os_vif.plug(vif_obj, instance_info)
-            return
+        else:
+            # Legacy non-os-vif codepath
+            func = getattr(self, 'plug_%s' % vif_type, None)
+            if not func:
+                raise exception.InternalError(
+                    "Unexpected vif_type=%s" % vif_type
+                )
+            func(instance, vif)
 
-        # Legacy non-os-vif codepath
-        func = getattr(self, 'plug_%s' % vif_type, None)
-        if not func:
-            raise exception.InternalError(
-                "Unexpected vif_type=%s" % vif_type
-            )
-        func(instance, vif)
+        _post_plug_wiring(vif)
 
     def unplug(self, instance, vif):
         vif_type = vif['type']
@@ -125,32 +188,34 @@ class LXDGenericVifDriver(object):
         vif_obj = os_vif_util.nova_to_osvif_vif(vif)
         if vif_obj is not None:
             os_vif.unplug(vif_obj, instance_info)
-            return
-
-        # Legacy non-os-vif codepath
-        func = getattr(self, 'unplug_%s' % vif_type, None)
-        if not func:
-            raise exception.InternalError(
-                "Unexpected vif_type=%s" % vif_type
-            )
-        func(instance, vif)
+        else:
+            # Legacy non-os-vif codepath
+            func = getattr(self, 'unplug_%s' % vif_type, None)
+            if not func:
+                raise exception.InternalError(
+                    "Unexpected vif_type=%s" % vif_type
+                )
+            func(instance, vif)
 
     def plug_tap(self, instance, vif):
         """Plug a VIF_TYPE_TAP virtual interface."""
-        dev1_name = get_vif_devname(vif)
-        dev2_name = dev1_name.replace('tap', 'tin')
+        v1_name = get_vif_devname(vif)
+        v2_name = get_vif_internal_devname(vif)
         network = vif.get('network')
         mtu = network.get_meta('mtu') if network else None
         # NOTE(jamespage): For nova-lxd this is really a veth pair
         #                  so that a) security rules get applied on the host
         #                  and b) that the container can still be wired.
-        _create_veth_pair(dev1_name, dev2_name, mtu)
+        if not linux_net.device_exists(v1_name):
+            linux_net.create_veth_pair(v1_name, v2_name, mtu)
+        else:
+            linux_net.update_veth_pair(v1_name, v2_name, mtu)
 
     def unplug_tap(self, instance, vif):
         """Unplug a VIF_TYPE_TAP virtual interface."""
         dev = get_vif_devname(vif)
         try:
-            linux_net.delete_net_dev(dev)
+            linux_net._delete_net_dev(dev)
         except processutils.ProcessExecutionError:
             LOG.exception("Failed while unplugging vif",
                           instance=instance)

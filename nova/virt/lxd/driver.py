@@ -662,30 +662,15 @@ class LXDDriver(driver.ComputeDriver):
 
         profile = self.client.profiles.get(instance.name)
 
-        network_config = lxd_vif.get_config(vif)
-
-        # XXX(jamespage): Refactor into vif module so code is shared
-        #                 across hotplug and instance creation.
-        if 'bridge' in network_config:
-            net_device = network_config['bridge']
-            config_update = {
-                net_device: {
-                    'nictype': 'bridged',
-                    'hwaddr': vif['address'],
-                    'parent': network_config['bridge'],
-                    'type': 'nic',
-                }
+        net_device = lxd_vif.get_vif_devname(vif)
+        config_update = {
+            net_device: {
+                'nictype': 'physical',
+                'hwaddr': vif['address'],
+                'parent': lxd_vif.get_vif_internal_devname(vif),
+                'type': 'nic',
             }
-        else:
-            net_device = lxd_vif.get_vif_devname(vif)
-            config_update = {
-                net_device: {
-                    'nictype': 'physical',
-                    'hwaddr': vif['address'],
-                    'parent': lxd_vif.get_vif_internal_devname(vif),
-                    'type': 'nic',
-                }
-            }
+        }
 
         profile.devices.update(config_update)
         profile.save(wait=True)
