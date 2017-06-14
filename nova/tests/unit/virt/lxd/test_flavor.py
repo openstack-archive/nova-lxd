@@ -358,7 +358,8 @@ class ToProfileTest(test.NoDBTestCase):
         self.client.profiles.create.assert_called_once_with(
             instance.name, expected_config, expected_devices)
 
-    def test_to_profile_network_config_average(self):
+    @mock.patch('nova.virt.lxd.vif._is_no_op_firewall', return_value=False)
+    def test_to_profile_network_config_average(self, _is_no_op_firewall):
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
             ctx, name='test', memory_mb=0)
@@ -371,7 +372,8 @@ class ToProfileTest(test.NoDBTestCase):
             'type': network_model.VIF_TYPE_OVS,
             'address': '00:11:22:33:44:55',
             'network': {
-                'bridge': 'fakebr'}}]
+                'bridge': 'fakebr'},
+            'devname': 'tap0123456789a'}]
         block_info = []
 
         expected_config = {
@@ -383,11 +385,10 @@ class ToProfileTest(test.NoDBTestCase):
                     instance.name)),
         }
         expected_devices = {
-            'qbr0123456789a': {
-                'host_name': 'nic0123456789a',
+            'tap0123456789a': {
                 'hwaddr': '00:11:22:33:44:55',
-                'nictype': 'bridged',
-                'parent': 'qbr0123456789a',
+                'nictype': 'physical',
+                'parent': 'tin0123456789a',
                 'type': 'nic',
                 'limits.egress': '16000Mbit',
                 'limits.ingress': '8000Mbit',
@@ -404,7 +405,8 @@ class ToProfileTest(test.NoDBTestCase):
         self.client.profiles.create.assert_called_once_with(
             instance.name, expected_config, expected_devices)
 
-    def test_to_profile_network_config_peak(self):
+    @mock.patch('nova.virt.lxd.vif._is_no_op_firewall', return_value=False)
+    def test_to_profile_network_config_peak(self, _is_no_op_firewall):
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
             ctx, name='test', memory_mb=0)
@@ -417,7 +419,8 @@ class ToProfileTest(test.NoDBTestCase):
             'type': network_model.VIF_TYPE_OVS,
             'address': '00:11:22:33:44:55',
             'network': {
-                'bridge': 'fakebr'}}]
+                'bridge': 'fakebr'},
+            'devname': 'tap0123456789a'}]
         block_info = []
 
         expected_config = {
@@ -429,11 +432,10 @@ class ToProfileTest(test.NoDBTestCase):
                     instance.name)),
         }
         expected_devices = {
-            'qbr0123456789a': {
-                'host_name': 'nic0123456789a',
+            'tap0123456789a': {
                 'hwaddr': '00:11:22:33:44:55',
-                'nictype': 'bridged',
-                'parent': 'qbr0123456789a',
+                'nictype': 'physical',
+                'parent': 'tin0123456789a',
                 'type': 'nic',
                 'limits.egress': '32000Mbit',
                 'limits.ingress': '24000Mbit',

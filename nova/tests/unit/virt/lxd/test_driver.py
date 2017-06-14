@@ -616,8 +616,8 @@ class LXDDriverTest(test.NoDBTestCase):
     def test_attach_interface(self):
         expected = {
             'hwaddr': '00:11:22:33:44:55',
-            'parent': 'qbr0123456789a',
-            'nictype': 'bridged',
+            'parent': 'tin0123456789a',
+            'nictype': 'physical',
             'type': 'nic',
         }
 
@@ -645,7 +645,8 @@ class LXDDriverTest(test.NoDBTestCase):
             'type': network_model.VIF_TYPE_OVS,
             'address': '00:11:22:33:44:55',
             'network': {
-                'bridge': 'fakebr'}}
+                'bridge': 'fakebr'},
+            'devname': 'tap0123456789a'}
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
@@ -653,17 +654,52 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver.attach_interface(ctx, instance, image_meta, vif)
 
-        self.assertTrue('qbr0123456789a' in profile.devices)
-        self.assertEqual(expected, profile.devices['qbr0123456789a'])
+        self.assertTrue('tap0123456789a' in profile.devices)
+        self.assertEqual(expected, profile.devices['tap0123456789a'])
+        profile.save.assert_called_once_with(wait=True)
+
+    def test_detach_interface_legacy(self):
+        profile = mock.Mock()
+        profile.devices = {
+            'eth0': {
+                'nictype': 'bridged',
+                'parent': 'lxdbr0',
+                'hwaddr': '00:11:22:33:44:55',
+                'type': 'nic'
+            },
+            'root': {
+                'path': '/',
+                'type': 'disk'
+            },
+        }
+        self.client.profiles.get.return_value = profile
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
+        vif = {
+            'id': '0123456789abcdef',
+            'type': network_model.VIF_TYPE_OVS,
+            'address': '00:11:22:33:44:55',
+            'network': {
+                'bridge': 'fakebr'}}
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.detach_interface(ctx, instance, vif)
+
+        self.vif_driver.unplug.assert_called_once_with(
+            instance, vif)
+        self.assertEqual(['root'], sorted(profile.devices.keys()))
         profile.save.assert_called_once_with(wait=True)
 
     def test_detach_interface(self):
         profile = mock.Mock()
         profile.devices = {
-            'eth0': {
-                'name': 'eth0',
-                'nictype': 'bridged',
-                'parent': 'lxdbr0',
+            'tap0123456789a': {
+                'nictype': 'physical',
+                'parent': 'tin0123456789a',
                 'hwaddr': '00:11:22:33:44:55',
                 'type': 'nic'
             },
