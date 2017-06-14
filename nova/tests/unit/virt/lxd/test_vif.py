@@ -144,8 +144,9 @@ class LXDGenericVifDriverTest(test.NoDBTestCase):
         super(LXDGenericVifDriverTest, self).setUp()
         self.vif_driver = vif.LXDGenericVifDriver()
 
+    @mock.patch('nova.virt.lxd.vif.linux_net')
     @mock.patch('nova.virt.lxd.vif.os_vif')
-    def test_plug_ovs(self, os_vif):
+    def test_plug_ovs(self, os_vif, linux_net):
         self.vif_driver.plug(INSTANCE, VIF)
 
         self.assertEqual(
@@ -153,8 +154,9 @@ class LXDGenericVifDriverTest(test.NoDBTestCase):
         self.assertEqual(
             'instance-00000001', os_vif.plug.call_args[0][1].name)
 
+    @mock.patch('nova.virt.lxd.vif.linux_net')
     @mock.patch('nova.virt.lxd.vif.os_vif')
-    def test_unplug_ovs(self, os_vif):
+    def test_unplug_ovs(self, os_vif, linux_net):
         self.vif_driver.unplug(INSTANCE, VIF)
 
         self.assertEqual(
@@ -162,18 +164,18 @@ class LXDGenericVifDriverTest(test.NoDBTestCase):
         self.assertEqual(
             'instance-00000001', os_vif.unplug.call_args[0][1].name)
 
+    @mock.patch('nova.virt.lxd.vif.linux_net')
     @mock.patch('nova.virt.lxd.vif.os_vif')
-    def test_plug_tap(self, os_vif):
-        with mock.patch.object(vif, '_create_veth_pair') as create_veth_pair:
-            self.vif_driver.plug(INSTANCE, TAP_VIF)
-            os_vif.plug.assert_not_called()
-            create_veth_pair.assert_called_with('tap-014-345-678',
-                                                'tin-014-345-678',
-                                                1000)
+    def test_plug_tap(self, os_vif, linux_net):
+        self.vif_driver.plug(INSTANCE, TAP_VIF)
+        os_vif.plug.assert_not_called()
+        linux_net.create_veth_pair.assert_called_with('tap-014-345-678',
+                                                      'tin-014-345-678',
+                                                      1000)
 
     @mock.patch('nova.virt.lxd.vif.linux_net')
     @mock.patch('nova.virt.lxd.vif.os_vif')
     def test_unplug_tap(self, os_vif, linux_net):
         self.vif_driver.unplug(INSTANCE, TAP_VIF)
         os_vif.plug.assert_not_called()
-        linux_net.delete_net_dev.assert_called_with('tap-014-345-678')
+        linux_net._delete_net_dev.assert_called_with('tap-014-345-678')
