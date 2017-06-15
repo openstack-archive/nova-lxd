@@ -1,0 +1,8 @@
+Code-Review+2: James Page <james.page@canonical.com>
+Workflow+1: James Page <james.page@canonical.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Thu, 15 Jun 2017 16:03:54 +0000
+Reviewed-on: https://review.openstack.org/464837
+Project: openstack/nova-lxd
+Branch: refs/heads/stable/ocata
