@@ -47,16 +47,9 @@ r="$r|(?:tempest\.api\.compute\.servers\.test_server_actions\.ServerActionsTestJ
 
 # XXX: jamespage (09 June 2017) veth pair nics not detected/configured by tempest
 # https://review.openstack.org/#/c/472641/
-r="$r|(?:tempest\.scenario\.test_network_basic_ops\.TestNetworkBasicOps\.test_hotplug_nic)"
-r="$r|(?:tempest\.scenario\.test_network_basic_ops\.TestNetworkBasicOps\.test_port_security_macspoofing_port)"
-#tempest.scenario.test_network_basic_ops.TestNetworkBasicOps.test_hotplug_nic
-#tempest.scenario.test_network_basic_ops.TestNetworkBasicOps.test_port_security_macspoofing_port
-
-# XXX: jamespage (09 June 2017) veth pair nics not detected/configured by tempest
-# https://review.openstack.org/#/c/472641/
 # XXX: jamespage (09 June 2017) instance not accessible via floating IP.
-r="$r|(?:tempest\.scenario\.test_network_v6\.TestGettingAddress\.test_dualnet_multi_prefix_dhcpv6_stateless)"
-r="$r|(?:tempest\.scenario\.test_network_v6\.TestGettingAddress\.test_dualnet_multi_prefix_slaac)"
+#r="$r|(?:tempest\.scenario\.test_network_v6\.TestGettingAddress\.test_dualnet_multi_prefix_dhcpv6_stateless)"
+#r="$r|(?:tempest\.scenario\.test_network_v6\.TestGettingAddress\.test_dualnet_multi_prefix_slaac)"
 #tempest.scenario.test_network_v6.TestGettingAddress.test_dualnet_multi_prefix_dhcpv6_stateless
 #tempest.scenario.test_network_v6.TestGettingAddress.test_dualnet_multi_prefix_slaac
 
