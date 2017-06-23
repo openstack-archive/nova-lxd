@@ -1,8 +1,7 @@
 [run]
 branch = True
-source = nova_lxd
-omit = nova_lxd/tests/*
+source = nova.virt.lxd
+omit = nova/tests/*
 
 [report]
 ignore_errors = True
-precision = 2
