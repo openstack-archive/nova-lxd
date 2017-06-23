@@ -1,0 +1,31 @@
+Misc fixes for devstack gate tests
+
+Correct typo in INSTALL_LXD setting.
+
+Correctly set default for for LXD_GROUP.
+
+Rewrite gate pre-test hook to use DEVSTACK_LOCAL_CONFIG.
+
+Use central Cirros version and architecture.
+
+Drop use of Xenial images for tempest tests.
+
+Split out tempest configuration into test-config phase.
+
+Change-Id: Iff0f0a501dae13e2306b9efb87d06c0d917d6233
+(cherry picked from commit 41ac3336808cfea1e7910482051e867c6ccd3cf8)
+
+# Please enter the commit message for your changes. Lines starting
+# with '#' will be ignored, and an empty message aborts the commit.
+#
+# Date:      Thu Jun 8 11:43:37 2017 +0100
+#
+# On branch devstack-fixes-stable-newton
+# Changes to be committed:
+#	modified:   contrib/ci/post_test_hook.sh
+#	modified:   contrib/ci/pre_test_hook.sh
+#	modified:   devstack/override-defaults
+#	modified:   devstack/plugin.sh
+#	modified:   devstack/settings
+#	modified:   devstack/tempest-dsvm-lxd-rc
+#
