@@ -1,0 +1,9 @@
+Code-Review+2: Chris MacNaughton <chris.macnaughton@canonical.com>
+Code-Review+2: James Page <james.page@canonical.com>
+Workflow+1: James Page <james.page@canonical.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Mon, 26 Jun 2017 13:57:55 +0000
+Reviewed-on: https://review.openstack.org/477502
+Project: openstack/nova-lxd
+Branch: refs/heads/master
