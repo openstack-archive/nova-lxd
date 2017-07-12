@@ -1,0 +1,9 @@
+Code-Review+2: Chris MacNaughton <chris.macnaughton@canonical.com>
+Code-Review+2: Chuck Short <charles.short@ericsson.com>
+Workflow+1: Chuck Short <charles.short@ericsson.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Wed, 12 Jul 2017 18:01:17 +0000
+Reviewed-on: https://review.openstack.org/482987
+Project: openstack/nova-lxd
+Branch: refs/heads/master
