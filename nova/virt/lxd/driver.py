@@ -245,7 +245,7 @@ def _sync_glance_image_to_lxd(client, context, image_ref):
             # In that case attempt to add it again
             # (implicitly via instance launch from affected image) will produce
             # LXD error - "Image with same fingerprint already exists".
-            # Error does not unique identifier so # to handle it we calculate
+            # Error does not have unique identifier so to handle it we calculate
             # fingerprint of image as LXD do and check if LXD already have image
             # with such fingerprint.
             # If any we will add alias to this image and will not re-import it
@@ -297,7 +297,7 @@ def _sync_glance_image_to_lxd(client, context, image_ref):
                 return False
 
             if imagefile_has_metadata(image_file):
-                LOG.info('Image already {alias} has metadata, '
+                LOG.info('Image {alias} already has metadata, '
                          'skipping metadata injection...'.format(
                              alias=image_ref))
                 with open(image_file, 'rb') as image:
