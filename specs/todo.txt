@@ -1,6 +1,6 @@
 nova-lxd todo list
 
-Taken from http://docs.openstack.org/developer/nova/support-matrix.html
+Taken from https://docs.openstack.org/nova/latest/support-matrix.html
 
 Feature         Status      Kilo            Liberty
 Attach block    optional     X              not started
