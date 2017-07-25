@@ -19,6 +19,7 @@ import json
 from tempest import config
 from tempest import exceptions
 from tempest.lib.common.utils import test_utils
+from tempest.lib import decorators
 from tempest import test
 
 from nova_lxd_tempest_plugin.tests.scenario import manager
@@ -105,7 +106,7 @@ class TestServerBasicOps(manager.ScenarioTest):
             # instance info and do direct comparison.
 
     @decorators.idempotent_id('7fff3fb3-91d8-4fd0-bd7d-0204f1f180ba')
-    @test.attr(type='smoke')
+    @decorators.attr(type='smoke')
     @test.services('compute', 'network')
     def test_server_basic_ops(self):
         keypair = self.create_keypair()
