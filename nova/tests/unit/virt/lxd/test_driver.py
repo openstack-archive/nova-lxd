@@ -14,6 +14,8 @@
 #    under the License.
 import collections
 import json
+import base64
+from contextlib import closing
 
 import eventlet
 from oslo_config import cfg
@@ -217,6 +219,32 @@ class LXDDriverTest(test.NoDBTestCase):
         instances = lxd_driver.list_instances()
 
         self.assertEqual(['mock-instance-1', 'mock-instance-2'], instances)
+
+    @mock.patch('nova.virt.lxd.driver.IMAGE_API')
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_spawn_unified_image(self, lock, IMAGE_API=None):
+        def image_get(*args, **kwargs):
+            raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
+        self.client.images.get_by_alias.side_effect = image_get
+        self.client.images.exists.return_value = False
+        image = {'name': mock.Mock(), 'disk_format': 'raw'}
+        IMAGE_API.get.return_value = image
+
+        def download_unified(*args, **kwargs):
+            # unified image with metadata
+            # structure is gzipped tarball, content:
+            # /
+            #  metadata.yaml
+            #  rootfs/
+            unified_tgz = 'H4sIALpegVkAA+3SQQ7CIBCFYY7CCXRAppwHo66sTVpYeHsh0a'\
+                          'Ru1A2Lxv/bDGQmYZLHeM7plHLa3dN4NX1INQyhVRdV1vXFuIML'\
+                          '4lVVopF28cZKp33elCWn2VpTjuWWy4e5L/2NmqcpX5Z91zdawD'\
+                          'HqT/kHrf/E+Xo0Vrtu9fTn+QMAAAAAAAAAAAAAAADYrgfk/3zn'\
+                          'ACgAAA=='
+            with closing(open(kwargs['dest_path'], 'wb+')) as img:
+                img.write(base64.b64decode(unified_tgz))
+        IMAGE_API.download = download_unified
+        self.test_spawn()
 
     @mock.patch('nova.virt.configdrive.required_by')
     def test_spawn(self, configdrive, neutron_failure=None):
