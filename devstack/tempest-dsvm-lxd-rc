@@ -36,7 +36,7 @@ r="$r|(?:tempest\.scenario\.test_minimum_basic\.TestMinimumBasicScenario\.test_m
 
 # XXX: zulcss (18 Oct 2016) nova-lxd does not support booting from ebs volumes
 r="$r|(?:tempest\.scenario\.test_volume_boot_pattern.*)"
-
+r="$r|(?:tempest\.api\.compute\.servers\.test_create_server\.ServersTestBootFromVolume)"
 # XXX: zulcss (18 Oct 2016) tempest test only passes when there is more than 10 lines in the
 #  console output, and cirros LXD consoles have only a single line of output
 r="$r|(?:tempest\.api\.compute\.servers\.test_server_actions\.ServerActionsTestJSON\.test_get_console_output_with_unlimited_size)"
