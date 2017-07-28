@@ -24,10 +24,13 @@ import shutil
 import socket
 import tarfile
 import tempfile
+import hashlib
 
 import eventlet
 import nova.conf
 import nova.context
+from contextlib import closing
+
 from nova import exception
 from nova import i18n
 from nova import image
@@ -236,26 +239,92 @@ def _sync_glance_image_to_lxd(client, context, image_ref):
                     image_id=image_ref, reason=_('Bad image format'))
             IMAGE_API.download(context, image_ref, dest_path=image_file)
 
-            metadata = {
-                'architecture': image.get(
-                    'hw_architecture', obj_fields.Architecture.from_host()),
-                'creation_date': int(os.stat(image_file).st_ctime)}
-            metadata_yaml = json.dumps(
-                metadata, sort_keys=True, indent=4,
-                separators=(',', ': '),
-                ensure_ascii=False).encode('utf-8') + b"\n"
+            # It is possible that LXD already have the same image
+            # but NOT aliased as result of previous publish/export operation
+            # (snapshot from openstack).
+            # In that case attempt to add it again
+            # (implicitly via instance launch from affected image) will produce
+            # LXD error - "Image with same fingerprint already exists".
+            # Error does not have unique identifier to handle it we calculate
+            # fingerprint of image as LXD do it and check if LXD already have
+            # image with such fingerprint.
+            # If any we will add alias to this image and will not re-import it
+            def add_alias():
 
-            tarball = tarfile.open(manifest_file, "w:gz")
-            tarinfo = tarfile.TarInfo(name='metadata.yaml')
-            tarinfo.size = len(metadata_yaml)
-            tarball.addfile(tarinfo, io.BytesIO(metadata_yaml))
-            tarball.close()
+                def lxdimage_fingerprint():
+                    def sha256_file():
+                        sha256 = hashlib.sha256()
+                        with closing(open(image_file, 'rb')) as f:
+                            for block in iter(lambda: f.read(65536), b''):
+                                sha256.update(block)
+                        return sha256.hexdigest()
 
-            with open(manifest_file, 'rb') as manifest:
+                    return sha256_file()
+
+                fingerprint = lxdimage_fingerprint()
+                if client.images.exists(fingerprint):
+                    LOG.info(
+                        'Image with fingerprint %(fingerprint)s already exists'
+                        'but not accessible by alias %(alias)s, add alias',
+                        {'fingerprint': fingerprint, 'alias': image_ref})
+                    lxdimage = client.images.get(fingerprint)
+                    lxdimage.add_alias(image_ref, '')
+                    return True
+
+                return False
+
+            if add_alias():
+                return
+
+            # up2date LXD publish/export operations produce images which
+            # already contains /rootfs and metdata.yaml in exported file.
+            # We should not pass metdata explicitly in that case as imported
+            # image will be unusable bacause LXD will think that it containts
+            # rootfs and will not extract embedded /rootfs properly.
+            # Try to detect if image content already has metadata and not pass
+            # explicit metadata in that case
+            def imagefile_has_metadata(image_file):
+                try:
+                    with closing(tarfile.TarFile.open(
+                        name=image_file, mode='r:*')) as tf:
+                        try:
+                            tf.getmember('metadata.yaml')
+                            return True
+                        except KeyError:
+                            pass
+                except tarfile.ReadError:
+                    pass
+                return False
+
+            if imagefile_has_metadata(image_file):
+                LOG.info('Image %(alias)s already has metadata, '
+                         'skipping metadata injection...',
+                         {'alias': image_ref})
                 with open(image_file, 'rb') as image:
-                    image = client.images.create(
-                        image.read(), metadata=manifest.read(),
-                        wait=True)
+                    image = client.images.create(image.read(), wait=True)
+            else:
+                metadata = {
+                    'architecture': image.get(
+                        'hw_architecture',
+                        obj_fields.Architecture.from_host()),
+                    'creation_date': int(os.stat(image_file).st_ctime)}
+                metadata_yaml = json.dumps(
+                    metadata, sort_keys=True, indent=4,
+                    separators=(',', ': '),
+                    ensure_ascii=False).encode('utf-8') + b"\n"
+
+                tarball = tarfile.open(manifest_file, "w:gz")
+                tarinfo = tarfile.TarInfo(name='metadata.yaml')
+                tarinfo.size = len(metadata_yaml)
+                tarball.addfile(tarinfo, io.BytesIO(metadata_yaml))
+                tarball.close()
+
+                with open(manifest_file, 'rb') as manifest:
+                    with open(image_file, 'rb') as image:
+                        image = client.images.create(
+                            image.read(), metadata=manifest.read(),
+                            wait=True)
+
             image.add_alias(image_ref, '')
 
         finally:
@@ -590,8 +659,28 @@ class LXDDriver(driver.ComputeDriver):
             'chown', '%s:%s' % (uid, uid), console_path, run_as_root=True)
         utils.execute(
             'chmod', '755', instance_attrs.container_path, run_as_root=True)
+
+        def last_bytes(file_like_object, num):
+            """copy/paste from old nova/utils.py
+
+            Operation was removed from utils, community suggest create local
+            copy in out-of-upstream nova project LXD driver
+            """
+
+            import errno
+            try:
+                file_like_object.seek(-num, os.SEEK_END)
+            except IOError as e:
+                if e.errno == errno.EINVAL:
+                    file_like_object.seek(0, os.SEEK_SET)
+                else:
+                    raise
+
+            remaining = file_like_object.tell()
+            return (file_like_object.read(), remaining)
+
         with open(console_path, 'rb') as f:
-            log_data, _ = utils.last_bytes(f, MAX_CONSOLE_BYTES)
+            log_data, _ = last_bytes(f, MAX_CONSOLE_BYTES)
             return log_data
 
     def get_host_ip_addr(self):
