@@ -15,3 +15,4 @@ testscenarios>=0.4 # Apache-2.0/BSD
 testtools>=1.4.0 # MIT
 os-testr>=0.8.0 # Apache-2.0
 nosexcover # BSD
+wsgi-intercept>=1.4.1 # MIT License
