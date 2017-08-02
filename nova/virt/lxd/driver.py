@@ -1197,9 +1197,40 @@ class LXDDriver(driver.ComputeDriver):
                 format=CONF.config_drive_format)
 
         container = self.client.containers.get(instance.name)
-        container_id_map = container.config[
-            'volatile.last_state.idmap'].split(',')
-        storage_id = container_id_map[2].split(':')[1]
+        storage_id = 0
+        '''
+        Determine UID shift used for container uid mapping
+        Sample JSON config from LXD
+        {
+            "volatile.apply_template": "create",
+            ...
+            "volatile.last_state.idmap": "[
+                {
+                \"Isuid\":true,
+                \"Isgid\":false,
+                \"Hostid\":100000,
+                \"Nsid\":0,
+                \"Maprange\":65536
+                },
+                {
+                \"Isuid\":false,
+                \"Isgid\":true,
+                \"Hostid\":100000,
+                \"Nsid\":0,
+                \"Maprange\":65536
+                }] ",
+            "volatile.tap5fd6808a-7b.name": "eth0"
+        }
+        '''
+        container_id_map = json.loads(
+            container.config['volatile.last_state.idmap'])
+        uid_map = filter(lambda id_map: id_map.get("Isuid"), container_id_map)
+        if uid_map:
+            storage_id = uid_map[0].get("Hostid", 0)
+        else:
+            # privileged containers does not have uid/gid mapping
+            # LXD API return nothing
+            pass
 
         extra_md = {}
         if admin_password:
@@ -1245,10 +1276,12 @@ class LXDDriver(driver.ComputeDriver):
                 for ent in os.listdir(tmpdir):
                     shutil.copytree(os.path.join(tmpdir, ent),
                                     os.path.join(configdrive_dir, ent))
-                    utils.execute('chmod', '-R', '775', configdrive_dir,
-                                  run_as_root=True)
-                    utils.execute('chown', '-R', storage_id, configdrive_dir,
-                                  run_as_root=True)
+
+                utils.execute('chmod', '-R', '775', configdrive_dir,
+                              run_as_root=True)
+                utils.execute('chown', '-R',
+                              '%s:%s' % (storage_id, storage_id),
+                              configdrive_dir, run_as_root=True)
             finally:
                 if mounted:
                     utils.execute('umount', tmpdir, run_as_root=True)
