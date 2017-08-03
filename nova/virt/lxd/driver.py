@@ -797,6 +797,23 @@ class LXDDriver(driver.ComputeDriver):
         """
         self.unpause(instance)
 
+    def resume_state_on_host_boot(self, context, instance, network_info,
+                                  block_device_info=None):
+        """resume guest state when a host is booted."""
+        try:
+            state = self.get_info(instance).state
+            ignored_states = (power_state.RUNNING,
+                              power_state.SUSPENDED,
+                              power_state.NOSTATE,
+                              power_state.PAUSED)
+
+            if state in ignored_states:
+                return
+
+            self.power_on(context, instance, network_info, block_device_info)
+        except (exception.InternalError, exception.InstanceNotFound):
+            pass
+
     def rescue(self, context, instance, network_info, image_meta,
                rescue_password):
         """Rescue a LXD container.
