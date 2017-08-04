@@ -460,7 +460,10 @@ class LXDDriver(driver.ComputeDriver):
 
     def get_info(self, instance):
         """Return an InstanceInfo object for the instance."""
-        container = self.client.containers.get(instance.name)
+        try:
+            container = self.client.containers.get(instance.name)
+        except lxd_exceptions.NotFound:
+            raise exception.InstanceNotFound(instance_id=instance.uuid)
 
         state = container.state()
         mem_kb = state.memory['usage'] >> 10
