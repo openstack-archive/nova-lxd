@@ -950,6 +950,23 @@ class LXDDriverTest(test.NoDBTestCase):
         self.client.containers.get.assert_called_once_with(instance.name)
         container.unfreeze.assert_called_once_with(wait=True)
 
+    def test_resume_state_on_host_boot(self):
+        container = mock.Mock()
+        state = mock.Mock()
+        state.memory = dict({'usage': 0, 'usage_peak': 0})
+        state.status_code = 102
+        container.state.return_value = state
+        self.client.containers.get.return_value = container
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.resume_state_on_host_boot(ctx, instance, None, None)
+        container.start.assert_called_once_with(wait=True)
+
     def test_rescue(self):
         profile = mock.Mock()
         profile.devices = {
