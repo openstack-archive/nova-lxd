@@ -1,0 +1,10 @@
+Workflow+1: Chuck Short <charles.short@ericsson.com>
+Code-Review+2: James Page <james.page@canonical.com>
+Code-Review+2: Chuck Short <charles.short@ericsson.com>
+Workflow+1: James Page <james.page@canonical.com>
+Verified+2: Jenkins
+Submitted-by: Jenkins
+Submitted-at: Tue, 29 Aug 2017 14:11:07 +0000
+Reviewed-on: https://review.openstack.org/486809
+Project: openstack/nova-lxd
+Branch: refs/heads/master
