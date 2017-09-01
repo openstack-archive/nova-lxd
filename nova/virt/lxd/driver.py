@@ -326,7 +326,7 @@ def _sync_glance_image_to_lxd(client, context, image_ref):
                          'skipping metadata injection...',
                          {'alias': image_ref})
                 with open(image_file, 'rb') as image:
-                    image = client.images.create(image.read(), wait=True)
+                    image = client.images.create(image, wait=True)
             else:
                 metadata = {
                     'architecture': image.get(
