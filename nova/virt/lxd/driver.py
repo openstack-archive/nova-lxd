@@ -466,14 +466,8 @@ class LXDDriver(driver.ComputeDriver):
             raise exception.InstanceNotFound(instance_id=instance.uuid)
 
         state = container.state()
-        mem_kb = state.memory['usage'] >> 10
-        max_mem_kb = state.memory['usage_peak'] >> 10
         return hardware.InstanceInfo(
-            state=_get_power_state(state.status_code),
-            max_mem_kb=max_mem_kb,
-            mem_kb=mem_kb,
-            num_cpu=instance.flavor.vcpus,
-            cpu_time_ns=0)
+            state=_get_power_state(state.status_code))
 
     def list_instances(self):
         """Return a list of all instance names."""
