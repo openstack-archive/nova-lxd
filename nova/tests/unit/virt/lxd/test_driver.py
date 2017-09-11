@@ -203,10 +203,6 @@ class LXDDriverTest(test.NoDBTestCase):
         info = lxd_driver.get_info(instance)
 
         self.assertEqual(power_state.RUNNING, info.state)
-        self.assertEqual(3, info.mem_kb)
-        self.assertEqual(4, info.max_mem_kb)
-        self.assertEqual(1, info.num_cpu)
-        self.assertEqual(0, info.cpu_time_ns)
 
     def test_list_instances(self):
         self.client.containers.all.return_value = [
