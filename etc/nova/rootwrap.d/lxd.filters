@@ -1,7 +1,9 @@
-# nova-rootwrap filters for compute nodes running flex
+# nova-rootwrap filters for compute nodes running nova-lxd
 # This file should be owned by (and only-writable by) the root user
 
 [Filters]
 zfs: CommandFilter, zfs, root
 zpool: CommandFilter, zpool, root
 btrfs: CommandFilter, btrfs, root
+chown: CommandFilter, chown, root
+chmod: CommandFilter, chmod, root
