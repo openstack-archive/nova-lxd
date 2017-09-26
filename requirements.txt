@@ -5,11 +5,11 @@
 pbr!=2.1.0,>=2.0.0 # Apache-2.0
 os-brick>=1.15.2 # Apache-2.0
 os-vif>=1.7.0 # Apache-2.0
-oslo.config!=4.3.0,!=4.4.0,>=4.0.0 # Apache-2.0
-oslo.concurrency>=3.8.0 # Apache-2.0
-oslo.utils>=3.20.0 # Apache-2.0
-oslo.i18n!=3.15.2,>=2.1.0 # Apache-2.0
-oslo.log>=3.22.0 # Apache-2.0
+oslo.config>=4.6.0 # Apache-2.0
+oslo.concurrency>=3.20.0 # Apache-2.0
+oslo.utils>=3.28.0 # Apache-2.0
+oslo.i18n>=3.15.3 # Apache-2.0
+oslo.log>=3.30.0 # Apache-2.0
 pylxd>=2.2.2 # Apache-2.0
 
 # XXX: rockstar (17 Feb 2016) - oslo_config imports
