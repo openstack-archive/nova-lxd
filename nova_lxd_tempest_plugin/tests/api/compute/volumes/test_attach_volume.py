@@ -41,8 +41,8 @@ class LXDVolumeTests(base.BaseV2ComputeAdminTest):
     @classmethod
     def setup_clients(cls):
         super(LXDVolumeTests, cls).setup_clients()
-        cls.client = cls.os_adm.servers_client
-        cls.flavors_client = cls.os_adm.flavors_client
+        cls.client = cls.os_admin.servers_client
+        cls.flavors_client = cls.os_admin.flavors_client
 
     @classmethod
     def resource_setup(cls):
