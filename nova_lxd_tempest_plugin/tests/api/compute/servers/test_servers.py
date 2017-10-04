@@ -36,8 +36,8 @@ class LXDServersWithSpecificFlavorTestJSON(base.BaseV2ComputeAdminTest):
     @classmethod
     def setup_clients(cls):
         super(LXDServersWithSpecificFlavorTestJSON, cls).setup_clients()
-        cls.flavor_client = cls.os_adm.flavors_client
-        cls.client = cls.os_adm.servers_client
+        cls.flavor_client = cls.os_admin.flavors_client
+        cls.client = cls.os_admin.servers_client
 
     @classmethod
     def resource_setup(cls):
