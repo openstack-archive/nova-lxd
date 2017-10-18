@@ -83,36 +83,40 @@ def _root(instance, client, *_):
     """Configure the root disk."""
     device = {'type': 'disk', 'path': '/'}
 
+    # Ceph storage doesn't support root size option and quotas
+    # So they are set only for btrfs and zfs
     environment = client.host_info['environment']
-    if environment['storage'] in ['btrfs', 'zfs'] or CONF.lxd.pool:
+    if environment['storage'] in ['btrfs', 'zfs']:
         device['size'] = '{}GB'.format(instance.root_gb)
 
-    specs = instance.flavor.extra_specs
+        # Set quotas
+        specs = instance.flavor.extra_specs
 
-    # Bytes and iops are not separate config options in a container
-    # profile - we let Bytes take priority over iops if both are set.
-    # Align all limits to MiB/s, which should be a sensible middle road.
-    if specs.get('quota:disk_read_iops_sec'):
-        device['limits.read'] = '{}iops'.format(
-            specs['quota:disk_read_iops_sec'])
-    if specs.get('quota:disk_write_iops_sec'):
-        device['limits.write'] = '{}iops'.format(
-            specs['quota:disk_write_iops_sec'])
+        # Bytes and iops are not separate config options in a container
+        # profile - we let Bytes take priority over iops if both are set.
+        # Align all limits to MiB/s, which should be a sensible middle road.
+        if specs.get('quota:disk_read_iops_sec'):
+            device['limits.read'] = '{}iops'.format(
+                specs['quota:disk_read_iops_sec'])
+        if specs.get('quota:disk_write_iops_sec'):
+            device['limits.write'] = '{}iops'.format(
+                specs['quota:disk_write_iops_sec'])
 
-    if specs.get('quota:disk_read_bytes_sec'):
-        device['limits.read'] = '{}MB'.format(
-            int(specs['quota:disk_read_bytes_sec']) // units.Mi)
-    if specs.get('quota:disk_write_bytes_sec'):
-        device['limits.write'] = '{}MB'.format(
-            int(specs['quota:disk_write_bytes_sec']) // units.Mi)
+        if specs.get('quota:disk_read_bytes_sec'):
+            device['limits.read'] = '{}MB'.format(
+                int(specs['quota:disk_read_bytes_sec']) // units.Mi)
+        if specs.get('quota:disk_write_bytes_sec'):
+            device['limits.write'] = '{}MB'.format(
+                int(specs['quota:disk_write_bytes_sec']) // units.Mi)
 
-    minor_quota_defined = 'limits.write' in device or 'limits.read' in device
-    if specs.get('quota:disk_total_iops_sec') and not minor_quota_defined:
-        device['limits.max'] = '{}iops'.format(
-            specs['quota:disk_total_iops_sec'])
-    if specs.get('quota:disk_total_bytes_sec') and not minor_quota_defined:
-        device['limits.max'] = '{}MB'.format(
-            int(specs['quota:disk_total_bytes_sec']) // units.Mi)
+        minor_quota_defined = ('limits.write' in device or
+                               'limits.read' in device)
+        if specs.get('quota:disk_total_iops_sec') and not minor_quota_defined:
+            device['limits.max'] = '{}iops'.format(
+                specs['quota:disk_total_iops_sec'])
+        if specs.get('quota:disk_total_bytes_sec') and not minor_quota_defined:
+            device['limits.max'] = '{}MB'.format(
+                int(specs['quota:disk_total_bytes_sec']) // units.Mi)
     if CONF.lxd.pool:
         extensions = client.host_info.get('api_extensions', [])
         if 'storage' in extensions:
