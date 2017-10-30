@@ -474,7 +474,8 @@ class LXDDriver(driver.ComputeDriver):
         return [c.name for c in self.client.containers.all()]
 
     def spawn(self, context, instance, image_meta, injected_files,
-              admin_password, network_info=None, block_device_info=None):
+              admin_password, allocations, network_info=None,
+              block_device_info=None):
         """Create a new lxd container as a nova instance.
 
         Creating a new container requires a number of steps. First, the
@@ -643,6 +644,7 @@ class LXDDriver(driver.ComputeDriver):
             shutil.rmtree(container_dir)
 
         try:
+            LOG.info(vars(self.client.profiles.get(instance.name)))
             self.client.profiles.get(instance.name).delete()
         except lxd_exceptions.LXDAPIException as e:
             if e.response.status_code == 404:
