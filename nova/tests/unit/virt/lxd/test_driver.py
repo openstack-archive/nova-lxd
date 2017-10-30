@@ -257,6 +257,7 @@ class LXDDriverTest(test.NoDBTestCase):
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()
+        allocations = mock.Mock()
         network_info = [_VIF]
         block_device_info = mock.Mock()
         virtapi = manager.ComputeVirtAPI(mock.MagicMock())
@@ -270,7 +271,7 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver.spawn(
             ctx, instance, image_meta, injected_files, admin_password,
-            network_info, block_device_info)
+            allocations, network_info, block_device_info)
 
         self.vif_driver.plug.assert_called_once_with(
             instance, network_info[0])
@@ -289,6 +290,7 @@ class LXDDriverTest(test.NoDBTestCase):
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()
+        allocations = mock.Mock()
 
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
@@ -298,7 +300,7 @@ class LXDDriverTest(test.NoDBTestCase):
 
             lxd_driver.spawn,
             ctx, instance, image_meta, injected_files, admin_password,
-            None, None)
+            allocations, None, None)
 
     @mock.patch('nova.virt.configdrive.required_by')
     def test_spawn_with_configdrive(self, configdrive):
@@ -314,6 +316,7 @@ class LXDDriverTest(test.NoDBTestCase):
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()
+        allocations = mock.Mock()
         network_info = [_VIF]
         block_device_info = mock.Mock()
         virtapi = manager.ComputeVirtAPI(mock.MagicMock())
@@ -328,7 +331,7 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver.spawn(
             ctx, instance, image_meta, injected_files, admin_password,
-            network_info, block_device_info)
+            allocations, network_info, block_device_info)
 
         self.vif_driver.plug.assert_called_once_with(
             instance, network_info[0])
@@ -357,6 +360,7 @@ class LXDDriverTest(test.NoDBTestCase):
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()
+        allocations = mock.Mock()
         network_info = [_VIF]
         block_device_info = mock.Mock()
         virtapi = manager.ComputeVirtAPI(mock.MagicMock())
@@ -369,7 +373,7 @@ class LXDDriverTest(test.NoDBTestCase):
             lxdcore_exceptions.LXDAPIException,
             lxd_driver.spawn,
             ctx, instance, image_meta, injected_files, admin_password,
-            network_info, block_device_info)
+            allocations, network_info, block_device_info)
         lxd_driver.cleanup.assert_called_once_with(
             ctx, instance, network_info, block_device_info)
 
@@ -390,6 +394,7 @@ class LXDDriverTest(test.NoDBTestCase):
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()
+        allocations = mock.Mock()
         network_info = [_VIF]
         block_device_info = mock.Mock()
         virtapi = manager.ComputeVirtAPI(mock.MagicMock())
@@ -402,7 +407,7 @@ class LXDDriverTest(test.NoDBTestCase):
             lxdcore_exceptions.LXDAPIException,
             lxd_driver.spawn,
             ctx, instance, image_meta, injected_files, admin_password,
-            network_info, block_device_info)
+            allocations, network_info, block_device_info)
         lxd_driver.cleanup.assert_called_once_with(
             ctx, instance, network_info, block_device_info)
 
@@ -421,6 +426,7 @@ class LXDDriverTest(test.NoDBTestCase):
         image_meta = mock.Mock()
         injected_files = mock.Mock()
         admin_password = mock.Mock()
+        allocations = mock.Mock()
         network_info = [_VIF]
         block_device_info = mock.Mock()
         virtapi = manager.ComputeVirtAPI(mock.MagicMock())
@@ -436,7 +442,7 @@ class LXDDriverTest(test.NoDBTestCase):
             lxdcore_exceptions.LXDAPIException,
             lxd_driver.spawn,
             ctx, instance, image_meta, injected_files, admin_password,
-            network_info, block_device_info)
+            allocations, network_info, block_device_info)
         lxd_driver.cleanup.assert_called_once_with(
             ctx, instance, network_info, block_device_info)
 
@@ -483,13 +489,14 @@ class LXDDriverTest(test.NoDBTestCase):
             image_meta = mock.Mock()
             injected_files = mock.Mock()
             admin_password = mock.Mock()
+            allocations = mock.Mock()
             network_info = [_VIF]
             block_device_info = mock.Mock()
 
             drv.init_host(None)
             drv.spawn(
                 ctx, instance, image_meta, injected_files, admin_password,
-                network_info, block_device_info)
+                allocations, network_info, block_device_info)
 
         test_spawn()
 
