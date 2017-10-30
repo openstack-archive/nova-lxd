@@ -270,7 +270,7 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver.spawn(
             ctx, instance, image_meta, injected_files, admin_password,
-            network_info, block_device_info)
+            {}, network_info, block_device_info)
 
         self.vif_driver.plug.assert_called_once_with(
             instance, network_info[0])
@@ -328,7 +328,7 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver.spawn(
             ctx, instance, image_meta, injected_files, admin_password,
-            network_info, block_device_info)
+            {}, network_info, block_device_info)
 
         self.vif_driver.plug.assert_called_once_with(
             instance, network_info[0])
@@ -489,7 +489,7 @@ class LXDDriverTest(test.NoDBTestCase):
             drv.init_host(None)
             drv.spawn(
                 ctx, instance, image_meta, injected_files, admin_password,
-                network_info, block_device_info)
+                {}, network_info, block_device_info)
 
         test_spawn()
 
