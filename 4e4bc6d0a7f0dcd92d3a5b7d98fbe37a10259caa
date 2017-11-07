@@ -1,0 +1,8 @@
+Code-Review+2: James Page <james.page@canonical.com>
+Workflow+1: James Page <james.page@canonical.com>
+Verified+2: Zuul
+Submitted-by: Zuul
+Submitted-at: Tue, 07 Nov 2017 00:51:28 +0000
+Reviewed-on: https://review.openstack.org/516177
+Project: openstack/nova-lxd
+Branch: refs/heads/master
