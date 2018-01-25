@@ -26,7 +26,6 @@ from tempest.lib.common.utils import data_utils
 from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 from tempest.lib import exceptions as lib_exc
-from tempest import test
 
 from nova_lxd_tempest_plugin.tests.scenario import manager
 
