@@ -20,7 +20,6 @@ from tempest.api.compute import base
 from tempest.common import waiters
 from tempest import config
 from tempest.lib.common.utils import data_utils
-from tempest import test
 
 CONF = config.CONF
 
