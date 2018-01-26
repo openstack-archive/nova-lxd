@@ -35,22 +35,17 @@ r="$r(?:.*\[.*\bslow\b.*\])"
 r="$r|(?:tempest\.scenario\.test_minimum_basic\.TestMinimumBasicScenario\.test_minimum_basic_scenario)"
 
 # XXX: zulcss (18 Oct 2016) nova-lxd does not support booting from ebs volumes
-r="$r|(?:tempest\.scenario\.test_volume_boot_pattern\.TestVolumeBootPattern\.test_create_ebs_image_and_check_boot)"
-r="$r|(?:tempest\.scenario\.test_volume_boot_pattern\.TestVolumeBootPattern\.test_volume_boot_pattern)"
-r="$r|(?:tempest\.scenario\.test_volume_boot_pattern\.TestVolumeBootPatternV2\.test_create_ebs_image_and_check_boot)"
-r="$r|(?:tempest\.scenario\.test_volume_boot_pattern\.TestVolumeBootPatternV2\.test_volume_boot_pattern)"
-
+r="$r|(?:tempest\.scenario\.test_volume_boot_pattern.*)"
+r="$r|(?:tempest\.api\.compute\.servers\.test_create_server\.ServersTestBootFromVolume)"
 # XXX: zulcss (18 Oct 2016) tempest test only passes when there is more than 10 lines in the
 #  console output, and cirros LXD consoles have only a single line of output
 r="$r|(?:tempest\.api\.compute\.servers\.test_server_actions\.ServerActionsTestJSON\.test_get_console_output_with_unlimited_size)"
 # tempest.api.compute.servers.test_server_actions.ServerActionsTestJSON.test_get_console_output_with_unlimited_size
-
-# XXX: jamespage (09 June 2017) veth pair nics not detected/configured by tempest
-# https://review.openstack.org/#/c/472641/
-r="$r|(?:tempest\.scenario\.test_network_basic_ops\.TestNetworkBasicOps\.test_hotplug_nic)"
-r="$r|(?:tempest\.scenario\.test_network_basic_ops\.TestNetworkBasicOps\.test_port_security_macspoofing_port)"
-#tempest.scenario.test_network_basic_ops.TestNetworkBasicOps.test_hotplug_nic
-#tempest.scenario.test_network_basic_ops.TestNetworkBasicOps.test_port_security_macspoofing_port
+# also tempest get console fails for the following two for length of output reasons
+r="$r|(?:tempest\.api\.compute\.servers\.test_server_actions\.ServerActionsTestJSON\.test_get_console_output)"
+# tempest.api.compute.servers.test_server_actions.ServerActionsTestJSON.test_get_console_output
+r="$r|(?:tempest\.api\.compute\.servers\.test_server_actions\.ServerActionsTestJSON\.test_get_console_output_server_id_in_shutoff_status)"
+# tempest.api.compute.servers.test_server_actions.ServerActionsTestJSON.test_get_console_output_server_id_in_shutoff_status
 
 # XXX: jamespage (09 June 2017) veth pair nics not detected/configured by tempest
 # https://review.openstack.org/#/c/472641/
@@ -78,6 +73,11 @@ r="$r|(?:tempest\.api\.compute\.servers\.test_device_tagging.*)"
 r="$r|(?:tempest\.api\.compute\.volumes\.test_attach_volume\.AttachVolumeTestJSON\.test_attach_detach_volume)"
 r="$r|(?:tempest\.api\.compute\.volumes\.test_attach_volume\.AttachVolumeShelveTestJSON\.test_attach_detach_volume)"
 #testtools.matchers._impl.MismatchError: u'NAME  MAJ:MIN RM        SIZE RO TYPE MOUNTPOINT\nsda     8:0    0  1073741824  0 disk \nsdb     8:16   0  1073741824  0 disk \nvda   253:0    0 85899345920  0 disk \nvdb   253:16   0 42949672960  0 disk ' matches Contains('\nsdb ')
+
+# XXX: jamespage (26 June 2017): disable diagnostic checks until driver implements them
+# https://bugs.launchpad.net/nova-lxd/+bug/1700516
+r="$r|(?:.*test_get_server_diagnostics.*)"
+#test_get_server_diagnostics
 
 r="$r).*$"
 
