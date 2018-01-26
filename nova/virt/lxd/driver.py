@@ -465,6 +465,10 @@ class LXDDriver(driver.ComputeDriver):
             if container.status != 'Stopped':
                 container.stop(wait=True)
             container.delete(wait=True)
+            if (instance.vm_state == vm_states.RESCUED):
+                rescued_container = self.client.containers.get(
+                    '%s-rescue' % instance.name)
+                rescued_container.delete(wait=True)
         except lxd_exceptions.LXDAPIException as e:
             if e.response.status_code == 404:
                 LOG.warning(_LW('Failed to delete instance. '
