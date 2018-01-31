@@ -61,6 +61,7 @@ class ToProfileTest(test.NoDBTestCase):
 
         expected_config = {
             'environment.product_name': 'OpenStack Nova',
+            'description': 'instance-00000001',
             'limits.cpu': '1',
             'limits.memory': '0MB',
             'raw.lxc': (
@@ -91,6 +92,7 @@ class ToProfileTest(test.NoDBTestCase):
 
         expected_config = {
             'environment.product_name': 'OpenStack Nova',
+            'description': 'instance-00000001',
             'limits.cpu': '1',
             'limits.memory': '0MB',
             'raw.lxc': (
@@ -119,6 +121,7 @@ class ToProfileTest(test.NoDBTestCase):
         block_info = []
         expected_config = {
             'environment.product_name': 'OpenStack Nova',
+            'description': 'instance-00000001',
             'limits.cpu': '1',
             'limits.memory': '0MB',
             'raw.lxc': (
@@ -153,6 +156,7 @@ class ToProfileTest(test.NoDBTestCase):
 
         expected_config = {
             'environment.product_name': 'OpenStack Nova',
+            'description': 'instance-00000001',
             'limits.cpu': '1',
             'limits.memory': '0MB',
             'raw.lxc': (
@@ -188,6 +192,7 @@ class ToProfileTest(test.NoDBTestCase):
 
         expected_config = {
             'environment.product_name': 'OpenStack Nova',
+            'description': 'instance-00000001',
             'security.idmap.isolated': 'True',
             'limits.cpu': '1',
             'limits.memory': '0MB',
@@ -236,6 +241,7 @@ class ToProfileTest(test.NoDBTestCase):
 
         expected_config = {
             'environment.product_name': 'OpenStack Nova',
+            'description': 'instance-00000001',
             'limits.cpu': '1',
             'limits.memory': '0MB',
             'raw.lxc': (
@@ -271,6 +277,7 @@ class ToProfileTest(test.NoDBTestCase):
 
         expected_config = {
             'environment.product_name': 'OpenStack Nova',
+            'description': 'instance-00000001',
             'limits.cpu': '1',
             'limits.memory': '0MB',
             'raw.lxc': (
@@ -305,6 +312,7 @@ class ToProfileTest(test.NoDBTestCase):
 
         expected_config = {
             'environment.product_name': 'OpenStack Nova',
+            'description': 'instance-00000001',
             'limits.cpu': '1',
             'limits.memory': '0MB',
             'raw.lxc': (
@@ -338,6 +346,7 @@ class ToProfileTest(test.NoDBTestCase):
 
         expected_config = {
             'environment.product_name': 'OpenStack Nova',
+            'description': 'instance-00000001',
             'limits.cpu': '1',
             'limits.memory': '0MB',
             'raw.lxc': (
@@ -378,6 +387,7 @@ class ToProfileTest(test.NoDBTestCase):
 
         expected_config = {
             'environment.product_name': 'OpenStack Nova',
+            'description': 'instance-00000001',
             'limits.cpu': '1',
             'limits.memory': '0MB',
             'raw.lxc': (
@@ -425,6 +435,7 @@ class ToProfileTest(test.NoDBTestCase):
 
         expected_config = {
             'environment.product_name': 'OpenStack Nova',
+            'description': 'instance-00000001',
             'limits.cpu': '1',
             'limits.memory': '0MB',
             'raw.lxc': (
@@ -467,6 +478,7 @@ class ToProfileTest(test.NoDBTestCase):
 
         expected_config = {
             'environment.product_name': 'OpenStack Nova',
+            'description': 'instance-00000001',
             'limits.cpu': '1',
             'limits.memory': '0MB',
             'raw.lxc': (

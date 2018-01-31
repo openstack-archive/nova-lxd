@@ -31,6 +31,7 @@ def _base_config(instance, _):
     instance_attributes = common.InstanceAttributes(instance)
     return {
         'environment.product_name': 'OpenStack Nova',
+        'description': instance.name,
         'raw.lxc': 'lxc.console.logfile={}\n'.format(
             instance_attributes.console_path),
     }
