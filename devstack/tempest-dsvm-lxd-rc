@@ -41,6 +41,11 @@ r="$r|(?:tempest\.api\.compute\.servers\.test_create_server\.ServersTestBootFrom
 #  console output, and cirros LXD consoles have only a single line of output
 r="$r|(?:tempest\.api\.compute\.servers\.test_server_actions\.ServerActionsTestJSON\.test_get_console_output_with_unlimited_size)"
 # tempest.api.compute.servers.test_server_actions.ServerActionsTestJSON.test_get_console_output_with_unlimited_size
+# also tempest get console fails for the following two for length of output reasons
+r="$r|(?:tempest\.api\.compute\.servers\.test_server_actions\.ServerActionsTestJSON\.test_get_console_output)"
+# tempest.api.compute.servers.test_server_actions.ServerActionsTestJSON.test_get_console_output
+r="$r|(?:tempest\.api\.compute\.servers\.test_server_actions\.ServerActionsTestJSON\.test_get_console_output_server_id_in_shutoff_status)"
+# tempest.api.compute.servers.test_server_actions.ServerActionsTestJSON.test_get_console_output_server_id_in_shutoff_status
 
 # XXX: jamespage (09 June 2017) veth pair nics not detected/configured by tempest
 # https://review.openstack.org/#/c/472641/
