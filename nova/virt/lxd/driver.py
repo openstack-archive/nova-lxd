@@ -413,7 +413,8 @@ class LXDDriver(driver.ComputeDriver):
         "has_imagecache": False,
         "supports_recreate": False,
         "supports_migrate_to_same_host": False,
-        "supports_attach_interface": True
+        "supports_attach_interface": True,
+        "supports_multiattach": False,
     }
 
     def __init__(self, virtapi):
@@ -753,6 +754,11 @@ class LXDDriver(driver.ComputeDriver):
         storage_driver.disconnect_volume(connection_info['data'], None)
 
     def attach_interface(self, context, instance, image_meta, vif):
+        LOG.debug('attach_interface: instance and name are '
+                  '{instance} for name {name} in context: '
+                  '{context}'
+                  .format(instance=instance, name=instance.name,
+                          context=context))
         self.vif_driver.plug(instance, vif)
         self.firewall_driver.setup_basic_filtering(instance, vif)
 
@@ -772,6 +778,12 @@ class LXDDriver(driver.ComputeDriver):
         profile.save(wait=True)
 
     def detach_interface(self, context, instance, vif):
+        LOG.debug('detach_interface: instance and name are '
+                  '{instance} for name {name} in context: '
+                  '{context}'
+                  .format(instance=instance, name=instance.name,
+                          context=context))
+
         profile = self.client.profiles.get(instance.name)
         devname = lxd_vif.get_vif_devname(vif)
 
