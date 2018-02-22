@@ -29,6 +29,7 @@ pip-log.txt
 nosetests.xml
 .stestr
 .venv
+.stestr
 
 # Translations
 *.mo
