@@ -614,6 +614,12 @@ class LXDDriver(driver.ComputeDriver):
             if container.status != 'Stopped':
                 container.stop(wait=True)
             container.delete(wait=True)
+            if (instance.vm_state == vm_states.RESCUED):
+                rescued_container = self.client.containers.get(
+                    '%s-rescue' % instance.name)
+                if rescued_container.status != 'Stopped':
+                    rescued_container.stop(wait=True)
+                rescued_container.delete(wait=True)
         except lxd_exceptions.LXDAPIException as e:
             if e.response.status_code == 404:
                 LOG.warning('Failed to delete instance. '
@@ -890,13 +896,15 @@ class LXDDriver(driver.ComputeDriver):
                rescue_password):
         """Rescue a LXD container.
 
-        Rescuing a instance requires a number of steps. First,
-        the failed container is stopped. Next, '-rescue', is
-        appended to the failed container's name, this is done
-        so the container can be unrescued. The container's
-        profile is updated with the rootfs of the
-        failed container. Finally, a new container
-        is created and started.
+        From the perspective of nova, rescuing a instance requires a number of
+        steps. First, the failed container is stopped, and then this method is
+        called.
+
+        So the original container is already stopped, and thus, next,
+        '-rescue', is appended to the failed container's name, this is done so
+        the container can be unrescued. The container's profile is updated with
+        the rootfs of the failed container. Finally, a new container is created
+        and started.
 
         See 'nova.virt.driver.ComputeDriver.rescue` for more
         information.
