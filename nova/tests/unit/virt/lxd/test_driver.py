@@ -26,6 +26,7 @@ from nova import utils
 from nova import test
 from nova.compute import manager
 from nova.compute import power_state
+from nova.compute import vm_states
 from nova.network import model as network_model
 from nova.tests.unit import fake_instance
 from pylxd import exceptions as lxdcore_exceptions
@@ -543,6 +544,40 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.client.containers.get.assert_called_once_with(instance.name)
         mock_container.stop.assert_called_once_with(wait=True)
         mock_container.delete.assert_called_once_with(wait=True)
+
+    def test_destroy_when_in_rescue(self):
+        mock_stopped_container = mock.Mock()
+        mock_stopped_container.status = 'Stopped'
+        mock_rescued_container = mock.Mock()
+        mock_rescued_container.status = 'Running'
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
+        network_info = [_VIF]
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+        lxd_driver.cleanup = mock.Mock()
+
+        # set the vm_state on the fake instance to RESCUED
+        instance.vm_state = vm_states.RESCUED
+
+        # set up the containers.get to return the stopped container and then
+        # the rescued container
+        self.client.containers.get.side_effect = [
+            mock_stopped_container, mock_rescued_container]
+
+        lxd_driver.destroy(ctx, instance, network_info)
+
+        lxd_driver.cleanup.assert_called_once_with(
+            ctx, instance, network_info, None)
+        lxd_driver.client.containers.get.assert_has_calls([
+            mock.call(instance.name),
+            mock.call('{}-rescue'.format(instance.name))])
+        mock_stopped_container.stop.assert_not_called()
+        mock_stopped_container.delete.assert_called_once_with(wait=True)
+        mock_rescued_container.stop.assert_called_once_with(wait=True)
+        mock_rescued_container.delete.assert_called_once_with(wait=True)
 
     def test_destroy_without_instance(self):
         def side_effect(*args, **kwargs):
