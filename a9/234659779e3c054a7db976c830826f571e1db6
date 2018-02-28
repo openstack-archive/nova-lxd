@@ -1,0 +1,8 @@
+Code-Review+2: Chris MacNaughton <chris.macnaughton@canonical.com>
+Workflow+1: Chris MacNaughton <chris.macnaughton@canonical.com>
+Verified+2: Zuul
+Submitted-by: Zuul
+Submitted-at: Wed, 28 Feb 2018 14:25:50 +0000
+Reviewed-on: https://review.openstack.org/547978
+Project: openstack/nova-lxd
+Branch: refs/heads/stable/pike
