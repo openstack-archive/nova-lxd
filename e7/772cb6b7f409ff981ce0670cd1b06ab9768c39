@@ -1,0 +1,8 @@
+Code-Review+2: Chris MacNaughton <chris.macnaughton@canonical.com>
+Workflow+1: Chris MacNaughton <chris.macnaughton@canonical.com>
+Verified+2: Zuul
+Submitted-by: Zuul
+Submitted-at: Wed, 28 Feb 2018 12:38:03 +0000
+Reviewed-on: https://review.openstack.org/538210
+Project: openstack/nova-lxd
+Branch: refs/heads/stable/ocata
