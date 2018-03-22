@@ -26,3 +26,7 @@
     check:
       jobs:
         - openstack-ansible-nova-lxd
+        - openstack-tox-lower-constraints
+    gate:
+      jobs:
+        - openstack-tox-lower-constraints
