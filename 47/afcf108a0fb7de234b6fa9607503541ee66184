@@ -1,0 +1,8 @@
+Code-Review+2: Chuck Short <zulcss@gmail.com>
+Workflow+1: Chuck Short <zulcss@gmail.com>
+Verified+2: Zuul
+Submitted-by: Zuul
+Submitted-at: Thu, 22 Mar 2018 19:02:28 +0000
+Reviewed-on: https://review.openstack.org/549641
+Project: openstack/nova-lxd
+Branch: refs/heads/master
