@@ -40,11 +40,13 @@ class ToProfileTest(test.NoDBTestCase):
         self.patchers.append(CONF_patcher)
         self.CONF = CONF_patcher.start()
         self.CONF.instances_path = '/i'
+        self.CONF.lxd.root_dir = ''
 
         CONF_patcher = mock.patch('nova.virt.lxd.flavor.CONF')
         self.patchers.append(CONF_patcher)
         self.CONF2 = CONF_patcher.start()
         self.CONF2.lxd.pool = None
+        self.CONF2.lxd.root_dir = ''
 
     def tearDown(self):
         super(ToProfileTest, self).tearDown()

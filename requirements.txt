@@ -2,15 +2,15 @@
 # of appearance. Changing the order has an impact on the overall integration
 # process, which may cause wedges in the gate later.
 
-pbr!=2.1.0,>=2.0.0 # Apache-2.0
-os-brick>=2.2.0 # Apache-2.0
-os-vif!=1.8.0,>=1.7.0 # Apache-2.0
+pbr!=2.1.0,>=3.1.1 # Apache-2.0
+os-brick>=2.3.0 # Apache-2.0
+os-vif!=1.8.0,>=1.9.0 # Apache-2.0
 oslo.config>=5.2.0 # Apache-2.0
 oslo.concurrency>=3.26.0 # Apache-2.0
-oslo.utils>=3.33.0 # Apache-2.0
-oslo.i18n>=3.15.3 # Apache-2.0
-oslo.log>=3.36.0 # Apache-2.0
-pylxd>=2.2.5 # Apache-2.0
+oslo.utils>=3.36.0 # Apache-2.0
+oslo.i18n>=3.20.0 # Apache-2.0
+oslo.log>=3.37.0 # Apache-2.0
+pylxd>=2.2.6 # Apache-2.0
 
 # XXX: rockstar (17 Feb 2016) - oslo_config imports
 # debtcollector, which imports this, but doesn't
