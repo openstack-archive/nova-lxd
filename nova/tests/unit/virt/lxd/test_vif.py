@@ -221,15 +221,17 @@ class PostPlugTest(test.NoDBTestCase):
     @mock.patch('nova.virt.lxd.vif._create_veth_pair')
     @mock.patch('nova.virt.lxd.vif._add_bridge_port')
     @mock.patch('nova.virt.lxd.vif.linux_net')
+    @mock.patch('nova.virt.lxd.vif.network_utils')
     def test_post_plug_ovs_hybrid(self,
+                                  network_utils,
                                   linux_net,
                                   add_bridge_port,
                                   create_veth_pair):
-        linux_net.device_exists.return_value = False
+        network_utils.device_exists.return_value = False
 
         vif._post_plug_wiring(INSTANCE, OVS_HYBRID_VIF)
 
-        linux_net.device_exists.assert_called_with('tapda5cc4bf-f1')
+        network_utils.device_exists.assert_called_with('tapda5cc4bf-f1')
         create_veth_pair.assert_called_with('tapda5cc4bf-f1',
                                             'tinda5cc4bf-f1',
                                             1000)
@@ -239,16 +241,18 @@ class PostPlugTest(test.NoDBTestCase):
     @mock.patch('nova.virt.lxd.vif._create_veth_pair')
     @mock.patch('nova.virt.lxd.vif._add_bridge_port')
     @mock.patch('nova.virt.lxd.vif.linux_net')
+    @mock.patch('nova.virt.lxd.vif.network_utils')
     def test_post_plug_ovs(self,
+                           network_utils,
                            linux_net,
                            add_bridge_port,
                            create_veth_pair):
 
-        linux_net.device_exists.return_value = False
+        network_utils.device_exists.return_value = False
 
         vif._post_plug_wiring(INSTANCE, OVS_VIF)
 
-        linux_net.device_exists.assert_called_with('tapda5cc4bf-f1')
+        network_utils.device_exists.assert_called_with('tapda5cc4bf-f1')
         create_veth_pair.assert_called_with('tapda5cc4bf-f1',
                                             'tinda5cc4bf-f1',
                                             1000)
@@ -265,15 +269,17 @@ class PostPlugTest(test.NoDBTestCase):
     @mock.patch('nova.virt.lxd.vif._create_veth_pair')
     @mock.patch('nova.virt.lxd.vif._add_bridge_port')
     @mock.patch('nova.virt.lxd.vif.linux_net')
+    @mock.patch('nova.virt.lxd.vif.network_utils')
     def test_post_plug_bridge(self,
+                              network_utils,
                               linux_net,
                               add_bridge_port,
                               create_veth_pair):
-        linux_net.device_exists.return_value = False
+        network_utils.device_exists.return_value = False
 
         vif._post_plug_wiring(INSTANCE, LB_VIF)
 
-        linux_net.device_exists.assert_called_with('tapda5cc4bf-f1')
+        network_utils.device_exists.assert_called_with('tapda5cc4bf-f1')
         create_veth_pair.assert_called_with('tapda5cc4bf-f1',
                                             'tinda5cc4bf-f1',
                                             1000)
@@ -283,15 +289,17 @@ class PostPlugTest(test.NoDBTestCase):
     @mock.patch('nova.virt.lxd.vif._create_veth_pair')
     @mock.patch('nova.virt.lxd.vif._add_bridge_port')
     @mock.patch('nova.virt.lxd.vif.linux_net')
+    @mock.patch('nova.virt.lxd.vif.network_utils')
     def test_post_plug_tap(self,
+                           network_utils,
                            linux_net,
                            add_bridge_port,
                            create_veth_pair):
-        linux_net.device_exists.return_value = False
+        network_utils.device_exists.return_value = False
 
         vif._post_plug_wiring(INSTANCE, TAP_VIF)
 
-        linux_net.device_exists.assert_not_called()
+        network_utils.device_exists.assert_not_called()
 
 
 class PostUnplugTest(test.NoDBTestCase):

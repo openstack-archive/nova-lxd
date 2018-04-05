@@ -21,6 +21,7 @@ from nova import utils
 from nova.network import linux_net
 from nova.network import model as network_model
 from nova.network import os_vif_util
+from nova.network import utils as network_utils
 
 import os_vif
 
@@ -116,7 +117,7 @@ def _post_plug_wiring_veth_and_bridge(instance, vif):
     mtu = network.get_meta('mtu') if network else None
     v1_name = get_vif_devname(vif)
     v2_name = get_vif_internal_devname(vif)
-    if not linux_net.device_exists(v1_name):
+    if not network_utils.device_exists(v1_name):
         _create_veth_pair(v1_name, v2_name, mtu)
         if _is_ovs_vif_port(vif):
             # NOTE(jamespage): wire tap device directly to ovs bridge
@@ -252,7 +253,7 @@ class LXDGenericVifDriver(object):
         # NOTE(jamespage): For nova-lxd this is really a veth pair
         #                  so that a) security rules get applied on the host
         #                  and b) that the container can still be wired.
-        if not linux_net.device_exists(v1_name):
+        if not network_utils.device_exists(v1_name):
             _create_veth_pair(v1_name, v2_name, mtu)
         else:
             linux_net._set_device_mtu(v1_name, mtu)
