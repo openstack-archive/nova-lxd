@@ -17,6 +17,7 @@ import mock
 
 from nova import context
 from nova.tests.unit import fake_instance
+from pylxd.deprecated import api
 
 
 class MockConf(mock.Mock):
@@ -60,13 +61,15 @@ class MockInstance(mock.Mock):
 
 
 def lxd_mock(*args, **kwargs):
+    mock_api = mock.Mock(spec=api.API)
     default = {
         'profile_list.return_value': ['fake_profile'],
         'container_list.return_value': ['mock-instance-1', 'mock-instance-2'],
         'host_ping.return_value': True,
     }
     default.update(kwargs)
-    return mock.Mock(*args, **default)
+    mock_api.configure_mock(**default)
+    return mock_api
 
 
 def annotated_data(*args):
