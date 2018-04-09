@@ -734,7 +734,7 @@ class LXDDriver(driver.ComputeDriver):
         profile.config.update({'raw.apparmor': 'mount fstype=ext4,'})
         profile.save()
 
-    def detach_volume(self, connection_info, instance, mountpoint,
+    def detach_volume(self, context, connection_info, instance, mountpoint,
                       encryption=None):
         """Detach block device from a nova instance.
 
