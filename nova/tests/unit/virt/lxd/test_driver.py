@@ -921,7 +921,7 @@ class LXDDriverTest(test.NoDBTestCase):
 
         driver.brick_get_connector = mock.MagicMock()
         driver.brick_get_connector_properties = mock.MagicMock()
-        lxd_driver.detach_volume(connection_info, instance, mountpoint, None)
+        lxd_driver.detach_volume(ctx, connection_info, instance, mountpoint, None)
 
         lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
 
