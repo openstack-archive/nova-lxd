@@ -21,7 +21,7 @@ from nova import utils
 from nova.network import linux_net
 from nova.network import model as network_model
 from nova.network import os_vif_util
-from nova.network import utils as network_utils
+from nova.network import linux_utils as network_utils
 
 import os_vif
 
