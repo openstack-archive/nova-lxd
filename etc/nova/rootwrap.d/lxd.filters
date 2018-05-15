@@ -7,3 +7,5 @@ zpool: CommandFilter, zpool, root
 btrfs: CommandFilter, btrfs, root
 chown: CommandFilter, chown, root
 chmod: CommandFilter, chmod, root
+mount: CommandFilter, mount, root
+umount: CommandFilter, umount, root
