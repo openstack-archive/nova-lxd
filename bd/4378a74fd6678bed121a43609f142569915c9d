@@ -1,0 +1,8 @@
+Code-Review+2: Chris MacNaughton <chris.macnaughton@canonical.com>
+Workflow+1: Chris MacNaughton <chris.macnaughton@canonical.com>
+Verified+2: Zuul
+Submitted-by: Zuul
+Submitted-at: Wed, 16 May 2018 07:14:29 +0000
+Reviewed-on: https://review.openstack.org/568649
+Project: openstack/nova-lxd
+Branch: refs/heads/master
