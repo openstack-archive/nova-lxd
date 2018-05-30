@@ -66,7 +66,6 @@ import psutil
 from oslo_concurrency import lockutils
 from nova.compute import task_states
 from oslo_utils import excutils
-from oslo_utils import strutils
 from nova.virt import firewall
 
 _ = i18n._
@@ -192,23 +191,43 @@ def _get_fs_info(path):
             'used': used}
 
 
-def _get_zpool_info(pool):
-    """Get free/used/total disk space in a zfs pool."""
-    def _get_zpool_attribute(attribute):
-        value, err = utils.execute('zpool', 'list',
+def _get_zpool_info(pool_or_dataset):
+    """Get the free/used/total diskspace in a zfs pool or dataset.
+    A dataset is distinguished by having a '/' in the string.
+
+    :param pool_or_dataset: The string name of the pool or dataset
+    :type pool_or_dataset: str
+    :returns: dictionary with keys 'total', 'available', 'used'
+    :rtype: Dict[str, int]
+    :raises: :class:`exception.NovaException`
+    :raises: :class:`oslo.concurrency.PorcessExecutionError`
+    :raises: :class:`OSError`
+    """
+    def _get_zfs_attribute(cmd, attribute):
+        value, err = utils.execute(cmd, 'list',
                                    '-o', attribute,
-                                   '-H', pool,
+                                   '-H',
+                                   '-p',
+                                   pool_or_dataset,
                                    run_as_root=True)
         if err:
-            msg = _('Unable to parse zpool output.')
+            msg = _('Unable to parse zfs output.')
             raise exception.NovaException(msg)
-        value = strutils.string_to_bytes('{}B'.format(value.strip()),
-                                         return_int=True)
+        value = int(value.strip())
         return value
 
-    total = _get_zpool_attribute('size')
-    used = _get_zpool_attribute('alloc')
-    available = _get_zpool_attribute('free')
+    if '/' in pool_or_dataset:
+        # it's a dataset:
+        # for zfs datasets we only have 'available' and 'used' and so need to
+        # construct the total from available and used.
+        used = _get_zfs_attribute('zfs', 'used')
+        available = _get_zfs_attribute('zfs', 'available')
+        total = available + used
+    else:
+        # otherwise it's a zpool
+        total = _get_zfs_attribute('zpool', 'size')
+        used = _get_zfs_attribute('zpool', 'alloc')
+        available = _get_zfs_attribute('zpool', 'free')
     return {'total': total,
             'available': available,
             'used': used}

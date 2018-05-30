@@ -1176,6 +1176,34 @@ class LXDDriverTest(test.NoDBTestCase):
 
         self.assertEqual(expected, value)
 
+    @mock.patch.object(driver.utils, 'execute')
+    def test__get_zpool_info(self, execute):
+        # first test with a zpool; should make 3 calls to execute
+        execute.side_effect = [
+            ('1\n', None),
+            ('2\n', None),
+            ('3\n', None)
+        ]
+        expected = {
+            'total': 1,
+            'used': 2,
+            'available': 3,
+        }
+        self.assertEqual(expected, driver._get_zpool_info('lxd'))
+
+        # then test with a zfs dataset; should just be 2 calls
+        execute.reset_mock()
+        execute.side_effect = [
+            ('10\n', None),
+            ('20\n', None),
+        ]
+        expected = {
+            'total': 30,
+            'used': 10,
+            'available': 20,
+        }
+        self.assertEqual(expected, driver._get_zpool_info('lxd/dataset'))
+
     @mock.patch('socket.gethostname', mock.Mock(return_value='fake_hostname'))
     @mock.patch('nova.virt.lxd.driver.open')
     @mock.patch.object(driver.utils, 'execute')
@@ -1210,9 +1238,9 @@ class LXDDriverTest(test.NoDBTestCase):
              'Core(s) per socket:  5\n'
              'Thread(s) per core:  4\n\n',
              None),
-            ('2.17T\n', None),
-            ('200.4G\n', None),
-            ('1.8T\n', None)
+            ('2385940232273\n', None),  # 2.17T
+            ('215177861529\n', None),   # 200.4G
+            ('1979120929996\n', None)   # 1.8T
         ]
 
         meminfo = mock.MagicMock()
