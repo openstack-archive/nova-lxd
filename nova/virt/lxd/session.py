@@ -52,7 +52,7 @@ class LXDAPISession(object):
         except Exception as ex:
             # notify the compute host that the connection failed
             # via an rpc call
-            LOG.exception('Connection to LXD failed')
+            LOG.exception("Connection to LXD failed")
             payload = dict(ip=CONF.host,
                            method='_connect',
                            reason=ex)
@@ -70,13 +70,11 @@ class LXDAPISession(object):
         :param config: LXD container config as a dict
         :param instance: nova instance object
         :param host: perform initialization on perfered host
-
         """
-        LOG.debug('container_init called for instance', instance=instance)
         try:
-            LOG.info('Creating container %(instance)s with'
-                     ' %(image)s', {'instance': instance.name,
-                                    'image': instance.image_ref})
+            LOG.info("Creating container {instance} with {image}"
+                     .format(instance=instance.name,
+                             image=instance.image_ref))
 
             client = self.get_session(host=host)
             (state, data) = client.container_init(config)
@@ -88,20 +86,17 @@ class LXDAPISession(object):
                 msg = data.get('err') or data['metadata']
                 raise exception.NovaException(msg)
 
-            LOG.info('Successfully created container %(instance)s with'
-                     ' %(image)s', {'instance': instance.name,
-                                    'image': instance.image_ref})
+            LOG.info("Successfully created container {instance} with {image}"
+                     .format(instance=instance.name,
+                             image=instance.image_ref))
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD API %(instance)s:'
-                    ' %(reason)s') % {'instance': instance.name,
-                                      'reason': ex}
+            msg = (_("Failed to communicate with LXD API {instance}: {reason}")
+                   .format(instance=instance.name, reason=ex))
             raise exception.NovaException(msg)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(
-                    'Failed to create container %(instance)s: %(reason)s',
-                    {'instance': instance.name,
-                     'reason': ex}, instance=instance)
+                LOG.error("Failed to create container {instance}: {reason}"
+                          .format(instance=instance.name, reason=ex))
 
     #
     # Operation methods
@@ -113,42 +108,40 @@ class LXDAPISession(object):
         :param operation_id: The operation to wait for.
         :param instance: nova instace object
         """
-        LOG.debug('wait_for_container for instance', instance=instance)
+        LOG.debug("wait_for_container for instance: {}".format(instance))
         try:
             client = self.get_session(host=host)
             if not client.wait_container_operation(operation_id, 200, -1):
-                msg = _('Container creation timed out')
+                msg = _("Container creation timed out")
                 raise exception.NovaException(msg)
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD API %(instance)s:'
-                    '%(reason)s') % {'instance': instance.image_ref,
-                                     'reason': ex}
+            msg = _("Failed to communicate with LXD API {instance}: "
+                    "{reason}").format(instance=instance.image_ref,
+                                       reason=ex)
             LOG.error(msg)
             raise exception.NovaException(msg)
         except Exception as e:
             with excutils.save_and_reraise_exception():
-                LOG.error('Error from LXD during operation wait'
-                          '%(instance)s: %(reason)s',
-                          {'instance': instance.image_ref, 'reason': e},
-                          instance=instance)
+                LOG.error("Error from LXD during operation wait "
+                          "{instance}: {reason}"
+                          .format(instance=instance.image_ref, reason=e))
 
     def operation_info(self, operation_id, instance, host=None):
-        LOG.debug('operation_info called for instance', instance=instance)
+        LOG.debug("operation_info called for instance {}".format(instance))
         try:
             client = self.get_session(host=host)
             return client.operation_info(operation_id)
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD API %(instance)s:'
-                    ' %(reason)s') % {'instance': instance.image_ref,
-                                      'reason': ex}
+            msg = _("Failed to communicate with LXD API {instance}:"
+                    " {reason}").format(instance=instance.image_ref,
+                                        reason=ex)
             LOG.error(msg)
             raise exception.NovaException(msg)
         except Exception as e:
             with excutils.save_and_reraise_exception():
-                LOG.error('Error from LXD during operation_info '
-                          '%(instance)s: %(reason)s',
-                          {'instance': instance.image_ref, 'reason': e},
-                          instance=instance)
+                LOG.error("Error from LXD during operation_info "
+                          "{instance}: {reason}"
+                          .format(instance=instance.image_ref, reason=e))
 
     #
     # Migrate methods
@@ -162,28 +155,26 @@ class LXDAPISession(object):
         :return: dictionary of the container keys
 
         """
-        LOG.debug('container_migrate called for instance', instance=instance)
+        LOG.debug("container_migrate called for instance {}".format(instance))
         try:
-            LOG.info('Migrating instance %(instance)s with '
-                     '%(image)s', {'instance': instance_name,
-                                   'image': instance.image_ref})
+            LOG.info("Migrating instance {instance} with {image}"
+                     .format(instance=instance_name,
+                             image=instance.image_ref))
 
             client = self.get_session()
             (state, data) = client.container_migrate(instance_name)
 
-            LOG.info('Successfully initialized migration for instance '
-                     '%(instance)s with %(image)s',
-                     {'instance': instance.name,
-                      'image': instance.image_ref})
+            LOG.info("Successfully initialized migration for instance "
+                     "{instance} with {image}"
+                     .format(instance=instance.name,
+                             image=instance.image_ref))
             return (state, data)
         except lxd_exceptions.APIError as ex:
-            msg = _('Failed to communicate with LXD API %(instance)s:'
-                    ' %(reason)s') % {'instance': instance.name,
-                                      'reason': ex}
+            msg = _("Failed to communicate with LXD API {instance}:"
+                    " {reason}").format(instance=instance.name,
+                                        reason=ex)
             raise exception.NovaException(msg)
         except Exception as ex:
             with excutils.save_and_reraise_exception():
-                LOG.error(
-                    'Failed to migrate container %(instance)s: %('
-                    'reason)s', {'instance': instance.name,
-                                 'reason': ex}, instance=instance)
+                LOG.error("Failed to migrate container {instance}: {reason}"
+                          .format(instance=instance.name, reason=ex))

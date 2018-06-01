@@ -65,7 +65,7 @@ class LXDVolumeScenario(manager.ScenarioTest):
 
         def _func():
             part = ssh.get_partitions()
-            LOG.debug("Partitions:%s" % part)
+            LOG.debug("Partitions: {}".format(part))
             return CONF.compute.volume_device_name in part
 
         if not test_utils.call_until_true(_func,

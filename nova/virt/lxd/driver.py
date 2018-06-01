@@ -123,10 +123,9 @@ def _last_bytes(file_like_object, num):
 
 
 def _neutron_failed_callback(event_name, instance):
-    LOG.error('Neutron Reported failure on event '
-              '%(event)s for instance %(uuid)s',
-              {'event': event_name, 'uuid': instance.name},
-              instance=instance)
+    LOG.error("Neutron Reported failure on event "
+              "{event} for instance {uuid}"
+              .format(event=event_name, uuid=instance.name))
     if CONF.vif_plugging_is_fatal:
         raise exception.VirtualInterfaceCreateException()
 
@@ -140,7 +139,7 @@ def _get_cpu_info():
     cpuinfo = {}
     out, err = utils.execute('lscpu')
     if err:
-        msg = _('Unable to parse lscpu output.')
+        msg = _("Unable to parse lscpu output.")
         raise exception.NovaException(msg)
 
     cpu = [line.strip('\n') for line in out.splitlines()]
@@ -211,7 +210,7 @@ def _get_zpool_info(pool_or_dataset):
                                    pool_or_dataset,
                                    run_as_root=True)
         if err:
-            msg = _('Unable to parse zfs output.')
+            msg = _("Unable to parse zfs output.")
             raise exception.NovaException(msg)
         value = int(value.strip())
         return value
@@ -280,7 +279,7 @@ def _sync_glance_image_to_lxd(client, context, image_ref):
             image = IMAGE_API.get(context, image_ref)
             if image.get('disk_format') not in ACCEPTABLE_IMAGE_FORMATS:
                 raise exception.ImageUnacceptable(
-                    image_id=image_ref, reason=_('Bad image format'))
+                    image_id=image_ref, reason=_("Bad image format"))
             IMAGE_API.download(context, image_ref, dest_path=image_file)
 
             # It is possible that LXD already have the same image
@@ -307,10 +306,10 @@ def _sync_glance_image_to_lxd(client, context, image_ref):
 
                 fingerprint = lxdimage_fingerprint()
                 if client.images.exists(fingerprint):
-                    LOG.info(
-                        'Image with fingerprint %(fingerprint)s already exists'
-                        'but not accessible by alias %(alias)s, add alias',
-                        {'fingerprint': fingerprint, 'alias': image_ref})
+                    LOG.info("Image with fingerprint {fingerprint} already "
+                             "exists but not accessible by alias {alias}, "
+                             "add alias"
+                             .format(fingerprint=fingerprint, alias=image_ref))
                     lxdimage = client.images.get(fingerprint)
                     lxdimage.add_alias(image_ref, '')
                     return True
@@ -341,9 +340,9 @@ def _sync_glance_image_to_lxd(client, context, image_ref):
                 return False
 
             if imagefile_has_metadata(image_file):
-                LOG.info('Image %(alias)s already has metadata, '
-                         'skipping metadata injection...',
-                         {'alias': image_ref})
+                LOG.info("Image {alias} already has metadata, "
+                         "skipping metadata injection..."
+                         .format(alias=image_ref))
                 with open(image_file, 'rb') as image:
                     image = client.images.create(image, wait=True)
             else:
@@ -462,7 +461,7 @@ class LXDDriver(driver.ComputeDriver):
         try:
             self.client = pylxd.Client()
         except lxd_exceptions.ClientConnectionFailed as e:
-            msg = _('Unable to connect to LXD daemon: %s') % e
+            msg = _("Unable to connect to LXD daemon: {}").format(e)
             raise exception.HostNotFound(msg)
         self._after_reboot()
 
@@ -543,8 +542,9 @@ class LXDDriver(driver.ComputeDriver):
                         error_callback=_neutron_failed_callback):
                     self.plug_vifs(instance, network_info)
             except eventlet.timeout.Timeout:
-                LOG.warn('Timeout waiting for vif plugging callback for '
-                         'instance %(uuid)s', {'uuid': instance['name']})
+                LOG.warn("Timeout waiting for vif plugging callback for "
+                         "instance {uuid}"
+                         .format(uuid=instance['name']))
                 if CONF.vif_plugging_is_fatal:
                     self.destroy(
                         context, instance, network_info, block_device_info)
@@ -637,9 +637,9 @@ class LXDDriver(driver.ComputeDriver):
                 rescued_container.delete(wait=True)
         except lxd_exceptions.LXDAPIException as e:
             if e.response.status_code == 404:
-                LOG.warning('Failed to delete instance. '
-                            'Container does not exist for %(instance)s.',
-                            {'instance': instance.name})
+                LOG.warning("Failed to delete instance. "
+                            "Container does not exist for {instance}."
+                            .format(instance=instance.name))
             else:
                 raise
         finally:
@@ -673,9 +673,9 @@ class LXDDriver(driver.ComputeDriver):
             self.client.profiles.get(instance.name).delete()
         except lxd_exceptions.LXDAPIException as e:
             if e.response.status_code == 404:
-                LOG.warning('Failed to delete instance. '
-                            'Profile does not exist for %(instance)s.',
-                            {'instance': instance.name})
+                LOG.warning("Failed to delete instance. "
+                            "Profile does not exist for {instance}."
+                            .format(instance=instance.name))
             else:
                 raise
 
@@ -1200,7 +1200,7 @@ class LXDDriver(driver.ComputeDriver):
     def check_can_live_migrate_source(self, context, instance,
                                       dest_check_data, block_device_info=None):
         if not CONF.lxd.allow_live_migration:
-            msg = _('Live migration is not enabled.')
+            msg = _("Live migration is not enabled.")
             LOG.error(msg, instance=instance)
             raise exception.MigrationPreCheckError(reason=msg)
         return dest_check_data
@@ -1272,9 +1272,8 @@ class LXDDriver(driver.ComputeDriver):
                 cdb.make_drive(iso_path)
             except processutils.ProcessExecutionError as e:
                 with excutils.save_and_reraise_exception():
-                    LOG.error('Creating config drive failed with '
-                              'error: %s',
-                              e, instance=instance)
+                    LOG.error("Creating config drive failed with error: {}"
+                              .format(e))
 
         configdrive_dir = os.path.join(
             nova.conf.CONF.instances_path, instance.name, 'configdrive')

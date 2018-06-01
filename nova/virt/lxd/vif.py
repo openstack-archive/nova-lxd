@@ -150,11 +150,12 @@ def _post_plug_wiring(instance, vif):
     network infrastructure
     """
 
-    LOG.debug("Performing post plug wiring for VIF %s", vif)
+    LOG.debug("Performing post plug wiring for VIF {}".format(vif))
     vif_type = vif['type']
 
     try:
         POST_PLUG_WIRING[vif_type](instance, vif)
+        LOG.debug("Post plug wiring step for VIF {} done".format(vif))
     except KeyError:
         LOG.debug("No post plug wiring step "
                   "for vif type: {}".format(vif_type))
@@ -190,11 +191,12 @@ def _post_unplug_wiring(instance, vif):
     network interfaces assocaited with a lxd container.
     """
 
-    LOG.debug("Performing post unplug wiring for VIF %s", vif)
+    LOG.debug("Performing post unplug wiring for VIF {}".format(vif))
     vif_type = vif['type']
 
     try:
         POST_UNPLUG_WIRING[vif_type](instance, vif)
+        LOG.debug("Post unplug wiring for VIF {} done".format(vif))
     except KeyError:
         LOG.debug("No post unplug wiring step "
                   "for vif type: {}".format(vif_type))
@@ -264,5 +266,5 @@ class LXDGenericVifDriver(object):
         try:
             network_utils.delete_net_dev(dev)
         except processutils.ProcessExecutionError:
-            LOG.exception("Failed while unplugging vif",
-                          instance=instance)
+            LOG.exception("Failed while unplugging vif for instance: {}"
+                          .format(instance))

@@ -65,7 +65,7 @@ def _isolated(instance, client):
         if 'id_map' in extensions:
             return {'security.idmap.isolated': 'True'}
         else:
-            msg = _('Host does not support isolated instances')
+            msg = _("Host does not support isolated instances")
             raise exception.NovaException(msg)
 
 
@@ -118,7 +118,7 @@ def _root(instance, client, *_):
         if 'storage' in extensions:
             device['pool'] = CONF.lxd.pool
         else:
-            msg = _('Host does not have storage pool support')
+            msg = _("Host does not have storage pool support")
             raise exception.NovaException(msg)
     return {'root': device}
 
@@ -142,7 +142,7 @@ def _ephemeral_storage(instance, client, __, block_info):
                 if 'storage' in extensions:
                     device['pool'] = CONF.lxd.pool
                 else:
-                    msg = _('Host does not have storage pool support')
+                    msg = _("Host does not have storage pool support")
                     raise exception.NovaException(msg)
             devices[ephemeral['virtual_name']] = device
         return devices

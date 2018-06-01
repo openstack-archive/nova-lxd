@@ -256,8 +256,8 @@ class ScenarioTest(tempest.test.BaseTestCase):
             name = data_utils.rand_name(class_name + '-volume-type')
         randomized_name = data_utils.rand_name('scenario-type-' + name)
 
-        LOG.debug("Creating a volume type: %s on backend %s",
-                  randomized_name, backend_name)
+        LOG.debug("Creating a volume type: {name} on backend {backend}"
+                  .format(name=randomized_name, backend=backend_name))
         extra_specs = {}
         if backend_name:
             extra_specs = {"volume_backend_name": backend_name}
@@ -350,9 +350,10 @@ class ScenarioTest(tempest.test.BaseTestCase):
         try:
             linux_client.validate_authentication()
         except Exception as e:
-            message = ('Initializing SSH connection to %(ip)s failed. '
-                       'Error: %(error)s' % {'ip': ip_address,
-                                             'error': e})
+            message = ("Initializing SSH connection to {ip} failed. "
+                       "Error: {error}"
+                       .format(ip=ip_address,
+                               error=e))
             caller = test_utils.find_test_caller()
             if caller:
                 message = '(%s) %s' % (caller, message)
@@ -399,10 +400,16 @@ class ScenarioTest(tempest.test.BaseTestCase):
         img_container_format = CONF.scenario.img_container_format
         img_disk_format = CONF.scenario.img_disk_format
         img_properties = CONF.scenario.img_properties
-        LOG.debug("paths: img: %s, container_format: %s, disk_format: %s, "
-                  "properties: %s, ami: %s, ari: %s, aki: %s",
-                  img_path, img_container_format, img_disk_format,
-                  img_properties, ami_img_path, ari_img_path, aki_img_path)
+        LOG.debug("paths: img: {img}, container_format: {cf}, "
+                  "disk_format: {df}, properties: {props}, ami: {ami}, "
+                  "ari: {ari}, aki: {aki}"
+                  .format(img=img_path,
+                          cf=img_container_format,
+                          df=img_disk_format,
+                          props=img_properties,
+                          ami=ami_img_path,
+                          ari=ari_img_path,
+                          aki=aki_img_path))
         try:
             image = self._image_create('scenario-img',
                                        img_container_format,
@@ -417,13 +424,13 @@ class ScenarioTest(tempest.test.BaseTestCase):
             image = self._image_create('scenario-ami', 'ami',
                                        path=ami_img_path,
                                        properties=properties)
-        LOG.debug("image:%s", image)
+        LOG.debug("image: {}".format(image))
 
         return image
 
     def _log_console_output(self, servers=None):
         if not CONF.compute_feature_enabled.console_output:
-            LOG.debug('Console output not supported, cannot log')
+            LOG.debug("Console output not supported, cannot log")
             return
         if not servers:
             servers = self.servers_client.list_servers()
@@ -432,16 +439,16 @@ class ScenarioTest(tempest.test.BaseTestCase):
             try:
                 console_output = self.servers_client.get_console_output(
                     server['id'])['output']
-                LOG.debug('Console output for %s\nbody=\n%s',
-                          server['id'], console_output)
+                LOG.debug("Console output for {}\nbody=\n{}"
+                          .format(server['id'], console_output))
             except lib_exc.NotFound:
-                LOG.debug("Server %s disappeared(deleted) while looking "
-                          "for the console log", server['id'])
+                LOG.debug("Server {} disappeared(deleted) while looking "
+                          "for the console log".format(server['id']))
 
     def _log_net_info(self, exc):
         # network debug is called as part of ssh init
         if not isinstance(exc, lib_exc.SSHTimeout):
-            LOG.debug('Network information on a devstack host')
+            LOG.debug("Network information on a devstack host")
 
     def create_server_snapshot(self, server, name=None):
         # Glance client
@@ -450,7 +457,8 @@ class ScenarioTest(tempest.test.BaseTestCase):
         _images_client = self.compute_images_client
         if name is None:
             name = data_utils.rand_name(self.__class__.__name__ + 'snapshot')
-        LOG.debug("Creating a snapshot image for server: %s", server['name'])
+        LOG.debug("Creating a snapshot image for server: {}"
+                  .format(server['name']))
         image = _images_client.create_image(server['id'], name=name)
         image_id = image.response['location'].split('images/')[1]
         waiters.wait_for_image_status(_image_client, image_id, 'active')
@@ -486,8 +494,8 @@ class ScenarioTest(tempest.test.BaseTestCase):
                                                         'available')
         image_name = snapshot_image['name']
         self.assertEqual(name, image_name)
-        LOG.debug("Created snapshot image %s for server %s",
-                  image_name, server['name'])
+        LOG.debug("Created snapshot image {} for server {}"
+                  .format(image_name, server['name']))
         return snapshot_image
 
     def nova_volume_attach(self, server, volume_to_attach):
@@ -517,8 +525,11 @@ class ScenarioTest(tempest.test.BaseTestCase):
 
         rebuild_kwargs = rebuild_kwargs or {}
 
-        LOG.debug("Rebuilding server (id: %s, image: %s, preserve eph: %s)",
-                  server_id, image, preserve_ephemeral)
+        LOG.debug("Rebuilding server (id: {_id}, image: {image}, "
+                  "preserve eph: {ephemeral})"
+                  .format(_id=server_id,
+                          image=image,
+                          ephemeral=preserve_ephemeral))
         self.servers_client.rebuild_server(
             server_id=server_id, image_ref=image,
             preserve_ephemeral=preserve_ephemeral,
@@ -550,18 +561,20 @@ class ScenarioTest(tempest.test.BaseTestCase):
             return (proc.returncode == 0) == should_succeed
 
         caller = test_utils.find_test_caller()
-        LOG.debug('%(caller)s begins to ping %(ip)s in %(timeout)s sec and the'
-                  ' expected result is %(should_succeed)s', {
-                      'caller': caller, 'ip': ip_address, 'timeout': timeout,
-                      'should_succeed':
-                      'reachable' if should_succeed else 'unreachable'
-                  })
+        LOG.debug("{caller} begins to ping {ip} in {timeout} sec and the"
+                  " expected result is {should_succeed}"
+                  .format(caller=caller,
+                          ip=ip_address,
+                          timeout=timeout,
+                          should_succeed=('reachable' if should_succeed
+                                          else 'unreachable'))
         result = test_utils.call_until_true(ping, timeout, 1)
-        LOG.debug('%(caller)s finishes ping %(ip)s in %(timeout)s sec and the '
-                  'ping result is %(result)s', {
-                      'caller': caller, 'ip': ip_address, 'timeout': timeout,
-                      'result': 'expected' if result else 'unexpected'
-                  })
+        LOG.debug("{caller} finishes ping {ip} in {timeout} sec and the "
+                  "ping result is {result}"
+                  .format(caller=caller,
+                          ip=ip_address,
+                          timeout=timeout,
+                          result='expected' if result else 'unexpected'))
         return result
 
     def check_vm_connectivity(self, ip_address,
@@ -599,8 +612,8 @@ class ScenarioTest(tempest.test.BaseTestCase):
                                           msg=None, servers=None, mtu=None):
         # The target login is assumed to have been configured for
         # key-based authentication by cloud-init.
-        LOG.debug('checking network connections to IP %s with user: %s',
-                  ip_address, username)
+        LOG.debug("checking network connections to IP {} with user: {}"
+                  .format(ip_address, username))
         try:
             self.check_vm_connectivity(ip_address,
                                        username,

@@ -73,8 +73,8 @@ def dump_db(db_driver, db_name, db_url, migration_version, dump_filename):
 
 
 def diff_files(filename1, filename2):
-    pipeline = ['diff -U 3 %(filename1)s %(filename2)s'
-                % {'filename1': filename1, 'filename2': filename2}]
+    pipeline = ["diff -U 3 {filename1} {filename2}"
+                .format(filename1=filename1, filename2=filename2)]
 
     # Use colordiff if available
     if subprocess.call(['which', 'colordiff']) == 0:
@@ -99,8 +99,8 @@ class Mysql(object):
 
     def dump(self, name, dump_filename):
         subprocess.check_call(
-            'mysqldump -u root %(name)s > %(dump_filename)s'
-            % {'name': name, 'dump_filename': dump_filename},
+            "mysqldump -u root {name} > {dump_filename}"
+            .format(name=name, dump_filename=dump_filename),
             shell=True)
 
 
@@ -114,8 +114,8 @@ class Postgresql(object):
 
     def dump(self, name, dump_filename):
         subprocess.check_call(
-            'pg_dump %(name)s > %(dump_filename)s'
-            % {'name': name, 'dump_filename': dump_filename},
+            "pg_dump {name} > {dump_filename}"
+            .format(name=name, dump_filename=dump_filename),
             shell=True)
 
 
@@ -123,7 +123,7 @@ def _get_db_driver_class(db_url):
     try:
         return globals()[db_url.split('://')[0].capitalize()]
     except KeyError:
-        raise Exception(_("database %s not supported") % db_url)
+        raise Exception(_("database {] not supported").format(db_url))
 
 
 # Migrate
