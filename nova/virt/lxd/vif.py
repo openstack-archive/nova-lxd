@@ -18,12 +18,12 @@ from oslo_log import log as logging
 from nova import conf
 from nova import exception
 from nova import utils
-from nova.network import linux_net
 from nova.network import model as network_model
 from nova.network import os_vif_util
 from nova.network import linux_utils as network_utils
 
 import os_vif
+from vif_plug_ovs import linux_net
 
 
 CONF = conf.CONF
@@ -112,6 +112,14 @@ def get_config(vif):
 # VIF_TYPE_OVS = 'ovs'
 # VIF_TYPE_BRIDGE = 'bridge'
 def _post_plug_wiring_veth_and_bridge(instance, vif):
+    """Wire/plug the virtual interface for the instance into the bridge that
+    lxd is using.
+
+    :param instance: the instance to plug into the bridge
+    :type instance: ???
+    :param vif: the virtual interface to plug into the bridge
+    :type vif: :class:`nova.network.model.VIF`
+    """
     config = get_config(vif)
     network = vif.get('network')
     mtu = network.get_meta('mtu') if network else None
@@ -143,11 +151,14 @@ POST_PLUG_WIRING = {
 def _post_plug_wiring(instance, vif):
     """Perform nova-lxd specific post os-vif plug processing
 
-    :param vif: a nova.network.model.VIF instance
-
-    Perform any post os-vif plug wiring requires to network
+    Perform any post os-vif plug wiring required to network
     the instance LXD container with the underlying Neutron
     network infrastructure
+
+    :param instance: the instance to plug into the bridge
+    :type instance: ???
+    :param vif: the virtual interface to plug into the bridge
+    :type vif: :class:`nova.network.model.VIF`
     """
 
     LOG.debug("Performing post plug wiring for VIF {}".format(vif))
@@ -164,6 +175,14 @@ def _post_plug_wiring(instance, vif):
 # VIF_TYPE_OVS = 'ovs'
 # VIF_TYPE_BRIDGE = 'bridge'
 def _post_unplug_wiring_delete_veth(instance, vif):
+    """Wire/plug the virtual interface for the instance into the bridge that
+    lxd is using.
+
+    :param instance: the instance to plug into the bridge
+    :type instance: ???
+    :param vif: the virtual interface to plug into the bridge
+    :type vif: :class:`nova.network.model.VIF`
+    """
     v1_name = get_vif_devname(vif)
     try:
         if _is_ovs_vif_port(vif):
@@ -185,10 +204,13 @@ POST_UNPLUG_WIRING = {
 def _post_unplug_wiring(instance, vif):
     """Perform nova-lxd specific post os-vif unplug processing
 
-    :param vif: a nova.network.model.VIF instance
-
-    Perform any post os-vif unplug wiring requires to remove
+    Perform any post os-vif unplug wiring required to remove
     network interfaces assocaited with a lxd container.
+
+    :param instance: the instance to plug into the bridge
+    :type instance: :class:`nova.db.sqlalchemy.models.Instance`
+    :param vif: the virtual interface to plug into the bridge
+    :type vif: :class:`nova.network.model.VIF`
     """
 
     LOG.debug("Performing post unplug wiring for VIF {}".format(vif))
