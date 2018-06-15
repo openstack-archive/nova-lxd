@@ -74,7 +74,8 @@ class LXDAPISession(object):
         try:
             LOG.info("Creating container {instance} with {image}"
                      .format(instance=instance.name,
-                             image=instance.image_ref))
+                             image=instance.image_ref),
+                     instance=instance)
 
             client = self.get_session(host=host)
             (state, data) = client.container_init(config)
@@ -88,7 +89,8 @@ class LXDAPISession(object):
 
             LOG.info("Successfully created container {instance} with {image}"
                      .format(instance=instance.name,
-                             image=instance.image_ref))
+                             image=instance.image_ref),
+                     instance=instance)
         except lxd_exceptions.APIError as ex:
             msg = (_("Failed to communicate with LXD API {instance}: {reason}")
                    .format(instance=instance.name, reason=ex))
@@ -96,7 +98,8 @@ class LXDAPISession(object):
         except Exception as ex:
             with excutils.save_and_reraise_exception():
                 LOG.error("Failed to create container {instance}: {reason}"
-                          .format(instance=instance.name, reason=ex))
+                          .format(instance=instance.name, reason=ex),
+                          instance=instance)
 
     #
     # Operation methods
@@ -108,7 +111,7 @@ class LXDAPISession(object):
         :param operation_id: The operation to wait for.
         :param instance: nova instace object
         """
-        LOG.debug("wait_for_container for instance: {}".format(instance))
+        LOG.debug("wait_for_container for instance", instance=instance)
         try:
             client = self.get_session(host=host)
             if not client.wait_container_operation(operation_id, 200, -1):
@@ -118,7 +121,7 @@ class LXDAPISession(object):
             msg = _("Failed to communicate with LXD API {instance}: "
                     "{reason}").format(instance=instance.image_ref,
                                        reason=ex)
-            LOG.error(msg)
+            LOG.error(msg, instance=instance)
             raise exception.NovaException(msg)
         except Exception as e:
             with excutils.save_and_reraise_exception():
@@ -127,7 +130,7 @@ class LXDAPISession(object):
                           .format(instance=instance.image_ref, reason=e))
 
     def operation_info(self, operation_id, instance, host=None):
-        LOG.debug("operation_info called for instance {}".format(instance))
+        LOG.debug("operation_info called for instance", instance=instance)
         try:
             client = self.get_session(host=host)
             return client.operation_info(operation_id)
@@ -135,7 +138,7 @@ class LXDAPISession(object):
             msg = _("Failed to communicate with LXD API {instance}:"
                     " {reason}").format(instance=instance.image_ref,
                                         reason=ex)
-            LOG.error(msg)
+            LOG.error(msg, instance=instance)
             raise exception.NovaException(msg)
         except Exception as e:
             with excutils.save_and_reraise_exception():
@@ -155,7 +158,7 @@ class LXDAPISession(object):
         :return: dictionary of the container keys
 
         """
-        LOG.debug("container_migrate called for instance {}".format(instance))
+        LOG.debug("container_migrate called for instance", instance=instance)
         try:
             LOG.info("Migrating instance {instance} with {image}"
                      .format(instance=instance_name,

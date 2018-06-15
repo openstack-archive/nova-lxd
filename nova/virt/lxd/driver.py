@@ -125,7 +125,8 @@ def _last_bytes(file_like_object, num):
 def _neutron_failed_callback(event_name, instance):
     LOG.error("Neutron Reported failure on event "
               "{event} for instance {uuid}"
-              .format(event=event_name, uuid=instance.name))
+              .format(event=event_name, uuid=instance.name),
+              instance=instance)
     if CONF.vif_plugging_is_fatal:
         raise exception.VirtualInterfaceCreateException()
 
@@ -1275,7 +1276,7 @@ class LXDDriver(driver.ComputeDriver):
             except processutils.ProcessExecutionError as e:
                 with excutils.save_and_reraise_exception():
                     LOG.error("Creating config drive failed with error: {}"
-                              .format(e))
+                              .format(e), instance=instance)
 
         configdrive_dir = os.path.join(
             nova.conf.CONF.instances_path, instance.name, 'configdrive')

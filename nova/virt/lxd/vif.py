@@ -161,15 +161,18 @@ def _post_plug_wiring(instance, vif):
     :type vif: :class:`nova.network.model.VIF`
     """
 
-    LOG.debug("Performing post plug wiring for VIF {}".format(vif))
+    LOG.debug("Performing post plug wiring for VIF {}".format(vif),
+              instance=instance)
     vif_type = vif['type']
 
     try:
         POST_PLUG_WIRING[vif_type](instance, vif)
-        LOG.debug("Post plug wiring step for VIF {} done".format(vif))
+        LOG.debug("Post plug wiring step for VIF {} done".format(vif),
+                  instance=instance)
     except KeyError:
         LOG.debug("No post plug wiring step "
-                  "for vif type: {}".format(vif_type))
+                  "for vif type: {}".format(vif_type),
+                  instance=instance)
 
 
 # VIF_TYPE_OVS = 'ovs'
@@ -191,8 +194,8 @@ def _post_unplug_wiring_delete_veth(instance, vif):
         else:
             network_utils.delete_net_dev(v1_name)
     except processutils.ProcessExecutionError:
-        LOG.exception("Failed to delete veth for vif",
-                      vif=vif)
+        LOG.exception("Failed to delete veth for vif {}".foramt(vif),
+                      instance=instance)
 
 
 POST_UNPLUG_WIRING = {
@@ -213,15 +216,18 @@ def _post_unplug_wiring(instance, vif):
     :type vif: :class:`nova.network.model.VIF`
     """
 
-    LOG.debug("Performing post unplug wiring for VIF {}".format(vif))
+    LOG.debug("Performing post unplug wiring for VIF {}".format(vif),
+              instance=instance)
     vif_type = vif['type']
 
     try:
         POST_UNPLUG_WIRING[vif_type](instance, vif)
-        LOG.debug("Post unplug wiring for VIF {} done".format(vif))
+        LOG.debug("Post unplug wiring for VIF {} done".format(vif),
+                  instance=instance)
     except KeyError:
         LOG.debug("No post unplug wiring step "
-                  "for vif type: {}".format(vif_type))
+                  "for vif type: {}".format(vif_type),
+                  instance=instance)
 
 
 class LXDGenericVifDriver(object):
@@ -288,5 +294,5 @@ class LXDGenericVifDriver(object):
         try:
             network_utils.delete_net_dev(dev)
         except processutils.ProcessExecutionError:
-            LOG.exception("Failed while unplugging vif for instance: {}"
-                          .format(instance))
+            LOG.exception("Failed while unplugging vif for instance",
+                          instance=instance)
