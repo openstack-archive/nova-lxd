@@ -79,6 +79,11 @@ r="$r|(?:tempest\.api\.compute\.volumes\.test_attach_volume\.AttachVolumeShelveT
 r="$r|(?:.*test_get_server_diagnostics.*)"
 #test_get_server_diagnostics
 
+# XXX: ajkavanagh (2018-07-23): disable test_show_update_rebuild_list_server as nova-lxd doesn't have the
+# 'supports_trusted_certs' capability, and the test uses it.
+# BUG: https://bugs.launchpad.net/nova-lxd/+bug/1783080
+r="$r|(?:.*ServerShowV263Test.test_show_update_rebuild_list_server.*)"
+
 r="$r).*$"
 
 export DEVSTACK_GATE_TEMPEST_REGEX="$r"
