@@ -74,10 +74,46 @@ r="$r|(?:tempest\.api\.compute\.volumes\.test_attach_volume\.AttachVolumeTestJSO
 r="$r|(?:tempest\.api\.compute\.volumes\.test_attach_volume\.AttachVolumeShelveTestJSON\.test_attach_detach_volume)"
 #testtools.matchers._impl.MismatchError: u'NAME  MAJ:MIN RM        SIZE RO TYPE MOUNTPOINT\nsda     8:0    0  1073741824  0 disk \nsdb     8:16   0  1073741824  0 disk \nvda   253:0    0 85899345920  0 disk \nvdb   253:16   0 42949672960  0 disk ' matches Contains('\nsdb ')
 
+# XXX: ajkavanagh (2018-07-26): stable/queens ONLY - these tests fails in nova due to tempest changes
+
+# other failures?
+
+# tempest.api.compute.admin.test_volumes_negative.VolumesAdminNegativeTest.test_update_attached_volume_with_nonexistent_volume_in_body
+# tempest.api.compute.admin.test_volumes_negative.VolumesAdminNegativeTest -- tearDown
+r="$r|(?:tempest\.api\.compute\.admin\.test_volumes_negative\.VolumesAdminNegativeTest\.test_update_attached_volume_with_nonexistent_volume_in_body)"
+# tempest.api.compute.servers.test_server_actions.ServerActionsTestJSON.test_rebuild_server_with_volume_attached
+r="$r|(?:tempest\.api\.compute\.servers\.test_server_actions\.ServerActionsTestJSON\.test_rebuild_server_with_volume_attached)"
+# tempest.api.compute.servers.test_server_rescue_negative.ServerRescueNegativeTestJSON -- tearDown
+# tempest.api.compute.servers.test_server_rescue_negative.ServerRescueNegativeTestJSON.test_rescued_vm_detach_volume
+r="$r|(?:tempest\.api\.compute\.servers\.test_server_rescue_negative\.ServerRescueNegativeTestJSON\.test_rescued_vm_detach_volume)"
+# tempest.api.compute.volumes.test_attach_volume.AttachVolumeTestJSON.test_list_get_volume_attachments
+r="$r|(?:tempest\.api\.compute\.volumes\.test_attach_volume\.AttachVolumeTestJSON\.test_list_get_volume_attachments)"
+
+# tempest.api.compute.servers.test_server_actions.ServerActionsTestJSON -- tearDown
+# tempest.api.compute.volumes.test_attach_volume_negative.AttachVolumeNegativeTest.test_attach_attached_volume_to_different_server
+# tempest.api.compute.volumes.test_attach_volume_negative.AttachVolumeNegativeTest.test_attach_attached_volume_to_same_server
+# tempest.api.compute.volumes.test_attach_volume_negative.AttachVolumeNegativeTest.test_delete_attached_volume
+# tempest.api.compute.volumes.test_attach_volume_negative.AttachVolumeNegativeTest -- tearDown
+r="$r|(?:tempest\.api\.compute\.volumes\.test_attach_volume_negative\.AttachVolumeNegativeTest.*)"
+# tempest.api.volume.test_volumes_backup.VolumesBackupsTest.test_backup_create_attached_volume
+r="$r|(?:tempest\.api\.volume\.test_volumes_backup\.VolumesBackupsTest\.test_backup_create_attached_volume)"
+# tempest.api.volume.test_volumes_snapshots.VolumesSnapshotTestJSON.test_snapshot_create_delete_with_volume_in_use
+r="$r|(?:tempest\.api\.volume\.test_volumes_snapshots\.VolumesSnapshotTestJSON\.test_snapshot_create_delete_with_volume_in_use)"
+# tempest.api.volume.test_volumes_snapshots.VolumesSnapshotTestJSON.test_snapshot_create_offline_delete_online
+r="$r|(?:tempest\.api\.volume\.test_volumes_snapshots\.VolumesSnapshotTestJSON\.test_snapshot_create_offline_delete_online)"
+# tempest.api.compute.images.test_images.ImagesTestJSON -- tearDown -- drop tests
+r="$r|(?:tempest\.api\.compute\.images\.test_images\.ImagesTestJSON.*)"
+
+
 # XXX: jamespage (26 June 2017): disable diagnostic checks until driver implements them
 # https://bugs.launchpad.net/nova-lxd/+bug/1700516
 r="$r|(?:.*test_get_server_diagnostics.*)"
 #test_get_server_diagnostics
+
+# XXX: ajkavanagh (2018-07-23): disable test_show_update_rebuild_list_server as nova-lxd doesn't have the
+# 'supports_trusted_certs' capability, and the test uses it.
+# BUG: https://bugs.launchpad.net/nova-lxd/+bug/1783080
+r="$r|(?:.*ServerShowV263Test.test_show_update_rebuild_list_server.*)"
 
 r="$r).*$"
 
