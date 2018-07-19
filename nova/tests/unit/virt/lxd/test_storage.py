@@ -213,7 +213,9 @@ class TestDetachEphemeral(test.NoDBTestCase):
         lxd_config = {'environment': {'storage': 'zfs'},
                       'config': {'storage.zfs_pool_name': 'zfs'}}
 
-        storage.detach_ephemeral(block_device_info, lxd_config, instance)
+        client = mock.Mock()
+        storage.detach_ephemeral(
+            client, block_device_info, lxd_config, instance)
 
         block_device_info_get_ephemerals.assert_called_once_with(
             block_device_info)
@@ -239,7 +241,9 @@ class TestDetachEphemeral(test.NoDBTestCase):
         lxd_config = {'environment': {'storage': 'lvm'},
                       'config': {'storage.lvm_vg_name': 'lxd'}}
 
-        storage.detach_ephemeral(block_device_info, lxd_config, instance)
+        client = mock.Mock()
+        storage.detach_ephemeral(
+            client, block_device_info, lxd_config, instance)
 
         block_device_info_get_ephemerals.assert_called_once_with(
             block_device_info)
