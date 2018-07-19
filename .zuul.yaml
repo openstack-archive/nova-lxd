@@ -22,7 +22,13 @@
       tox_env: func_lxd
       osa_test_repo: openstack/openstack-ansible-os_nova
 
+- job:
+    name: openstack-tox-py27-stable-queens
+    override-checkout: stable/queens
+    parent: openstack-tox-py27
+
 - project:
     check:
       jobs:
         - openstack-ansible-nova-lxd
+        - openstack-tox-py27-stable-queens
