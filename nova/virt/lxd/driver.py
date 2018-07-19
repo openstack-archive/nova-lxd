@@ -661,7 +661,10 @@ class LXDDriver(driver.ComputeDriver):
             self.firewall_driver.unfilter_instance(instance, network_info)
 
         lxd_config = self.client.host_info
-        storage.detach_ephemeral(block_device_info, lxd_config, instance)
+        storage.detach_ephemeral(self.client,
+                                 block_device_info,
+                                 lxd_config,
+                                 instance)
 
         name = pwd.getpwuid(os.getuid()).pw_name
 
@@ -1039,9 +1042,15 @@ class LXDDriver(driver.ComputeDriver):
         #                  to support LXD storage pools
         storage_driver = lxd_config['environment']['storage']
         if storage_driver == 'zfs':
-            local_disk_info = _get_zpool_info(
-                lxd_config['config']['storage.zfs_pool_name']
-            )
+            # NOTE(ajkavanagh) - BUG/1782329 - this is temporary until storage
+            # pools is implemented.  LXD 3 removed the storage.zfs_pool_name
+            # key from the config.  So, if it fails, we need to grab the
+            # configured storage pool and use that as the name instead.
+            try:
+                pool_name = lxd_config['config']['storage.zfs_pool_name']
+            except KeyError:
+                pool_name = CONF.lxd.pool
+            local_disk_info = _get_zpool_info(pool_name)
         else:
             local_disk_info = _get_fs_info(CONF.lxd.root_dir)
 
