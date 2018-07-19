@@ -39,7 +39,15 @@ def attach_ephemeral(client, block_device_info, lxd_config, instance):
             storage_dir = os.path.join(
                 instance_attrs.storage_path, ephemeral['virtual_name'])
             if storage_driver == 'zfs':
-                zfs_pool = lxd_config['config']['storage.zfs_pool_name']
+                # NOTE(ajkavanagh) - BUG/1782329 - this is temporary until
+                # storage pools is implemented.  LXD 3 removed the
+                # storage.zfs_pool_name key from the config.  So, if it fails,
+                # we need to grab the first storage pool and use that as the
+                # name instead.
+                try:
+                    zfs_pool = lxd_config['config']['storage.zfs_pool_name']
+                except KeyError:
+                    zfs_pool = client.storage_pools.all()[0].name
 
                 utils.execute(
                     'zfs', 'create',
@@ -92,7 +100,7 @@ def attach_ephemeral(client, block_device_info, lxd_config, instance):
                 storage_dir, run_as_root=True)
 
 
-def detach_ephemeral(block_device_info, lxd_config, instance):
+def detach_ephemeral(client, block_device_info, lxd_config, instance):
     """Detach ephemeral device from the instance."""
     ephemeral_storage = driver.block_device_info_get_ephemerals(
         block_device_info)
@@ -101,7 +109,15 @@ def detach_ephemeral(block_device_info, lxd_config, instance):
 
         for ephemeral in ephemeral_storage:
             if storage_driver == 'zfs':
-                zfs_pool = lxd_config['config']['storage.zfs_pool_name']
+                # NOTE(ajkavanagh) - BUG/1782329 - this is temporary until
+                # storage pools is implemented.  LXD 3 removed the
+                # storage.zfs_pool_name key from the config.  So, if it fails,
+                # we need to grab the first storage pool and use that as the
+                # name instead.
+                try:
+                    zfs_pool = lxd_config['config']['storage.zfs_pool_name']
+                except KeyError:
+                    zfs_pool = client.storage_pools.all()[0].name
 
                 utils.execute(
                     'zfs', 'destroy',

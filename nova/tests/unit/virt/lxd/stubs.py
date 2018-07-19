@@ -14,6 +14,7 @@
 
 import ddt
 import mock
+import uuid
 
 from nova import context
 from nova.tests.unit import fake_instance
@@ -101,7 +102,7 @@ def _fake_instance():
     _instance_values = {
         'display_name': 'fake_display_name',
         'name': 'fake_name',
-        'uuid': 'fake_uuid',
+        'uuid': uuid.uuid1(),
         'image_ref': 'fake_image',
         'vcpus': 1,
         'memory_mb': 512,
