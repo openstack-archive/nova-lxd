@@ -16,10 +16,8 @@
 
 import subprocess
 
-import netaddr
 from oslo_log import log
 from oslo_serialization import jsonutils as json
-from oslo_utils import netutils
 
 from tempest.common import compute
 from tempest.common import image as common_image
@@ -565,7 +563,7 @@ class ScenarioTest(tempest.test.BaseTestCase):
                           ip=ip_address,
                           timeout=timeout,
                           should_succeed=('reachable' if should_succeed
-                                          else 'unreachable'))
+                                          else 'unreachable')))
         result = test_utils.call_until_true(ping, timeout, 1)
         LOG.debug("{caller} finishes ping {ip} in {timeout} sec and the "
                   "ping result is {result}"
