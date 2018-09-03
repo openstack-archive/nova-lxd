@@ -87,3 +87,7 @@ r="$r|(?:.*ServerShowV263Test.test_show_update_rebuild_list_server.*)"
 r="$r).*$"
 
 export DEVSTACK_GATE_TEMPEST_REGEX="$r"
+
+# set the concurrency to 1 for devstack-gate
+# See: https://bugs.launchpad.net/nova-lxd/+bug/1790943
+export TEMPEST_CONCURRENCY=1
