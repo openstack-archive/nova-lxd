@@ -171,15 +171,30 @@ class LXDDriverTest(test.NoDBTestCase):
         for patcher in self.patchers:
             patcher.stop()
 
-    def test_init_host(self):
-        """init_host initializes the pylxd Client."""
+    # def test_init_host(self):
+        # """init_host initializes the pylxd Client."""
+        # lxd_driver = driver.LXDDriver(None)
+        # lxd_driver.init_host(None)
+
+        # self.Client.assert_called_once_with()
+        # self.assertEqual(self.client, lxd_driver.client)
+
+    def test_client_property(self):
         lxd_driver = driver.LXDDriver(None)
         lxd_driver.init_host(None)
-
-        self.Client.assert_called_once_with()
         self.assertEqual(self.client, lxd_driver.client)
 
-    def test_init_host_fail(self):
+    # def test_init_host_fail(self):
+        # def side_effect():
+            # raise lxdcore_exceptions.ClientConnectionFailed()
+        # self.Client.side_effect = side_effect
+        # self.Client.return_value = None
+
+        # lxd_driver = driver.LXDDriver(None)
+
+        # self.assertRaises(exception.HostNotFound, lxd_driver.init_host, None)
+
+    def test_client_property_fail(self):
         def side_effect():
             raise lxdcore_exceptions.ClientConnectionFailed()
         self.Client.side_effect = side_effect
@@ -187,7 +202,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
         lxd_driver = driver.LXDDriver(None)
 
-        self.assertRaises(exception.HostNotFound, lxd_driver.init_host, None)
+        self.assertRaises(exception.HostNotFound, lambda: lxd_driver.client)
+
 
     def test_get_info(self):
         container = mock.Mock()
@@ -1167,14 +1183,17 @@ class LXDDriverTest(test.NoDBTestCase):
             },
             'config': {}
         }
-        lxd_driver = driver.LXDDriver(None)
-        lxd_driver.client = mock.MagicMock()
-        lxd_driver.client.host_info = lxd_config
-        value = lxd_driver.get_available_resource(None)
-        # This is funky, but json strings make for fragile tests.
-        value['cpu_info'] = json.loads(value['cpu_info'])
+        with mock.patch('nova.virt.lxd.LXDDriver.client',
+                        new_callable=mock.PropertyMock) as pm:
+            m = mock.MagicMock()
+            pm.return_value = m
+            m.host_info = lxd_config
+            lxd_driver = driver.LXDDriver(None)
+            value = lxd_driver.get_available_resource(None)
+            # This is funky, but json strings make for fragile tests.
+            value['cpu_info'] = json.loads(value['cpu_info'])
 
-        self.assertEqual(expected, value)
+            self.assertEqual(expected, value)
 
     @mock.patch.object(driver.utils, 'execute')
     def test__get_zpool_info(self, execute):
@@ -1264,14 +1283,17 @@ class LXDDriverTest(test.NoDBTestCase):
                 'storage.zfs_pool_name': 'lxd',
             }
         }
-        lxd_driver = driver.LXDDriver(None)
-        lxd_driver.client = mock.MagicMock()
-        lxd_driver.client.host_info = lxd_config
-        value = lxd_driver.get_available_resource(None)
-        # This is funky, but json strings make for fragile tests.
-        value['cpu_info'] = json.loads(value['cpu_info'])
+        with mock.patch('nova.virt.lxd.LXDDriver.client',
+                        new_callable=mock.PropertyMock) as pm:
+            m = mock.MagicMock()
+            pm.return_value = m
+            m.host_info = lxd_config
+            lxd_driver = driver.LXDDriver(None)
+            value = lxd_driver.get_available_resource(None)
+            # This is funky, but json strings make for fragile tests.
+            value['cpu_info'] = json.loads(value['cpu_info'])
 
-        self.assertEqual(expected, value)
+            self.assertEqual(expected, value)
 
     def test_refresh_instance_security_rules(self):
         ctx = context.get_admin_context()
