@@ -92,6 +92,7 @@ Routes==2.4.1
 six==1.11.0
 snowballstemmer==1.2.1
 Sphinx==1.6.5
+sphinx-feature-classification==0.1.0
 sphinxcontrib-websupport==1.0.1
 statsd==3.2.2
 stestr==1.0.0

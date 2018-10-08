@@ -15,6 +15,7 @@ Contents:
    contributing
    exclusive_machine
    vif_wiring
+   support_matrix/support-matrix
 
 Indices and tables
 ==================
