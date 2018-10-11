@@ -19,7 +19,7 @@
     required-projects:
       - name: openstack/openstack-ansible-os_nova
     vars:
-      tox_env: func_lxd
+      tox_env: lxd
       osa_test_repo: openstack/openstack-ansible-os_nova
 
 - project:
