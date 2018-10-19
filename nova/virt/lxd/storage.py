@@ -17,11 +17,13 @@ import os
 from oslo_config import cfg
 from oslo_utils import fileutils
 from nova import exception
+from nova import i18n
 from nova import utils
 from nova.virt import driver
 
 from nova.virt.lxd import common
 
+_ = i18n._
 CONF = cfg.CONF
 
 
