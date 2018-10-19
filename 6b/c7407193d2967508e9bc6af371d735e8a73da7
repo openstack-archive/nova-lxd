@@ -1,0 +1,9 @@
+Code-Review+1: Kota Tsuyuzaki <tsuyuzaki.kota@lab.ntt.co.jp>
+Code-Review+2: Alex Kavanagh (tinwood) <alex.kavanagh@canonical.com>
+Workflow+1: Alex Kavanagh (tinwood) <alex.kavanagh@canonical.com>
+Verified+2: Zuul
+Submitted-by: Zuul
+Submitted-at: Fri, 19 Oct 2018 14:02:13 +0000
+Reviewed-on: https://review.openstack.org/609600
+Project: openstack/nova-lxd
+Branch: refs/heads/master
