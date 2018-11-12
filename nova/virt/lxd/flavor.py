@@ -83,43 +83,50 @@ def _root(instance, client, *_):
     """Configure the root disk."""
     device = {'type': 'disk', 'path': '/'}
 
-    environment = client.host_info['environment']
-    if environment['storage'] in ['btrfs', 'zfs'] or CONF.lxd.pool:
-        device['size'] = '{}GB'.format(instance.root_gb)
-
-    specs = instance.flavor.extra_specs
-
-    # Bytes and iops are not separate config options in a container
-    # profile - we let Bytes take priority over iops if both are set.
-    # Align all limits to MiB/s, which should be a sensible middle road.
-    if specs.get('quota:disk_read_iops_sec'):
-        device['limits.read'] = '{}iops'.format(
-            specs['quota:disk_read_iops_sec'])
-    if specs.get('quota:disk_write_iops_sec'):
-        device['limits.write'] = '{}iops'.format(
-            specs['quota:disk_write_iops_sec'])
-
-    if specs.get('quota:disk_read_bytes_sec'):
-        device['limits.read'] = '{}MB'.format(
-            int(specs['quota:disk_read_bytes_sec']) // units.Mi)
-    if specs.get('quota:disk_write_bytes_sec'):
-        device['limits.write'] = '{}MB'.format(
-            int(specs['quota:disk_write_bytes_sec']) // units.Mi)
-
-    minor_quota_defined = 'limits.write' in device or 'limits.read' in device
-    if specs.get('quota:disk_total_iops_sec') and not minor_quota_defined:
-        device['limits.max'] = '{}iops'.format(
-            specs['quota:disk_total_iops_sec'])
-    if specs.get('quota:disk_total_bytes_sec') and not minor_quota_defined:
-        device['limits.max'] = '{}MB'.format(
-            int(specs['quota:disk_total_bytes_sec']) // units.Mi)
+    # we don't do quotas if the CONF.lxd.pool is set and is dir or lvm, or if
+    # the environment['storage'] is dir or lvm.
     if CONF.lxd.pool:
         extensions = client.host_info.get('api_extensions', [])
         if 'storage' in extensions:
             device['pool'] = CONF.lxd.pool
+            storage_type = client.storage_pools.get(CONF.lxd.pool).driver
         else:
             msg = _("Host does not have storage pool support")
             raise exception.NovaException(msg)
+    else:
+        storage_type = client.host_info['environment']['storage']
+
+    if storage_type in ['btrfs', 'zfs']:
+        device['size'] = '{}GB'.format(instance.root_gb)
+
+        specs = instance.flavor.extra_specs
+
+        # Bytes and iops are not separate config options in a container
+        # profile - we let Bytes take priority over iops if both are set.
+        # Align all limits to MiB/s, which should be a sensible middle road.
+        if specs.get('quota:disk_read_iops_sec'):
+            device['limits.read'] = '{}iops'.format(
+                specs['quota:disk_read_iops_sec'])
+        if specs.get('quota:disk_write_iops_sec'):
+            device['limits.write'] = '{}iops'.format(
+                specs['quota:disk_write_iops_sec'])
+
+        if specs.get('quota:disk_read_bytes_sec'):
+            device['limits.read'] = '{}MB'.format(
+                int(specs['quota:disk_read_bytes_sec']) // units.Mi)
+        if specs.get('quota:disk_write_bytes_sec'):
+            device['limits.write'] = '{}MB'.format(
+                int(specs['quota:disk_write_bytes_sec']) // units.Mi)
+
+        minor_quota_defined = ('limits.write' in device or
+                               'limits.read' in device)
+        if specs.get('quota:disk_total_iops_sec') and not minor_quota_defined:
+            device['limits.max'] = '{}iops'.format(
+                specs['quota:disk_total_iops_sec'])
+        if specs.get('quota:disk_total_bytes_sec') and not minor_quota_defined:
+            device['limits.max'] = '{}MB'.format(
+                int(specs['quota:disk_total_bytes_sec']) // units.Mi)
+
     return {'root': device}
 
 
