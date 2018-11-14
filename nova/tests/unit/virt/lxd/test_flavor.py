@@ -132,7 +132,6 @@ class ToProfileTest(test.NoDBTestCase):
                 'path': '/',
                 'type': 'disk',
                 'pool': 'test_pool',
-                'size': '0GB'
             },
         }
         flavor.to_profile(self.client, instance, network_info, block_info)
