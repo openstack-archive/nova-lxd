@@ -14,6 +14,7 @@
 # limitations under the License.
 
 # THIS FILE IS MANAGED BY THE GLOBAL REQUIREMENTS REPO - DO NOT EDIT
+import os
 import setuptools
 
 # In python < 2.7.4, a lazy loading of package `pbr` will break
@@ -24,6 +25,12 @@ try:
 except ImportError:
     pass
 
+this_directory = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(this_directory, 'README.md'), 'rb') as f:
+    long_description = f.read().decode('utf-8')
+
 setuptools.setup(
+    long_description=long_description,
+    long_description_content_type='text/markdown',
     setup_requires=['pbr>=2.0.0'],
     pbr=True)
