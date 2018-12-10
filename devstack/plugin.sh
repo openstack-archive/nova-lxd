@@ -111,7 +111,8 @@ function configure_lxd_block() {
       elif [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
          echo "Configuring ZFS backend"
          truncate -s $LXD_LOOPBACK_DISK_SIZE $LXD_DISK_IMAGE
-         sudo apt-get install -y zfs
+	 # TODO(sahid): switch to use snap
+         sudo apt-get install -y zfsutils-linux
          lxd_dev=`sudo losetup --show -f ${LXD_DISK_IMAGE}`
          sudo lxd init --auto --storage-backend zfs --storage-pool $LXD_ZFS_ZPOOL \
               --storage-create-device $lxd_dev
