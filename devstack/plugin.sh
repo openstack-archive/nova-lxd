@@ -51,6 +51,12 @@ function configure_nova-lxd() {
     iniset $NOVA_CONF DEFAULT compute_driver lxd.LXDDriver
     iniset $NOVA_CONF DEFAULT force_config_drive False
 
+    if [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
+        # For LXD 3 and upper we need pool name configured, see:
+        # bug/1782329
+        iniset $NOVA_CONF lxd pool $LXD_ZFS_ZPOOL
+    fi
+
     if is_service_enabled glance; then
         iniset $GLANCE_API_CONF DEFAULT disk_formats "ami,ari,aki,vhd,raw,iso,qcow2,root-tar"
         iniset $GLANCE_API_CONF DEFAULT container_formats "ami,ari,aki,bare,ovf,tgz"
