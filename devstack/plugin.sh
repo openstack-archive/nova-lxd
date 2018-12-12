@@ -133,7 +133,11 @@ function shutdown_nova-lxd() {
 function cleanup_nova-lxd() {
     # Cleanup the service.
     if [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
-       sudo zpool destroy ${LXD_ZFS_ZPOOL}
+	pool=`lxc profile device get default root pool 2>> /dev/null || :`
+	if [ "$pool" == "$LXD_ZFS_ZPOOL" ]; then
+	    sudo lxc profile device remove default root
+	    sudo lxc storage delete $LXD_ZFS_ZPOOL
+	fi
     fi
 }
 
