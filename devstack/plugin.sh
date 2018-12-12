@@ -104,20 +104,25 @@ function test_config_nova-lxd() {
 }
 
 function configure_lxd_block() {
-   echo_summary "Configure LXD storage backend"
-   if is_ubuntu; then
-      if [ "$LXD_BACKEND_DRIVER" == "default" ]; then
-         echo "Nothing to be done"
-      elif [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
-         echo "Configuring ZFS backend"
-         truncate -s $LXD_LOOPBACK_DISK_SIZE $LXD_DISK_IMAGE
-	 # TODO(sahid): switch to use snap
-         sudo apt-get install -y zfsutils-linux
-         lxd_dev=`sudo losetup --show -f ${LXD_DISK_IMAGE}`
-         sudo lxd init --auto --storage-backend zfs --storage-pool $LXD_ZFS_ZPOOL \
-              --storage-create-device $lxd_dev
-      fi
-   fi
+    echo_summary "Configure LXD storage backend"
+    if is_ubuntu; then
+        if [ "$LXD_BACKEND_DRIVER" == "default" ]; then
+            echo "Nothing to be done"
+        elif [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
+            pool=`lxc profile device get default root pool 2>> /dev/null || :`
+            if [ "$pool" != "$LXD_ZFS_ZPOOL" ]; then
+                echo "Configuring ZFS backend"
+                truncate -s $LXD_LOOPBACK_DISK_SIZE $LXD_DISK_IMAGE
+                # TODO(sahid): switch to use snap
+                sudo apt-get install -y zfsutils-linux
+                lxd_dev=`sudo losetup --show -f ${LXD_DISK_IMAGE}`
+                sudo lxd init --auto --storage-backend zfs --storage-pool $LXD_ZFS_ZPOOL \
+	            --storage-create-device $lxd_dev
+            else
+                echo "ZFS backend already configured"
+            fi
+        fi
+    fi
 }
 
 function shutdown_nova-lxd() {
