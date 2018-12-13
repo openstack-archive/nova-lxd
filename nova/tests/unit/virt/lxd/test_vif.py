@@ -168,9 +168,8 @@ class LXDGenericVifDriverTest(test.NoDBTestCase):
         self.vif_driver = vif.LXDGenericVifDriver()
 
     @mock.patch.object(vif, '_post_plug_wiring')
-    @mock.patch('nova.virt.lxd.vif.linux_net')
     @mock.patch('nova.virt.lxd.vif.os_vif')
-    def test_plug_ovs(self, os_vif, linux_net, _post_plug_wiring):
+    def test_plug_ovs(self, os_vif, _post_plug_wiring):
         self.vif_driver.plug(INSTANCE, OVS_VIF)
 
         self.assertEqual(
@@ -180,9 +179,8 @@ class LXDGenericVifDriverTest(test.NoDBTestCase):
         _post_plug_wiring.assert_called_with(INSTANCE, OVS_VIF)
 
     @mock.patch.object(vif, '_post_unplug_wiring')
-    @mock.patch('nova.virt.lxd.vif.linux_net')
     @mock.patch('nova.virt.lxd.vif.os_vif')
-    def test_unplug_ovs(self, os_vif, linux_net, _post_unplug_wiring):
+    def test_unplug_ovs(self, os_vif, _post_unplug_wiring):
         self.vif_driver.unplug(INSTANCE, OVS_VIF)
 
         self.assertEqual(
@@ -220,11 +218,9 @@ class PostPlugTest(test.NoDBTestCase):
 
     @mock.patch('nova.virt.lxd.vif._create_veth_pair')
     @mock.patch('nova.virt.lxd.vif._add_bridge_port')
-    @mock.patch('nova.virt.lxd.vif.linux_net')
     @mock.patch('nova.virt.lxd.vif.network_utils')
     def test_post_plug_ovs_hybrid(self,
                                   network_utils,
-                                  linux_net,
                                   add_bridge_port,
                                   create_veth_pair):
         network_utils.device_exists.return_value = False
@@ -240,11 +236,11 @@ class PostPlugTest(test.NoDBTestCase):
 
     @mock.patch('nova.virt.lxd.vif._create_veth_pair')
     @mock.patch('nova.virt.lxd.vif._add_bridge_port')
-    @mock.patch('nova.virt.lxd.vif.linux_net')
+    @mock.patch.object(vif, '_create_ovs_vif_port')
     @mock.patch('nova.virt.lxd.vif.network_utils')
     def test_post_plug_ovs(self,
                            network_utils,
-                           linux_net,
+                           create_ovs_vif_port,
                            add_bridge_port,
                            create_veth_pair):
 
@@ -257,7 +253,7 @@ class PostPlugTest(test.NoDBTestCase):
                                             'tinda5cc4bf-f1',
                                             1000)
         add_bridge_port.assert_not_called()
-        linux_net.create_ovs_vif_port.assert_called_with(
+        create_ovs_vif_port.assert_called_with(
             'br0',
             'tapda5cc4bf-f1',
             'da5cc4bf-f16c-4807-a0b6-911c7c67c3f8',
@@ -268,11 +264,9 @@ class PostPlugTest(test.NoDBTestCase):
 
     @mock.patch('nova.virt.lxd.vif._create_veth_pair')
     @mock.patch('nova.virt.lxd.vif._add_bridge_port')
-    @mock.patch('nova.virt.lxd.vif.linux_net')
     @mock.patch('nova.virt.lxd.vif.network_utils')
     def test_post_plug_bridge(self,
                               network_utils,
-                              linux_net,
                               add_bridge_port,
                               create_veth_pair):
         network_utils.device_exists.return_value = False
@@ -308,12 +302,12 @@ class PostUnplugTest(test.NoDBTestCase):
         vif._post_unplug_wiring(INSTANCE, OVS_HYBRID_VIF)
         network_utils.delete_net_dev.assert_called_with('tapda5cc4bf-f1')
 
-    @mock.patch('nova.virt.lxd.vif.linux_net')
-    def test_post_unplug_ovs(self, linux_net):
+    @mock.patch.object(vif, '_delete_ovs_vif_port')
+    def test_post_unplug_ovs(self, delete_ovs_vif_port):
         vif._post_unplug_wiring(INSTANCE, OVS_VIF)
-        linux_net.delete_ovs_vif_port.assert_called_with('br0',
-                                                         'tapda5cc4bf-f1',
-                                                         True)
+        delete_ovs_vif_port.assert_called_with('br0',
+                                               'tapda5cc4bf-f1',
+                                               True)
 
     @mock.patch('nova.virt.lxd.vif.network_utils')
     def test_post_unplug_bridge(self, network_utils):

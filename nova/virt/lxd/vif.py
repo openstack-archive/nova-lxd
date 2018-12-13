@@ -23,7 +23,6 @@ from nova.network import os_vif_util
 from nova.network import linux_utils as network_utils
 
 import os_vif
-from vif_plug_ovs import linux_net
 
 
 CONF = conf.CONF
@@ -91,6 +90,52 @@ def _get_tap_config(vif):
     return {'mac_address': vif['address']}
 
 
+def _ovs_vsctl(args):
+    full_args = ['ovs-vsctl', '--timeout=%s' % CONF.ovs_vsctl_timeout] + args
+    try:
+        return utils.execute(*full_args, run_as_root=True)
+    except Exception as e:
+        LOG.error("Unable to execute %(cmd)s. Exception: %(exception)s",
+                  {'cmd': full_args, 'exception': e})
+        raise exception.OvsConfigurationFailure(inner_exception=e)
+
+
+def _create_ovs_vif_cmd(bridge, dev, iface_id, mac,
+                        instance_id, interface_type=None):
+    cmd = ['--', '--if-exists', 'del-port', dev, '--',
+           'add-port', bridge, dev,
+           '--', 'set', 'Interface', dev,
+           'external-ids:iface-id=%s' % iface_id,
+           'external-ids:iface-status=active',
+           'external-ids:attached-mac=%s' % mac,
+           'external-ids:vm-uuid=%s' % instance_id]
+    if interface_type:
+        cmd += ['type=%s' % interface_type]
+    return cmd
+
+
+def _create_ovs_vif_port(bridge, dev, iface_id, mac, instance_id,
+                         mtu=None, interface_type=None):
+    _ovs_vsctl(_create_ovs_vif_cmd(bridge, dev, iface_id,
+                                   mac, instance_id,
+                                   interface_type))
+    # Note at present there is no support for setting the
+    # mtu for vhost-user type ports.
+    if interface_type != network_model.OVS_VHOSTUSER_INTERFACE_TYPE:
+        network_utils.set_device_mtu(dev, mtu)
+    else:
+        LOG.debug("MTU not set on %(interface_name)s interface "
+                  "of type %(interface_type)s.",
+                  {'interface_name': dev,
+                   'interface_type': interface_type})
+
+
+def _delete_ovs_vif_port(bridge, dev, delete_dev=True):
+    _ovs_vsctl(['--', '--if-exists', 'del-port', bridge, dev])
+    if delete_dev:
+        network_utils.delete_net_dev(dev)
+
+
 CONFIG_GENERATORS = {
     'bridge': _get_bridge_config,
     'ovs': _get_ovs_config,
@@ -129,12 +174,12 @@ def _post_plug_wiring_veth_and_bridge(instance, vif):
         _create_veth_pair(v1_name, v2_name, mtu)
         if _is_ovs_vif_port(vif):
             # NOTE(jamespage): wire tap device directly to ovs bridge
-            linux_net.create_ovs_vif_port(vif['network']['bridge'],
-                                          v1_name,
-                                          vif['id'],
-                                          vif['address'],
-                                          instance.uuid,
-                                          mtu)
+            _create_ovs_vif_port(vif['network']['bridge'],
+                                 v1_name,
+                                 vif['id'],
+                                 vif['address'],
+                                 instance.uuid,
+                                 mtu)
         else:
             # NOTE(jamespage): wire tap device linux bridge
             _add_bridge_port(config['bridge'], v1_name)
@@ -189,8 +234,8 @@ def _post_unplug_wiring_delete_veth(instance, vif):
     v1_name = get_vif_devname(vif)
     try:
         if _is_ovs_vif_port(vif):
-            linux_net.delete_ovs_vif_port(vif['network']['bridge'],
-                                          v1_name, True)
+            _delete_ovs_vif_port(vif['network']['bridge'],
+                                 v1_name, True)
         else:
             network_utils.delete_net_dev(v1_name)
     except processutils.ProcessExecutionError:
