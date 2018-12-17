@@ -800,25 +800,34 @@ class LXDDriver(driver.ComputeDriver):
         profile.save(wait=True)
 
     def detach_interface(self, context, instance, vif):
-        profile = self.client.profiles.get(instance.name)
-        devname = lxd_vif.get_vif_devname(vif)
+        try:
+            profile = self.client.profiles.get(instance.name)
+            devname = lxd_vif.get_vif_devname(vif)
 
-        # NOTE(jamespage): Attempt to remove device using
-        #                  new style tap naming
-        if devname in profile.devices:
-            del profile.devices[devname]
-            profile.save(wait=True)
-        else:
-            # NOTE(jamespage): For upgrades, scan devices
-            #                  and attempt to identify
-            #                  using mac address as the
-            #                  device will *not* have a
-            #                  consistent name
-            for key, val in profile.devices.items():
-                if val.get('hwaddr') == vif['address']:
-                    del profile.devices[key]
-                    profile.save(wait=True)
-                    break
+            # NOTE(jamespage): Attempt to remove device using
+            #                  new style tap naming
+            if devname in profile.devices:
+                del profile.devices[devname]
+                profile.save(wait=True)
+            else:
+                # NOTE(jamespage): For upgrades, scan devices
+                #                  and attempt to identify
+                #                  using mac address as the
+                #                  device will *not* have a
+                #                  consistent name
+                for key, val in profile.devices.items():
+                    if val.get('hwaddr') == vif['address']:
+                        del profile.devices[key]
+                        profile.save(wait=True)
+                        break
+        except lxd_exceptions.NotFound:
+            # This method is called when an instance get destroyed. It
+            # could happen that Nova to receive an event
+            # "vif-delete-event" after the instance is destroyed which
+            # result the lxd profile not exist.
+            LOG.debug("lxd profile for instance {instance} does not exist. "
+                      "The instance probably got destroyed before this method "
+                      "got called.".format(instance=instance.name))
 
         self.vif_driver.unplug(instance, vif)
 
