@@ -796,6 +796,28 @@ class LXDDriverTest(test.NoDBTestCase):
         self.assertEqual(['root'], sorted(profile.devices.keys()))
         profile.save.assert_called_once_with(wait=True)
 
+    def test_detach_interface_not_found(self):
+        self.client.profiles.get.side_effect = lxdcore_exceptions.NotFound(
+            "404")
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
+        vif = {
+            'id': '0123456789abcdef',
+            'type': network_model.VIF_TYPE_OVS,
+            'address': '00:11:22:33:44:55',
+            'network': {
+                'bridge': 'fakebr'}}
+
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        lxd_driver.detach_interface(ctx, instance, vif)
+
+        self.vif_driver.unplug.assert_called_once_with(
+            instance, vif)
+
     def test_migrate_disk_and_power_off(self):
         container = mock.Mock()
         self.client.containers.get.return_value = container
