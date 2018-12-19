@@ -627,27 +627,34 @@ class LXDDriver(driver.ComputeDriver):
         See `nova.virt.driver.ComputeDriver.destroy` for more
         information.
         """
-        try:
-            container = self.client.containers.get(instance.name)
-            if container.status != 'Stopped':
-                container.stop(wait=True)
-            container.delete(wait=True)
-            if (instance.vm_state == vm_states.RESCUED):
-                rescued_container = self.client.containers.get(
-                    '%s-rescue' % instance.name)
-                if rescued_container.status != 'Stopped':
-                    rescued_container.stop(wait=True)
-                rescued_container.delete(wait=True)
-        except lxd_exceptions.LXDAPIException as e:
-            if e.response.status_code == 404:
-                LOG.warning("Failed to delete instance. "
-                            "Container does not exist for {instance}."
-                            .format(instance=instance.name))
-            else:
-                raise
-        finally:
-            self.cleanup(
-                context, instance, network_info, block_device_info)
+        lock_path = str(os.path.join(CONF.instances_path, 'locks'))
+
+        with lockutils.lock(
+                lock_path, external=True,
+                lock_file_prefix=('lxd-container-%s' % instance.name)):
+            # TODO(sahid): Each time we get a container we should
+            # protect it by using a mutex.
+            try:
+                container = self.client.containers.get(instance.name)
+                if container.status != 'Stopped':
+                    container.stop(wait=True)
+                container.delete(wait=True)
+                if (instance.vm_state == vm_states.RESCUED):
+                    rescued_container = self.client.containers.get(
+                        '%s-rescue' % instance.name)
+                    if rescued_container.status != 'Stopped':
+                        rescued_container.stop(wait=True)
+                    rescued_container.delete(wait=True)
+            except lxd_exceptions.LXDAPIException as e:
+                if e.response.status_code == 404:
+                    LOG.warning("Failed to delete instance. "
+                                "Container does not exist for {instance}."
+                                .format(instance=instance.name))
+                else:
+                    raise
+            finally:
+                self.cleanup(
+                    context, instance, network_info, block_device_info)
 
     def cleanup(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
@@ -850,7 +857,7 @@ class LXDDriver(driver.ComputeDriver):
 
         with lockutils.lock(
                 lock_path, external=True,
-                lock_file_prefix=('lxd-snapshot-%s' % instance.name)):
+                lock_file_prefix=('lxd-container-%s' % instance.name)):
 
             update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
 
