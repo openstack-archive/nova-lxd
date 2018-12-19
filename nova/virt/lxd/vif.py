@@ -20,7 +20,7 @@ from nova import exception
 from nova import utils
 from nova.network import model as network_model
 from nova.network import os_vif_util
-from nova.network import linux_utils as network_utils
+from nova.privsep import linux_net
 
 import os_vif
 
@@ -47,14 +47,14 @@ def _create_veth_pair(dev1_name, dev2_name, mtu=None):
     deleting any previous devices with those names.
     """
     for dev in [dev1_name, dev2_name]:
-        network_utils.delete_net_dev(dev)
+        linux_net.delete_net_dev(dev)
 
     utils.execute('ip', 'link', 'add', dev1_name, 'type', 'veth', 'peer',
                   'name', dev2_name, run_as_root=True)
 
     for dev in [dev1_name, dev2_name]:
         utils.execute('ip', 'link', 'set', dev, 'up', run_as_root=True)
-        network_utils.set_device_mtu(dev, mtu)
+        linux_net.set_device_mtu(dev, mtu)
 
 
 def _add_bridge_port(bridge, dev):
@@ -119,13 +119,13 @@ def _create_ovs_vif_port(bridge, dev, iface_id, mac, instance_id,
     _ovs_vsctl(_create_ovs_vif_cmd(bridge, dev, iface_id,
                                    mac, instance_id,
                                    interface_type))
-    network_utils.set_device_mtu(dev, mtu)
+    linux_net.set_device_mtu(dev, mtu)
 
 
 def _delete_ovs_vif_port(bridge, dev, delete_dev=True):
     _ovs_vsctl(['--', '--if-exists', 'del-port', bridge, dev])
     if delete_dev:
-        network_utils.delete_net_dev(dev)
+        linux_net.delete_net_dev(dev)
 
 
 CONFIG_GENERATORS = {
@@ -162,7 +162,7 @@ def _post_plug_wiring_veth_and_bridge(instance, vif):
     mtu = network.get_meta('mtu') if network else None
     v1_name = get_vif_devname(vif)
     v2_name = get_vif_internal_devname(vif)
-    if not network_utils.device_exists(v1_name):
+    if not linux_net.device_exists(v1_name):
         _create_veth_pair(v1_name, v2_name, mtu)
         if _is_ovs_vif_port(vif):
             # NOTE(jamespage): wire tap device directly to ovs bridge
@@ -176,7 +176,7 @@ def _post_plug_wiring_veth_and_bridge(instance, vif):
             # NOTE(jamespage): wire tap device linux bridge
             _add_bridge_port(config['bridge'], v1_name)
     else:
-        network_utils.set_device_mtu(v1_name, mtu)
+        linux_net.set_device_mtu(v1_name, mtu)
 
 
 POST_PLUG_WIRING = {
@@ -229,7 +229,7 @@ def _post_unplug_wiring_delete_veth(instance, vif):
             _delete_ovs_vif_port(vif['network']['bridge'],
                                  v1_name, True)
         else:
-            network_utils.delete_net_dev(v1_name)
+            linux_net.delete_net_dev(v1_name)
     except processutils.ProcessExecutionError:
         LOG.exception("Failed to delete veth for vif {}".foramt(vif),
                       instance=instance)
@@ -320,16 +320,16 @@ class LXDGenericVifDriver(object):
         # NOTE(jamespage): For nova-lxd this is really a veth pair
         #                  so that a) security rules get applied on the host
         #                  and b) that the container can still be wired.
-        if not network_utils.device_exists(v1_name):
+        if not linux_net.device_exists(v1_name):
             _create_veth_pair(v1_name, v2_name, mtu)
         else:
-            network_utils.set_device_mtu(v1_name, mtu)
+            linux_net.set_device_mtu(v1_name, mtu)
 
     def unplug_tap(self, instance, vif):
         """Unplug a VIF_TYPE_TAP virtual interface."""
         dev = get_vif_devname(vif)
         try:
-            network_utils.delete_net_dev(dev)
+            linux_net.delete_net_dev(dev)
         except processutils.ProcessExecutionError:
             LOG.exception("Failed while unplugging vif for instance",
                           instance=instance)
