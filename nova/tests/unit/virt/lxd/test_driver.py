@@ -524,7 +524,8 @@ class LXDDriverTest(test.NoDBTestCase):
         self._test_spawn_instance_with_network_events(
             neutron_failure='timeout')
 
-    def test_destroy(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_destroy(self, lock):
         mock_container = mock.Mock()
         mock_container.status = 'Running'
         self.client.containers.get.return_value = mock_container
@@ -545,7 +546,8 @@ class LXDDriverTest(test.NoDBTestCase):
         mock_container.stop.assert_called_once_with(wait=True)
         mock_container.delete.assert_called_once_with(wait=True)
 
-    def test_destroy_when_in_rescue(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_destroy_when_in_rescue(self, lock):
         mock_stopped_container = mock.Mock()
         mock_stopped_container.status = 'Stopped'
         mock_rescued_container = mock.Mock()
@@ -579,7 +581,8 @@ class LXDDriverTest(test.NoDBTestCase):
         mock_rescued_container.stop.assert_called_once_with(wait=True)
         mock_rescued_container.delete.assert_called_once_with(wait=True)
 
-    def test_destroy_without_instance(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_destroy_without_instance(self, lock):
         def side_effect(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
         self.client.containers.get.side_effect = side_effect
