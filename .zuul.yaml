@@ -23,10 +23,8 @@
       osa_test_repo: openstack/openstack-ansible-os_nova
 
 - project:
+    templates:
+      - openstack-lower-constraints-jobs
     check:
       jobs:
         - openstack-ansible-nova-lxd
-        - openstack-tox-lower-constraints
-    gate:
-      jobs:
-        - openstack-tox-lower-constraints
