@@ -1,0 +1,8 @@
+Code-Review+2: Chris MacNaughton (icey) <chris.macnaughton@canonical.com>
+Workflow+1: Chris MacNaughton (icey) <chris.macnaughton@canonical.com>
+Verified+2: Zuul
+Submitted-by: Zuul
+Submitted-at: Mon, 21 Jan 2019 20:52:01 +0000
+Reviewed-on: https://review.openstack.org/626187
+Project: openstack/nova-lxd
+Branch: refs/heads/master
