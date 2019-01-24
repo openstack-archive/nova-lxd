@@ -12,24 +12,26 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
-import collections
-import json
-import base64
-from contextlib import closing
 
+from contextlib import closing
+import base64
+import collections
 import eventlet
-from oslo_config import cfg
+import json
 import mock
-from nova import context
-from nova import exception
-from nova import utils
-from nova import test
+
 from nova.compute import manager
 from nova.compute import power_state
 from nova.compute import vm_states
+from nova import context
+from nova import exception
+from nova import test
+from nova import utils
 from nova.network import model as network_model
 from nova.tests.unit import fake_instance
+from oslo_config import cfg
 from pylxd import exceptions as lxdcore_exceptions
+import nova.objects.fields
 import six
 
 from nova.virt.lxd import common
@@ -1419,6 +1421,76 @@ class LXDDriverTest(test.NoDBTestCase):
         result = lxd_driver.get_available_nodes()
 
         self.assertEqual(expected, result)
+
+    @mock.patch('nova.virt.configdrive.required_by')
+    def test_get_instance_diagnostics(self, mock_required_by):
+        mock_required_by.return_value = True
+        container = mock.Mock()
+        container.name = "test1"
+        container.created_at = "2019-01-25T11:53:01Z"
+
+        # set up the state for our test
+        container_state = mock.Mock()
+        container_state.cpu = {'usage': 10}
+        container_state.network = {
+            "eth0": {
+                "addresses": [],
+                "counters": {
+                    "bytes_received": 33942,
+                    "bytes_sent": 30810,
+                    "packets_received": 402,
+                    "packets_sent": 178,
+                },
+                "hwaddr": "00:16:3e:ec:65:a8",
+                "host_name": "some_host",
+                "mtu": 1500,
+                "state": "up",
+                "type": "broadcast",
+            },
+        }
+        container_state.memory = {
+            "usage": 5112672,
+            "usage_peak": 70246400,
+            "swap_usage": 0,
+            "swap_usage_peak": 0,
+        }
+        container.state.return_value = container_state
+        self.client.containers.get.return_value = container
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
+        instance.vm_state = nova.objects.fields.InstancePowerState.RUNNING
+        lxd_driver = driver.LXDDriver(None)
+        lxd_driver.init_host(None)
+
+        # set up a state object to
+        result = lxd_driver.get_instance_diagnostics(instance)
+
+        self.assertTrue(result.config_drive)
+        self.assertEqual(result.driver, 'libvirt')  # should be lxd
+        self.assertEqual(result.hypervisor, 'lxc')
+        self.assertEqual(result.hypervisor_os, 'linux')
+        self.assertEqual(result.num_cpus, 1)
+        self.assertEqual(result.num_nics, 1)
+        self.assertEqual(result.state, 'running')
+        self.assertTrue(result.uptime > 0)
+
+        self.assertEqual(len(result.cpu_details), 1)
+        self.assertEqual(result.cpu_details[0].id, 0)
+        self.assertEqual(result.cpu_details[0].time, 10)
+
+        nic_diags = result.nic_details[0]
+        self.assertEqual(nic_diags.mac_address, "00:16:3e:ec:65:a8")
+        self.assertEqual(nic_diags.rx_octets, 33942)
+        self.assertEqual(nic_diags.tx_octets, 30810)
+        self.assertEqual(nic_diags.rx_packets, 402)
+        self.assertEqual(nic_diags.tx_packets, 178)
+
+        self.assertEqual(result.memory_details.maximum, 70246400)
+        self.assertEqual(result.memory_details.used, 5112672)
+
+        # No disk info at present
 
     @mock.patch('nova.virt.lxd.driver.IMAGE_API')
     @mock.patch('nova.virt.lxd.driver.lockutils.lock')

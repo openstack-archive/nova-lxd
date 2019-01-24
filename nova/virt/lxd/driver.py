@@ -44,6 +44,7 @@ from oslo_concurrency import processutils
 from oslo_config import cfg
 from oslo_log import log as logging
 from oslo_utils import fileutils
+from oslo_utils import timeutils
 import pylxd
 from pylxd import exceptions as lxd_exceptions
 
@@ -53,6 +54,7 @@ from nova.virt.lxd import flavor
 from nova.virt.lxd import storage
 
 from nova.api.metadata import base as instance_metadata
+from nova.objects import diagnostics as diagnostics_obj
 from nova.objects import fields as obj_fields
 from nova.objects import migrate_data
 from nova.virt import configdrive
@@ -479,6 +481,7 @@ class LXDDriver(driver.ComputeDriver):
         See `nova.virt.driver.ComputeDriver.cleanup_host` for more
         information.
         """
+        pass
 
     def get_info(self, instance):
         """Return an InstanceInfo object for the instance."""
@@ -1143,6 +1146,56 @@ class LXDDriver(driver.ComputeDriver):
     def get_available_nodes(self, refresh=False):
         hostname = socket.gethostname()
         return [hostname]
+
+    def get_instance_diagnostics(self, instance):
+        """get_instance_diagnostics(instance) is used by nova as part of
+        fulfilling its get_server_diagnostics().  Nova iterates through all of
+        its instances asking for these diagnostics to fulfill its own request.
+
+        The format of the diagnostics returned can be seen in the
+        FakeDriver.get_server_diagnostics(...) function and also an
+        implementation of it in the libvirt driver function.
+
+        :param instance: the instance to collect diagnostics for
+        :type instance: :class:`nova.objects.instance.Instance`
+        :returns: the diagnostics for the instance
+        :rtype: :class:`nova.objects.diagnostics.Diagnostics`
+        """
+        if (instance.vm_state == vm_states.RESCUED):
+            name = "{}-rescue".format(instance.name)
+        else:
+            name = instance.name
+        container = self.client.containers.get(name)
+        created_at = timeutils.normalize_time(
+            timeutils.parse_isotime(container.created_at))
+        uptime = timeutils.delta_seconds(created_at,
+                                         timeutils.utcnow())
+        # TODO(ajkavanagh) - this is lying about the driver: it should be 'lxd'
+        # but until the change in nova is accepted, this is where it is.
+        diags = diagnostics_obj.Diagnostics(
+            state=instance.vm_state,
+            driver='libvirt',  # TODO(ajkavanagh) lie about driver for moment
+            hypervisor='lxc',
+            hypervisor_os="linux",
+            uptime=uptime,
+            config_drive=configdrive.required_by(instance))
+
+        state = container.state()
+        diags.add_cpu(id=0, time=state.cpu['usage'], utilisation=None)
+        for iface, stats in state.network.items():
+            if iface == 'lo':
+                continue
+            diags.add_nic(mac_address=stats['hwaddr'],
+                          rx_octets=stats['counters']['bytes_received'],
+                          rx_packets=stats['counters']['packets_received'],
+                          tx_octets=stats['counters']['bytes_sent'],
+                          tx_packets=stats['counters']['packets_sent'])
+        # Can't add disks as the LXD stats don't make sense for the stats
+        # collected.
+        diags.memory_details = diagnostics_obj.MemoryDiagnostics(
+            maximum=state.memory['usage_peak'],
+            used=state.memory['usage'])
+        return diags
 
     # XXX: rockstar (5 July 2016) - The methods and code below this line
     # have not been through the cleanup process. We know the cleanup process
