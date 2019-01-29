@@ -13,8 +13,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from pylxd import client
-
 from tempest.api.compute import base
 from tempest import config
 from tempest.lib.common.utils import data_utils
@@ -27,7 +25,6 @@ class LXDServersTestJSON(base.BaseV2ComputeAdminTest):
 
     def __init__(self, *args, **kwargs):
         super(LXDServersTestJSON, self).__init__(*args, **kwargs)
-        self.client = client.Client()
 
     @classmethod
     def setup_credentials(cls):

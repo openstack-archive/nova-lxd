@@ -14,8 +14,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-from pylxd import client
-
 from tempest.api.compute import base
 from tempest.common import waiters
 from tempest import config
@@ -30,7 +28,6 @@ class LXDVolumeTests(base.BaseV2ComputeAdminTest):
     def __init__(self, *args, **kwargs):
         super(LXDVolumeTests, self).__init__(*args, **kwargs)
         self.attachment = None
-        self.client = client.Client()
 
     @classmethod
     def setup_credentials(cls):
