@@ -1259,7 +1259,8 @@ class LXDDriver(driver.ComputeDriver):
         """
         container_id_map = json.loads(
             container.config['volatile.last_state.idmap'])
-        uid_map = filter(lambda id_map: id_map.get("Isuid"), container_id_map)
+        uid_map = list(filter(lambda id_map: id_map.get("Isuid"),
+                              container_id_map))
         if uid_map:
             storage_id = uid_map[0].get("Hostid", 0)
         else:
