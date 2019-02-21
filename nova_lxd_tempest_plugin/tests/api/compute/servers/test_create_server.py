@@ -25,10 +25,6 @@ CONF = config.CONF
 class LXDServersTestJSON(base.BaseV2ComputeAdminTest):
     disk_config = 'AUTO'
 
-    def __init__(self, *args, **kwargs):
-        super(LXDServersTestJSON, self).__init__(*args, **kwargs)
-        self.client = client.Client()
-
     @classmethod
     def setup_credentials(cls):
         cls.prepare_instance_network()
@@ -37,6 +33,7 @@ class LXDServersTestJSON(base.BaseV2ComputeAdminTest):
     @classmethod
     def setup_clients(cls):
         super(LXDServersTestJSON, cls).setup_clients()
+        cls.lxd = client.Client()
         cls.client = cls.os_admin.servers_client
         cls.flavors_client = cls.os_admin.flavors_client
 
@@ -64,7 +61,7 @@ class LXDServersTestJSON(base.BaseV2ComputeAdminTest):
 
     def test_profile_configuration(self):
         # Verify that the profile was created
-        profile = self.client.profiles.get(
+        profile = self.lxd.profiles.get(
             self.server['OS-EXT-SRV-ATTR:instance_name'])
 
         self.assertEqual(
@@ -82,7 +79,7 @@ class LXDServersTestJSON(base.BaseV2ComputeAdminTest):
         # the amount stated by the flavor
         flavor = self.flavors_client.show_flavor(self.flavor_ref)['flavor']
 
-        profile = self.client.profiles.get(
+        profile = self.lxd.profiles.get(
             self.server['OS-EXT-SRV-ATTR:instance_name'])
         self.assertEqual(
             '%s' % flavor['vcpus'], profile.config['limits.cpu'])
@@ -92,7 +89,7 @@ class LXDServersTestJSON(base.BaseV2ComputeAdminTest):
         # the amount stated by the flavor
         flavor = self.flavors_client.show_flavor(self.flavor_ref)['flavor']
 
-        profile = self.client.profiles.get(
+        profile = self.lxd.profiles.get(
             self.server['OS-EXT-SRV-ATTR:instance_name'])
         self.assertEqual(
             '%sMB' % flavor['ram'], profile.config['limits.memory'])
@@ -100,20 +97,20 @@ class LXDServersTestJSON(base.BaseV2ComputeAdminTest):
     def test_verify_server_root_size(self):
         flavor = self.flavors_client.show_flavor(self.flavor_ref)['flavor']
 
-        profile = self.client.profiles.get(
+        profile = self.lxd.profiles.get(
             self.server['OS-EXT-SRV-ATTR:instance_name'])
         self.assertEqual(
             '%sGB' % flavor['disk'], profile.devices['root']['size'])
 
     def test_verify_console_log(self):
         # Verify that the console log for the container exists
-        profile = self.client.profiles.get(
+        profile = self.lxd.profiles.get(
             self.server['OS-EXT-SRV-ATTR:instance_name'])
         self.assertIn('lxc.console.logfile', profile.config['raw.lxc'])
 
     def test_verify_network_configuration(self):
         # Verify network is configured for the instance
-        profile = self.client.profiles.get(
+        profile = self.lxd.profiles.get(
             self.server['OS-EXT-SRV-ATTR:instance_name'])
         for device in profile.devices:
             if 'root' not in device:
@@ -125,9 +122,9 @@ class LXDServersTestJSON(base.BaseV2ComputeAdminTest):
 
     def test_container_configuration_valid(self):
         # Verify container configuration is correct
-        profile = self.client.profiles.get(
+        profile = self.lxd.profiles.get(
             self.server['OS-EXT-SRV-ATTR:instance_name'])
-        container = self.client.containers.get(
+        container = self.lxd.containers.get(
             self.server['OS-EXT-SRV-ATTR:instance_name'])
         flavor = self.flavors_client.show_flavor(self.flavor_ref)['flavor']
 

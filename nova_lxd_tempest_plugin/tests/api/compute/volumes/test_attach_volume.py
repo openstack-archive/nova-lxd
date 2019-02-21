@@ -30,7 +30,6 @@ class LXDVolumeTests(base.BaseV2ComputeAdminTest):
     def __init__(self, *args, **kwargs):
         super(LXDVolumeTests, self).__init__(*args, **kwargs)
         self.attachment = None
-        self.client = client.Client()
 
     @classmethod
     def setup_credentials(cls):
@@ -40,6 +39,7 @@ class LXDVolumeTests(base.BaseV2ComputeAdminTest):
     @classmethod
     def setup_clients(cls):
         super(LXDVolumeTests, cls).setup_clients()
+        cls.lxd = client.Client()
         cls.client = cls.os_admin.servers_client
         cls.flavors_client = cls.os_admin.flavors_client
 
@@ -97,7 +97,7 @@ class LXDVolumeTests(base.BaseV2ComputeAdminTest):
         # for volumes
         volume = self._create_and_attach_volume(self.server)
 
-        profile = self.client.profiles.get(
+        profile = self.lxd.profiles.get(
             self.server['OS-EXT-SRV-ATTR:instance_name'])
 
         self.assertIn(volume['id'], [device for device in profile.devices])
