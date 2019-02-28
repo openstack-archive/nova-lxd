@@ -17,7 +17,6 @@ from __future__ import absolute_import
 
 import errno
 import io
-import json
 import os
 import platform
 import pwd
@@ -352,7 +351,7 @@ def _sync_glance_image_to_lxd(client, context, image_ref):
                         'hw_architecture',
                         obj_fields.Architecture.from_host()),
                     'creation_date': int(os.stat(image_file).st_ctime)}
-                metadata_yaml = json.dumps(
+                metadata_yaml = jsonutils.dumps(
                     metadata, sort_keys=True, indent=4,
                     separators=(',', ': '),
                     ensure_ascii=False).encode('utf-8') + b"\n"
@@ -1273,7 +1272,7 @@ class LXDDriver(driver.ComputeDriver):
             "volatile.tap5fd6808a-7b.name": "eth0"
         }
         """
-        container_id_map = json.loads(
+        container_id_map = jsonutils.loads(
             container.config['volatile.last_state.idmap'])
         uid_map = filter(lambda id_map: id_map.get("Isuid"), container_id_map)
         if uid_map:

@@ -14,8 +14,6 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
-import json
-
 from tempest.common import utils
 from tempest import config
 from tempest import exceptions
@@ -23,6 +21,7 @@ from tempest.lib.common.utils import test_utils
 from tempest.lib import decorators
 
 from nova_lxd_tempest_plugin.tests.scenario import manager
+from oslo_serialization import jsonutils
 
 CONF = config.CONF
 
@@ -86,7 +85,7 @@ class TestServerBasicOps(manager.ScenarioTest):
             cmd_md = \
                 'cat /var/lib/cloud/data/openstack/latest/meta_data.json'
             result = self.ssh_client.exec_command(cmd_md)
-            result = json.loads(result)
+            result = jsonutils.loads(result)
             self.assertIn('meta', result)
             msg = ('Failed while verifying metadata on config_drive on server.'
                    ' Result of command "%s" is NOT "%s".' % (cmd_md, self.md))
@@ -98,7 +97,7 @@ class TestServerBasicOps(manager.ScenarioTest):
             cmd_md = \
                 'cat /var/lib/cloud/data/openstack/latest/network_data.json'
             result = self.ssh_client.exec_command(cmd_md)
-            result = json.loads(result)
+            result = jsonutils.loads(result)
             self.assertIn('services', result)
             self.assertIn('links', result)
             self.assertIn('networks', result)

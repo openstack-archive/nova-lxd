@@ -12,13 +12,14 @@
 #    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
 #    License for the specific language governing permissions and limitations
 #    under the License.
+
 import collections
-import json
 import base64
 from contextlib import closing
 
 import eventlet
 from oslo_config import cfg
+from oslo_serialization import jsonutils
 import mock
 from nova import context
 from nova import exception
@@ -1197,7 +1198,7 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.client.host_info = lxd_config
         value = lxd_driver.get_available_resource(None)
         # This is funky, but json strings make for fragile tests.
-        value['cpu_info'] = json.loads(value['cpu_info'])
+        value['cpu_info'] = jsonutils.loads(value['cpu_info'])
 
         self.assertEqual(expected, value)
 
@@ -1294,7 +1295,7 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.client.host_info = lxd_config
         value = lxd_driver.get_available_resource(None)
         # This is funky, but json strings make for fragile tests.
-        value['cpu_info'] = json.loads(value['cpu_info'])
+        value['cpu_info'] = jsonutils.loads(value['cpu_info'])
 
         self.assertEqual(expected, value)
 
