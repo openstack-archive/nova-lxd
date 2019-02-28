@@ -10,6 +10,10 @@ following in your devstack `local.conf`:
 ```
 [[local|localrc]]
 enable_plugin nova-lxd https://git.openstack.org/openstack/nova-lxd
+
+# You should enable the following if you use lxd 3.0.
+# In addition, this setting requires zfs >= 0.7.0.
+#LXD_BACKEND_DRIVER=zfs
 ```
 
 Change git repositories as needed (it's probably not very useful to point to the main

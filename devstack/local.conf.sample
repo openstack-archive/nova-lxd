@@ -22,3 +22,6 @@ disable_service n-net
 
 # enable nova-lxd
 enable_plugin nova-lxd https://git.openstack.org/openstack/nova-lxd
+# You should enable the following if you use lxd 3.0.
+# In addition, this setting requires zfs >= 0.7.0.
+#LXD_BACKEND_DRIVER=zfs
