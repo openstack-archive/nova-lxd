@@ -24,10 +24,25 @@ _InstanceAttributes = collections.namedtuple('InstanceAttributes', [
 
 def InstanceAttributes(instance):
     """An instance adapter for nova-lxd specific attributes."""
+    if is_snap_lxd():
+        prefix = '/var/snap/lxd/common/lxd/logs'
+    else:
+        prefix = '/var/log/lxd'
     instance_dir = os.path.join(conf.CONF.instances_path, instance.name)
-    console_path = os.path.join('/var/log/lxd/', instance.name, 'console.log')
+    console_path = os.path.join(prefix, instance.name, 'console.log')
     storage_path = os.path.join(instance_dir, 'storage')
     container_path = os.path.join(
         conf.CONF.lxd.root_dir, 'containers', instance.name)
     return _InstanceAttributes(
         instance_dir, console_path, storage_path, container_path)
+
+
+def is_snap_lxd():
+    """Determine whether it's a snap installed lxd or a package installed lxd
+
+    This is easily done by checking if the bin file is /snap/bin/lxc
+
+    :returns: True if snap installed, otherwise False
+    :rtype: bool
+    """
+    return os.path.isfile('/snap/bin/lxc')
