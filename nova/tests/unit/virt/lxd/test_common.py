@@ -36,31 +36,49 @@ class InstanceAttributesTest(test.NoDBTestCase):
         super(InstanceAttributesTest, self).tearDown()
         self.CONF_patcher.stop()
 
-    def test_instance_dir(self):
+    def test_is_snap_lxd(self):
+        with mock.patch('os.path.isfile') as isfile:
+            isfile.return_value = False
+            self.assertFalse(common.is_snap_lxd())
+            isfile.return_value = True
+            self.assertTrue(common.is_snap_lxd())
+
+    @mock.patch.object(common, 'is_snap_lxd')
+    def test_instance_dir(self, is_snap_lxd):
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
             ctx, name='test', memory_mb=0)
+        is_snap_lxd.return_value = False
 
         attributes = common.InstanceAttributes(instance)
 
         self.assertEqual(
             '/i/instance-00000001', attributes.instance_dir)
 
-    def test_console_path(self):
+    @mock.patch.object(common, 'is_snap_lxd')
+    def test_console_path(self, is_snap_lxd):
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
             ctx, name='test', memory_mb=0)
+        is_snap_lxd.return_value = False
 
         attributes = common.InstanceAttributes(instance)
-
         self.assertEqual(
             '/var/log/lxd/instance-00000001/console.log',
             attributes.console_path)
 
-    def test_storage_path(self):
+        is_snap_lxd.return_value = True
+        attributes = common.InstanceAttributes(instance)
+        self.assertEqual(
+            '/var/snap/lxd/common/lxd/logs/instance-00000001/console.log',
+            attributes.console_path)
+
+    @mock.patch.object(common, 'is_snap_lxd')
+    def test_storage_path(self, is_snap_lxd):
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
             ctx, name='test', memory_mb=0)
+        is_snap_lxd.return_value = False
 
         attributes = common.InstanceAttributes(instance)
 
