@@ -38,6 +38,15 @@ function pre_install_nova-lxd() {
         fi
 
         add_user_to_group $STACK_USER $LXD_GROUP
+
+        if [ "$DISTRO" == "bionic" ]; then
+            # force zfs for backend if we're on bionic
+            LXD_BACKEND_DRIVER=zfs
+
+            # install apparmor on the devstack image and restart lxd daemon
+            sudo apt install -y apparmor apparmor-profiles-extra apparmor-utils
+            sudo systemctl restart lxd.service
+        fi
     fi
 }
 
