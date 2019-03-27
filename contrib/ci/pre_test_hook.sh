@@ -21,6 +21,8 @@
 
 source $BASE/new/devstack/functions
 
-DEVSTACK_LOCAL_CONFIG+=$'\n'"LXD_BACKEND_DRIVER=zfs"
+# Note, due to Bug#1822182 we have to set this to default for the disk backend
+# otherwise rescue tests will not work.
+DEVSTACK_LOCAL_CONFIG+=$'\n'"LXD_BACKEND_DRIVER=default"
 
 export DEVSTACK_LOCAL_CONFIG
