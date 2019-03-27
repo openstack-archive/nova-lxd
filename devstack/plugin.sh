@@ -38,6 +38,11 @@ function pre_install_nova-lxd() {
         fi
 
         add_user_to_group $STACK_USER $LXD_GROUP
+
+        # force zfs for backend if we're on bionic
+        if [ "$DISTRO" == "bionic" ]; then
+            LXD_BACKEND_DRIVER=zfs
+        fi
     fi
 }
 
