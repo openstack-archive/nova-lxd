@@ -13,7 +13,8 @@ NOVA_CONF_DIR=${NOVA_CONF_DIR:-/etc/nova}
 NOVA_CONF=${NOVA_CONF:-NOVA_CONF_DIR/nova.conf}
 
 # Configure LXD storage backends
-LXD_BACKEND_DRIVER=${LXD_BACKEND_DRIVER:default}
+# Note Bug:1822182 - ZFS backend is broken for Rescue's so don't use it!
+LXD_BACKEND_DRIVER=${LXD_BACKEND_DRIVER:-default}
 LXD_DISK_IMAGE=${DATA_DIR}/lxd.img
 LXD_ZFS_ZPOOL=devstack
 LXD_LOOPBACK_DISK_SIZE=${LXD_LOOPBACK_DISK_SIZE:-8G}
@@ -38,6 +39,14 @@ function pre_install_nova-lxd() {
         fi
 
         add_user_to_group $STACK_USER $LXD_GROUP
+
+        if [ "$DISTRO" == "bionic" ]; then
+            # install apparmor on the devstack image and restart lxd daemon
+            # the devstack-gate image that is built lacks apparmor, but LXD
+            # requires apparmor to work, so we add it back into the image.
+            sudo apt install -y apparmor apparmor-profiles-extra apparmor-utils
+            sudo systemctl restart lxd.service
+        fi
     fi
 }
 
@@ -50,6 +59,17 @@ function configure_nova-lxd() {
     # Configure the service.
     iniset $NOVA_CONF DEFAULT compute_driver lxd.LXDDriver
     iniset $NOVA_CONF DEFAULT force_config_drive False
+
+    if [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
+        # For LXD 3 and upper we need pool name configured, see:
+        # bug/1782329
+        iniset $NOVA_CONF lxd pool $LXD_ZFS_ZPOOL
+    fi
+    if [ "$DISTRO-$LXD_BACKEND_DRIVER" == "bionic-default" ]; then
+        # for LXD 3 we need to have a pool name configured, and for default
+        # driver, it is 'default'
+        iniset $NOVA_CONF lxd pool default
+    fi
 
     if is_service_enabled glance; then
         iniset $GLANCE_API_CONF DEFAULT disk_formats "ami,ari,aki,vhd,raw,iso,qcow2,root-tar"
@@ -104,19 +124,28 @@ function test_config_nova-lxd() {
 }
 
 function configure_lxd_block() {
-   echo_summary "Configure LXD storage backend"
-   if is_ubuntu; then
-      if [ "$LXD_BACKEND_DRIVER" == "default" ]; then
-         echo "Nothing to be done"
-      elif [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
-         echo "Configuring ZFS backend"
-         truncate -s $LXD_LOOPBACK_DISK_SIZE $LXD_DISK_IMAGE
-         sudo apt-get install -y zfs
-         lxd_dev=`sudo losetup --show -f ${LXD_DISK_IMAGE}`
-         sudo lxd init --auto --storage-backend zfs --storage-pool $LXD_ZFS_ZPOOL \
-              --storage-create-device $lxd_dev
-      fi
-   fi
+    echo_summary "Configure LXD storage backend."
+    if is_ubuntu; then
+        if [ "$LXD_BACKEND_DRIVER" == "default" ]; then
+            if [ "$DISTRO" == "bionic" ]; then
+                echo_summary " . Configuring default dir backend for bionic lxd"
+                sudo lxd init --auto --storage-backend dir
+            fi
+        elif [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
+            pool=`lxc profile device get default root pool 2>> /dev/null || :`
+            if [ "$pool" != "$LXD_ZFS_ZPOOL" ]; then
+                echo_summary " . Configuring ZFS backend"
+                truncate -s $LXD_LOOPBACK_DISK_SIZE $LXD_DISK_IMAGE
+                # TODO(sahid): switch to use snap
+                sudo apt-get install -y zfsutils-linux
+                lxd_dev=`sudo losetup --show -f ${LXD_DISK_IMAGE}`
+                sudo lxd init --auto --storage-backend zfs --storage-pool $LXD_ZFS_ZPOOL \
+                    --storage-create-device $lxd_dev
+            else
+                echo_summary " . ZFS backend already configured"
+            fi
+        fi
+    fi
 }
 
 function shutdown_nova-lxd() {
