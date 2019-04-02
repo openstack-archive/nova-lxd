@@ -413,6 +413,41 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.cleanup.assert_called_once_with(
             ctx, instance, network_info, block_device_info)
 
+    @mock.patch('nova.virt.configdrive.required_by', return_value=False)
+    def test_spawn_container_cleanup_fail(self, configdrive):
+        """Cleanup is called but also fail when container creation fails."""
+        self.client.containers.get.side_effect = (
+            lxdcore_exceptions.LXDAPIException(MockResponse(404)))
+        container = mock.Mock()
+        self.client.containers.create.return_value = container
+
+        ctx = context.get_admin_context()
+        instance = fake_instance.fake_instance_obj(
+            ctx, name='test', memory_mb=0)
+        image_meta = mock.Mock()
+        injected_files = mock.Mock()
+        admin_password = mock.Mock()
+        allocations = mock.Mock()
+        network_info = [_VIF]
+        block_device_info = mock.Mock()
+        virtapi = manager.ComputeVirtAPI(mock.MagicMock())
+
+        lxd_driver = driver.LXDDriver(virtapi)
+        lxd_driver.init_host(None)
+
+        container.start.side_effect = (
+            lxdcore_exceptions.LXDAPIException(MockResponse(500)))
+        lxd_driver.cleanup = mock.Mock()
+        lxd_driver.cleanup.side_effect = Exception("a bad thing")
+
+        self.assertRaises(
+            lxdcore_exceptions.LXDAPIException,
+            lxd_driver.spawn,
+            ctx, instance, image_meta, injected_files, admin_password,
+            allocations, network_info, block_device_info)
+        lxd_driver.cleanup.assert_called_once_with(
+            ctx, instance, network_info, block_device_info)
+
     def test_spawn_container_start_fail(self, neutron_failure=None):
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
