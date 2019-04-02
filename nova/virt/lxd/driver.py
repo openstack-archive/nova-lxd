@@ -611,10 +611,14 @@ class LXDDriver(driver.ComputeDriver):
 
             self.firewall_driver.apply_instance_filter(
                 instance, network_info)
-        except lxd_exceptions.LXDAPIException as e:
+        except lxd_exceptions.LXDAPIException:
             with excutils.save_and_reraise_exception():
-                self.cleanup(
-                    context, instance, network_info, block_device_info)
+                try:
+                    self.cleanup(
+                        context, instance, network_info, block_device_info)
+                except Exception as e:
+                    LOG.warn('The cleanup process failed with: %s. This '
+                             'error may or not may be relevant', e)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
