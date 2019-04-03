@@ -16,8 +16,8 @@ NOVA_CONF=${NOVA_CONF:-NOVA_CONF_DIR/nova.conf}
 # Note Bug:1822182 - ZFS backend is broken for Rescue's so don't use it!
 LXD_BACKEND_DRIVER=${LXD_BACKEND_DRIVER:-default}
 LXD_DISK_IMAGE=${DATA_DIR}/lxd.img
-LXD_ZFS_ZPOOL=devstack
 LXD_LOOPBACK_DISK_SIZE=${LXD_LOOPBACK_DISK_SIZE:-8G}
+LXD_POOL_NAME=${LXD_POOL_NAME:-default}
 
 # nova-lxd directories
 NOVA_COMPUTE_LXD_DIR=${NOVA_COMPUTE_LXD_DIR:-${DEST}/nova-lxd}
@@ -61,12 +61,7 @@ function configure_nova-lxd() {
     # Configure the service.
     iniset $NOVA_CONF DEFAULT compute_driver lxd.LXDDriver
     iniset $NOVA_CONF DEFAULT force_config_drive False
-
-    if [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
-        iniset $NOVA_CONF lxd pool $LXD_ZFS_ZPOOL
-    else
-        iniset $NOVA_CONF lxd pool default
-    fi
+    iniset $NOVA_CONF lxd pool $LXD_POOL_NAME
 
     if is_service_enabled glance; then
         iniset $GLANCE_API_CONF DEFAULT disk_formats "ami,ari,aki,vhd,raw,iso,qcow2,root-tar"
@@ -130,13 +125,13 @@ function configure_lxd_block() {
             fi
         elif [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
             pool=`lxc profile device get default root pool 2>> /dev/null || :`
-            if [ "$pool" != "$LXD_ZFS_ZPOOL" ]; then
+            if [ "$pool" != "$LXD_POOL_NAME" ]; then
                 echo_summary " . Configuring ZFS backend"
                 truncate -s $LXD_LOOPBACK_DISK_SIZE $LXD_DISK_IMAGE
                 # TODO(sahid): switch to use snap
                 sudo apt-get install -y zfsutils-linux
                 lxd_dev=`sudo losetup --show -f ${LXD_DISK_IMAGE}`
-                sudo lxd init --auto --storage-backend zfs --storage-pool $LXD_ZFS_ZPOOL \
+                sudo lxd init --auto --storage-backend zfs --storage-pool $LXD_POOL_NAME \
                     --storage-create-device $lxd_dev
             else
                 echo_summary " . ZFS backend already configured"
@@ -154,9 +149,9 @@ function cleanup_nova-lxd() {
     # Cleanup the service.
     if [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
         pool=`lxc profile device get default root pool 2>> /dev/null || :`
-        if [ "$pool" == "$LXD_ZFS_ZPOOL" ]; then
+        if [ "$pool" == "$LXD_POOL_NAME" ]; then
             sudo lxc profile device remove default root
-            sudo lxc storage delete $LXD_ZFS_ZPOOL
+            sudo lxc storage delete $LXD_POOL_NAME
         fi
     fi
 }
