@@ -40,12 +40,15 @@ function pre_install_nova-lxd() {
 
         add_user_to_group $STACK_USER $LXD_GROUP
 
-        if [ "$DISTRO" == "bionic" ]; then
-            # install apparmor on the devstack image and restart lxd daemon
-            # the devstack-gate image that is built lacks apparmor, but LXD
-            # requires apparmor to work, so we add it back into the image.
-            sudo apt install -y apparmor apparmor-profiles-extra apparmor-utils
-            sudo systemctl restart lxd.service
+        needs_restart=false
+        is_package_installed apparmor || \
+            install_package apparmor && needs_restart=true
+        is_package_installed apparmor-profiles-extra || \
+            install_package apparmor-profiles-extra && needs_restart=true
+        is_package_installed apparmor-utils || \
+            install_package apparmor-utils && needs_restart=true
+        if $needs_restart; then
+            restart_service lxd
         fi
     fi
 }
