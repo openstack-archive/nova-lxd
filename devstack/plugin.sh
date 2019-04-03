@@ -34,11 +34,10 @@ function pre_install_nova-lxd() {
         if [ "$DISTRO" == "trusty" ]; then
             sudo add-apt-repository -y ppa:ubuntu-lxc/lxd-stable
         fi
-        if ! ( is_package_installed lxd ); then
-            install_package lxd
-        fi
 
-        add_user_to_group $STACK_USER $LXD_GROUP
+	is_package_installed lxd || install_package lxd
+
+	add_user_to_group $STACK_USER $LXD_GROUP
 
 	needs_restart=0
 	is_package_installed apparmor || \
