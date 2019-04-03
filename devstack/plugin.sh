@@ -63,13 +63,8 @@ function configure_nova-lxd() {
     iniset $NOVA_CONF DEFAULT force_config_drive False
 
     if [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
-        # For LXD 3 and upper we need pool name configured, see:
-        # bug/1782329
         iniset $NOVA_CONF lxd pool $LXD_ZFS_ZPOOL
-    fi
-    if [ "$DISTRO-$LXD_BACKEND_DRIVER" == "bionic-default" ]; then
-        # for LXD 3 we need to have a pool name configured, and for default
-        # driver, it is 'default'
+    else
         iniset $NOVA_CONF lxd pool default
     fi
 
