@@ -119,10 +119,12 @@ function configure_lxd_block() {
     echo_summary "Configure LXD storage backend."
     if is_ubuntu; then
         if [ "$LXD_BACKEND_DRIVER" == "default" ]; then
-            if [ "$DISTRO" == "bionic" ]; then
-                echo_summary " . Configuring default dir backend for bionic lxd"
-                sudo lxd init --auto --storage-backend dir
-            fi
+	    if [ "$LXD_POOL_NAME" == "default" ]; then
+		echo_summary " . Configuring '${LXD_POOL_NAME}' dir backend for bionic lxd"
+		sudo lxd init --auto --storage-backend dir
+	    else
+		echo_summary " . LXD_POOL_NAME != default, considering lxd already initialized"
+	    fi
         elif [ "$LXD_BACKEND_DRIVER" == "zfs" ]; then
             pool=`lxc profile device get default root pool 2>> /dev/null || :`
             if [ "$pool" != "$LXD_POOL_NAME" ]; then
