@@ -1,0 +1,10 @@
+Code-Review+1: Corey Bryant <corey.bryant@canonical.com>
+Code-Review+1: sahid <sahid.ferdjaoui@canonical.com>
+Code-Review+2: Chris MacNaughton (icey) <chris.macnaughton@canonical.com>
+Workflow+1: Alex Kavanagh (tinwood) <alex.kavanagh@canonical.com>
+Verified+2: Zuul
+Submitted-by: Zuul
+Submitted-at: Wed, 03 Apr 2019 13:07:10 +0000
+Reviewed-on: https://review.openstack.org/640317
+Project: openstack/nova-lxd
+Branch: refs/heads/master
