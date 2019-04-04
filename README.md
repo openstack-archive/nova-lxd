@@ -20,8 +20,9 @@ Change git repositories as needed (it's probably not very useful to point to the
 nova-lxd repo). If you have a local tree you'd like to use, you can symlink your tree to
 `/opt/stack/nova-lxd` and do your development from there.
 
-The devstack default images won't work with lxd, as lxd doesn't support them. Once your
-stack is up and you've configured authentication against your devstack, do the following::
+The devstack default images come cirros LXD, you can still download
+Ubuntu. Once your stack is up and you've configured authentication
+against your devstack, do the following::
 
 ```
 wget http://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64-root.tar.xz
