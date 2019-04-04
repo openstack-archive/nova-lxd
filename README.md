@@ -24,14 +24,14 @@ The devstack default images won't work with lxd, as lxd doesn't support them. On
 stack is up and you've configured authentication against your devstack, do the following::
 
 ```
-wget http://cloud-images.ubuntu.com/xenial/current/xenial-server-cloudimg-amd64-root.tar.gz
-glance image-create --name xenial --disk-format raw --container-format bare --file xenial-server-cloudimg-amd64-root.tar.gz
+wget http://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64-root.tar.xz
+glance image-create --name bionic-amd64 --disk-format raw --container-format bare --file bionic-server-cloudimg-amd64-root.tar.xz
 ```
 
 You can test your configuration using the exercise scripts in devstack. For instance,
 
 ```
-DEFAULT_IMAGE_NAME=xenial ./exercises/volumes.sh
+DEFAULT_IMAGE_NAME=bionic-amd64 ./exercises/volumes.sh
 ```
 
 Please note: the exercise scripts in devstack likely won't work, as they have requirements
