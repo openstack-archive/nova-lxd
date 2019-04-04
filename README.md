@@ -29,15 +29,6 @@ wget http://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64-
 glance image-create --name bionic-amd64 --disk-format raw --container-format bare --file bionic-server-cloudimg-amd64-root.tar.xz
 ```
 
-You can test your configuration using the exercise scripts in devstack. For instance,
-
-```
-DEFAULT_IMAGE_NAME=bionic-amd64 ./exercises/volumes.sh
-```
-
-Please note: the exercise scripts in devstack likely won't work, as they have requirements
-for using the cirros images.
-
 # Support and discussions
 
 We use the LXC mailing-lists for developer and user discussions, you can
