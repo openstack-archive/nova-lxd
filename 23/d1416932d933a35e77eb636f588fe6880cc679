@@ -1,0 +1,8 @@
+Code-Review+2: Alex Kavanagh (tinwood) <alex.kavanagh@canonical.com>
+Workflow+1: Alex Kavanagh (tinwood) <alex.kavanagh@canonical.com>
+Verified+2: Zuul
+Submitted-by: Zuul
+Submitted-at: Fri, 05 Apr 2019 16:11:16 +0000
+Reviewed-on: https://review.openstack.org/649661
+Project: openstack/nova-lxd
+Branch: refs/heads/master
