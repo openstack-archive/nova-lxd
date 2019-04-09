@@ -617,12 +617,8 @@ class LXDDriver(driver.ComputeDriver):
                 instance, network_info)
         except lxd_exceptions.LXDAPIException:
             with excutils.save_and_reraise_exception():
-                try:
-                    self.cleanup(
-                        context, instance, network_info, block_device_info)
-                except Exception as e:
-                    LOG.warn('The cleanup process failed with: %s. This '
-                             'error may or not may be relevant', e)
+                self.cleanup(
+                    context, instance, network_info, block_device_info)
 
     def destroy(self, context, instance, network_info, block_device_info=None,
                 destroy_disks=True, migrate_data=None):
@@ -662,8 +658,8 @@ class LXDDriver(driver.ComputeDriver):
                 self.cleanup(
                     context, instance, network_info, block_device_info)
 
-    def cleanup(self, context, instance, network_info, block_device_info=None,
-                destroy_disks=True, migrate_data=None, destroy_vifs=True):
+    def _cleanup(self, context, instance, network_info, block_device_info=None,
+                 destroy_disks=True, migrate_data=None, destroy_vifs=True):
         """Clean up the filesystem around the container.
 
         See `nova.virt.driver.ComputeDriver.cleanup` for more
@@ -701,6 +697,15 @@ class LXDDriver(driver.ComputeDriver):
                             .format(instance=instance.name))
             else:
                 raise
+
+    def cleanup(self, context, instance, network_info, block_device_info=None,
+                destroy_disks=True, migrate_data=None, destroy_vifs=True):
+        try:
+            self._cleanup(context, instance, network_info, block_device_info,
+                          destroy_disks, migrate_data, destroy_vifs)
+        except Exception as e:
+            LOG.warn('The cleanup process failed with: %s. This '
+                     'error may or not may be relevant', e)
 
     def reboot(self, context, instance, network_info, reboot_type,
                block_device_info=None, bad_volumes_callback=None):
