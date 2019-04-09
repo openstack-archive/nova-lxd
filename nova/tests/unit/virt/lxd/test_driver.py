@@ -437,16 +437,16 @@ class LXDDriverTest(test.NoDBTestCase):
 
         container.start.side_effect = (
             lxdcore_exceptions.LXDAPIException(MockResponse(500)))
-        lxd_driver.cleanup = mock.Mock()
-        lxd_driver.cleanup.side_effect = Exception("a bad thing")
+        lxd_driver._cleanup = mock.Mock()
+        lxd_driver._cleanup.side_effect = Exception("a bad thing")
 
         self.assertRaises(
             lxdcore_exceptions.LXDAPIException,
             lxd_driver.spawn,
             ctx, instance, image_meta, injected_files, admin_password,
             allocations, network_info, block_device_info)
-        lxd_driver.cleanup.assert_called_once_with(
-            ctx, instance, network_info, block_device_info)
+        lxd_driver._cleanup.assert_called_once_with(
+            ctx, instance, network_info, block_device_info, True, None, True)
 
     def test_spawn_container_start_fail(self, neutron_failure=None):
         def container_get(*args, **kwargs):
