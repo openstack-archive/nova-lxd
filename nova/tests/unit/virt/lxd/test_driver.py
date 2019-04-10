@@ -244,8 +244,9 @@ class LXDDriverTest(test.NoDBTestCase):
         IMAGE_API.download = download_unified
         self.test_spawn()
 
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
     @mock.patch('nova.virt.configdrive.required_by')
-    def test_spawn(self, configdrive, neutron_failure=None):
+    def test_spawn(self, configdrive, lock, neutron_failure=None):
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
         self.client.containers.get.side_effect = container_get
@@ -304,8 +305,9 @@ class LXDDriverTest(test.NoDBTestCase):
             ctx, instance, image_meta, injected_files, admin_password,
             allocations, None, None)
 
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
     @mock.patch('nova.virt.configdrive.required_by')
-    def test_spawn_with_configdrive(self, configdrive):
+    def test_spawn_with_configdrive(self, configdrive, lock):
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
 
@@ -345,8 +347,9 @@ class LXDDriverTest(test.NoDBTestCase):
         configdrive.assert_called_once_with(instance)
         lxd_driver.client.profiles.get.assert_called_once_with(instance.name)
 
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
     @mock.patch('nova.virt.configdrive.required_by')
-    def test_spawn_profile_fail(self, configdrive, neutron_failure=None):
+    def test_spawn_profile_fail(self, configdrive, lock, neutron_failure=None):
         """Cleanup is called when profile creation fails."""
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
@@ -379,8 +382,10 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.cleanup.assert_called_once_with(
             ctx, instance, network_info, block_device_info)
 
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
     @mock.patch('nova.virt.configdrive.required_by')
-    def test_spawn_container_fail(self, configdrive, neutron_failure=None):
+    def test_spawn_container_fail(
+            self, configdrive, lock, neutron_failure=None):
         """Cleanup is called when container creation fails."""
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
@@ -413,8 +418,9 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.cleanup.assert_called_once_with(
             ctx, instance, network_info, block_device_info)
 
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
     @mock.patch('nova.virt.configdrive.required_by', return_value=False)
-    def test_spawn_container_cleanup_fail(self, configdrive):
+    def test_spawn_container_cleanup_fail(self, configdrive, lock):
         """Cleanup is called but also fail when container creation fails."""
         self.client.containers.get.side_effect = (
             lxdcore_exceptions.LXDAPIException(MockResponse(404)))
@@ -448,7 +454,8 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver._cleanup.assert_called_once_with(
             ctx, instance, network_info, block_device_info, True, None, True)
 
-    def test_spawn_container_start_fail(self, neutron_failure=None):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_spawn_container_start_fail(self, lock, neutron_failure=None):
         def container_get(*args, **kwargs):
             raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
 
@@ -512,9 +519,10 @@ class LXDDriverTest(test.NoDBTestCase):
         instance_href = fake_instance.fake_instance_obj(
             context.get_admin_context(), name='test', memory_mb=0)
 
+        @mock.patch('nova.virt.lxd.driver.lockutils.lock')
         @mock.patch.object(drv, 'plug_vifs')
         @mock.patch('nova.virt.configdrive.required_by')
-        def test_spawn(configdrive, plug_vifs):
+        def test_spawn(configdrive, plug_vifs, lock):
             def container_get(*args, **kwargs):
                 raise lxdcore_exceptions.LXDAPIException(MockResponse(404))
             self.client.containers.get.side_effect = container_get
@@ -636,12 +644,13 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.cleanup.assert_called_once_with(
             ctx, instance, network_info, None)
 
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
     @mock.patch('nova.virt.lxd.driver.network')
     @mock.patch('os.path.exists', mock.Mock(return_value=True))
     @mock.patch('pwd.getpwuid')
     @mock.patch('shutil.rmtree')
     @mock.patch.object(driver.utils, 'execute')
-    def test_cleanup(self, execute, rmtree, getpwuid, _):
+    def test_cleanup(self, execute, rmtree, getpwuid, _, lock):
         mock_profile = mock.Mock()
         self.client.profiles.get.return_value = mock_profile
         pwuid = mock.Mock()
@@ -718,7 +727,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
         self.assertEqual('0.0.0.0', result)
 
-    def test_attach_interface(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_attach_interface(self, lock):
         expected = {
             'hwaddr': '00:11:22:33:44:55',
             'parent': 'tin0123456789a',
@@ -763,7 +773,8 @@ class LXDDriverTest(test.NoDBTestCase):
         self.assertEqual(expected, profile.devices['tap0123456789a'])
         profile.save.assert_called_once_with(wait=True)
 
-    def test_detach_interface_legacy(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_detach_interface_legacy(self, lock):
         profile = mock.Mock()
         profile.devices = {
             'eth0': {
@@ -799,7 +810,8 @@ class LXDDriverTest(test.NoDBTestCase):
         self.assertEqual(['root'], sorted(profile.devices.keys()))
         profile.save.assert_called_once_with(wait=True)
 
-    def test_detach_interface(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_detach_interface(self, lock):
         profile = mock.Mock()
         profile.devices = {
             'tap0123456789a': {
@@ -835,7 +847,8 @@ class LXDDriverTest(test.NoDBTestCase):
         self.assertEqual(['root'], sorted(profile.devices.keys()))
         profile.save.assert_called_once_with(wait=True)
 
-    def test_detach_interface_not_found(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_detach_interface_not_found(self, lock):
         self.client.profiles.get.side_effect = lxdcore_exceptions.NotFound(
             "404")
 
@@ -857,7 +870,8 @@ class LXDDriverTest(test.NoDBTestCase):
         self.vif_driver.unplug.assert_called_once_with(
             instance, vif)
 
-    def test_migrate_disk_and_power_off(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_migrate_disk_and_power_off(self, lock):
         container = mock.Mock()
         self.client.containers.get.return_value = container
         profile = mock.Mock()
@@ -900,12 +914,13 @@ class LXDDriverTest(test.NoDBTestCase):
         self.assertEqual(0, self.client.profiles.get.call_count)
         container.stop.assert_called_once_with(wait=True)
 
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
     @mock.patch('nova.virt.lxd.driver.network')
     @mock.patch('os.major')
     @mock.patch('os.minor')
     @mock.patch('os.stat')
     @mock.patch('os.path.realpath')
-    def test_attach_volume(self, realpath, stat, minor, major, _):
+    def test_attach_volume(self, realpath, stat, minor, major, _, lock):
         profile = mock.Mock()
         self.client.profiles.get.return_value = profile
         realpath.return_value = '/dev/sdc'
@@ -935,7 +950,8 @@ class LXDDriverTest(test.NoDBTestCase):
         #     connection_info['data'])
         profile.save.assert_called_once_with()
 
-    def test_detach_volume(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_detach_volume(self, lock):
         profile = mock.Mock()
         profile.devices = {
             'eth0': {
@@ -1067,7 +1083,8 @@ class LXDDriverTest(test.NoDBTestCase):
         lxd_driver.resume_state_on_host_boot(ctx, instance, None, None)
         container.start.assert_called_once_with(wait=True)
 
-    def test_rescue(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_rescue(self, lock):
         profile = mock.Mock()
         profile.devices = {
             'root': {
@@ -1104,7 +1121,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
         self.assertTrue('rescue' in profile.devices)
 
-    def test_unrescue(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_unrescue(self, lock):
         container = mock.Mock()
         container.status = 'Running'
         self.client.containers.get.return_value = container
@@ -1530,7 +1548,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
         self.assertIsInstance(retval, driver.LXDLiveMigrateData)
 
-    def test_confirm_migration(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_confirm_migration(self, lock):
         migration = mock.Mock()
         instance = fake_instance.fake_instance_obj(
             context.get_admin_context, name='test', memory_mb=0)
@@ -1562,7 +1581,8 @@ class LXDDriverTest(test.NoDBTestCase):
 
         container.delete.assert_called_once_with(wait=True)
 
-    def test_post_live_migration_at_source(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_post_live_migration_at_source(self, lock):
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
             ctx, name='test', memory_mb=0)

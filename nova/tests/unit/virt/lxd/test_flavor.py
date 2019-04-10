@@ -53,7 +53,8 @@ class ToProfileTest(test.NoDBTestCase):
         for patcher in self.patchers:
             patcher.stop()
 
-    def test_to_profile(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_to_profile(self, lock):
         """A profile configuration is requested of the LXD client."""
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
@@ -82,7 +83,8 @@ class ToProfileTest(test.NoDBTestCase):
         self.client.profiles.create.assert_called_once_with(
             instance.name, expected_config, expected_devices)
 
-    def test_to_profile_lvm(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_to_profile_lvm(self, lock):
         """A profile configuration is requested of the LXD client."""
         self.client.host_info['environment']['storage'] = 'lvm'
         ctx = context.get_admin_context()
@@ -111,7 +113,8 @@ class ToProfileTest(test.NoDBTestCase):
         self.client.profiles.create.assert_called_once_with(
             instance.name, expected_config, expected_devices)
 
-    def test_storage_pools(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_storage_pools(self, lock):
         self.client.host_info['api_extensions'].append('storage')
         self.CONF2.lxd.pool = 'test_pool'
         ctx = context.get_admin_context()
@@ -139,7 +142,8 @@ class ToProfileTest(test.NoDBTestCase):
         self.client.profiles.create.assert_called_once_with(
             instance.name, expected_config, expected_devices)
 
-    def test_to_profile_security(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_to_profile_security(self, lock):
         self.client.host_info['api_extensions'].append('id_map')
 
         ctx = context.get_admin_context()
@@ -175,7 +179,8 @@ class ToProfileTest(test.NoDBTestCase):
         self.client.profiles.create.assert_called_once_with(
             instance.name, expected_config, expected_devices)
 
-    def test_to_profile_idmap(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_to_profile_idmap(self, lock):
         self.client.host_info['api_extensions'].append('id_map')
 
         ctx = context.get_admin_context()
@@ -223,7 +228,8 @@ class ToProfileTest(test.NoDBTestCase):
             exception.NovaException,
             flavor.to_profile, self.client, instance, network_info, block_info)
 
-    def test_to_profile_quota_extra_specs_bytes(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_to_profile_quota_extra_specs_bytes(self, lock):
         """A profile configuration is requested of the LXD client."""
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
@@ -258,7 +264,8 @@ class ToProfileTest(test.NoDBTestCase):
         self.client.profiles.create.assert_called_once_with(
             instance.name, expected_config, expected_devices)
 
-    def test_to_profile_quota_extra_specs_iops(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_to_profile_quota_extra_specs_iops(self, lock):
         """A profile configuration is requested of the LXD client."""
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
@@ -293,7 +300,8 @@ class ToProfileTest(test.NoDBTestCase):
         self.client.profiles.create.assert_called_once_with(
             instance.name, expected_config, expected_devices)
 
-    def test_to_profile_quota_extra_specs_max_bytes(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_to_profile_quota_extra_specs_max_bytes(self, lock):
         """A profile configuration is requested of the LXD client."""
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
@@ -326,7 +334,8 @@ class ToProfileTest(test.NoDBTestCase):
         self.client.profiles.create.assert_called_once_with(
             instance.name, expected_config, expected_devices)
 
-    def test_to_profile_quota_extra_specs_max_iops(self):
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
+    def test_to_profile_quota_extra_specs_max_iops(self, lock):
         """A profile configuration is requested of the LXD client."""
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
@@ -359,8 +368,9 @@ class ToProfileTest(test.NoDBTestCase):
         self.client.profiles.create.assert_called_once_with(
             instance.name, expected_config, expected_devices)
 
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
     @mock.patch('nova.virt.lxd.vif._is_no_op_firewall', return_value=False)
-    def test_to_profile_network_config_average(self, _is_no_op_firewall):
+    def test_to_profile_network_config_average(self, _is_no_op_firewall, lock):
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
             ctx, name='test', memory_mb=0)
@@ -406,8 +416,9 @@ class ToProfileTest(test.NoDBTestCase):
         self.client.profiles.create.assert_called_once_with(
             instance.name, expected_config, expected_devices)
 
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
     @mock.patch('nova.virt.lxd.vif._is_no_op_firewall', return_value=False)
-    def test_to_profile_network_config_peak(self, _is_no_op_firewall):
+    def test_to_profile_network_config_peak(self, _is_no_op_firewall, lock):
         ctx = context.get_admin_context()
         instance = fake_instance.fake_instance_obj(
             ctx, name='test', memory_mb=0)
@@ -453,8 +464,9 @@ class ToProfileTest(test.NoDBTestCase):
         self.client.profiles.create.assert_called_once_with(
             instance.name, expected_config, expected_devices)
 
+    @mock.patch('nova.virt.lxd.driver.lockutils.lock')
     @mock.patch('nova.virt.lxd.flavor.driver.block_device_info_get_ephemerals')
-    def test_to_profile_ephemeral_storage(self, get_ephemerals):
+    def test_to_profile_ephemeral_storage(self, get_ephemerals, lock):
         """A profile configuration is requested of the LXD client."""
         get_ephemerals.return_value = [
             {'virtual_name': 'ephemeral1'},

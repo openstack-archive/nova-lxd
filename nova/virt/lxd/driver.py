@@ -589,17 +589,21 @@ class LXDDriver(driver.ComputeDriver):
                 injected_files, admin_password,
                 network_info)
 
-            profile = self.client.profiles.get(instance.name)
-            config_drive = {
-                'configdrive': {
-                    'path': '/config-drive',
-                    'source': configdrive_path,
-                    'type': 'disk',
-                    'readonly': 'True',
+            lock_path = os.path.join(CONF.instances_path, 'locks')
+            with lockutils.lock(
+                    lock_path, external=True,
+                    lock_file_prefix='lxd-profile-{}'.format(instance.name)):
+                profile = self.client.profiles.get(instance.name)
+                config_drive = {
+                    'configdrive': {
+                        'path': '/config-drive',
+                        'source': configdrive_path,
+                        'type': 'disk',
+                        'readonly': 'True',
+                    }
                 }
-            }
-            profile.devices.update(config_drive)
-            profile.save()
+                profile.devices.update(config_drive)
+                profile.save()
 
         try:
             self.firewall_driver.setup_basic_filtering(
@@ -627,7 +631,6 @@ class LXDDriver(driver.ComputeDriver):
         information.
         """
         lock_path = os.path.join(CONF.instances_path, 'locks')
-
         with lockutils.lock(
                 lock_path, external=True,
                 lock_file_prefix='lxd-container-{}'.format(instance.name)):
@@ -682,7 +685,11 @@ class LXDDriver(driver.ComputeDriver):
             shutil.rmtree(container_dir)
 
         try:
-            self.client.profiles.get(instance.name).delete()
+            lock_path = os.path.join(CONF.instances_path, 'locks')
+            with lockutils.lock(
+                    lock_path, external=True,
+                    lock_file_prefix='lxd-profile-{}'.format(instance.name)):
+                self.client.profiles.get(instance.name).delete()
         except lxd_exceptions.LXDAPIException as e:
             if e.response.status_code == 404:
                 LOG.warning("Failed to delete instance. "
@@ -752,27 +759,31 @@ class LXDDriver(driver.ComputeDriver):
         See `nova.virt.driver.ComputeDriver.attach_volume' for
         more information/
         """
-        profile = self.client.profiles.get(instance.name)
-        protocol = connection_info['driver_volume_type']
-        storage_driver = brick_get_connector(protocol)
-        device_info = storage_driver.connect_volume(
-            connection_info['data'])
-        disk = os.stat(os.path.realpath(device_info['path']))
-        vol_id = connection_info['data']['volume_id']
+        lock_path = os.path.join(CONF.instances_path, 'locks')
+        with lockutils.lock(
+                lock_path, external=True,
+                lock_file_prefix='lxd-profile-{}'.format(instance.name)):
+            profile = self.client.profiles.get(instance.name)
+            protocol = connection_info['driver_volume_type']
+            storage_driver = brick_get_connector(protocol)
+            device_info = storage_driver.connect_volume(
+                connection_info['data'])
+            disk = os.stat(os.path.realpath(device_info['path']))
+            vol_id = connection_info['data']['volume_id']
 
-        disk_device = {
-            vol_id: {
-                'path': mountpoint,
-                'major': '%s' % os.major(disk.st_rdev),
-                'minor': '%s' % os.minor(disk.st_rdev),
-                'type': 'unix-block'
+            disk_device = {
+                vol_id: {
+                    'path': mountpoint,
+                    'major': '%s' % os.major(disk.st_rdev),
+                    'minor': '%s' % os.minor(disk.st_rdev),
+                    'type': 'unix-block'
+                }
             }
-        }
 
-        profile.devices.update(disk_device)
-        # XXX zulcss (10 Jul 2016) - fused is currently not supported.
-        profile.config.update({'raw.apparmor': 'mount fstype=ext4,'})
-        profile.save()
+            profile.devices.update(disk_device)
+            # XXX zulcss (10 Jul 2016) - fused is currently not supported.
+            profile.config.update({'raw.apparmor': 'mount fstype=ext4,'})
+            profile.save()
 
     def detach_volume(self, context, connection_info, instance, mountpoint,
                       encryption=None):
@@ -785,11 +796,15 @@ class LXDDriver(driver.ComputeDriver):
         See `nova.virt.driver.Computedriver.detach_volume` for
         more information.
         """
-        profile = self.client.profiles.get(instance.name)
-        vol_id = connection_info['data']['volume_id']
-        if vol_id in profile.devices:
-            del profile.devices[vol_id]
-            profile.save()
+        lock_path = os.path.join(CONF.instances_path, 'locks')
+        with lockutils.lock(
+                lock_path, external=True,
+                lock_file_prefix='lxd-profile-{}'.format(instance.name)):
+            profile = self.client.profiles.get(instance.name)
+            vol_id = connection_info['data']['volume_id']
+            if vol_id in profile.devices:
+                del profile.devices[vol_id]
+                profile.save()
 
         protocol = connection_info['driver_volume_type']
         storage_driver = brick_get_connector(protocol)
@@ -799,42 +814,47 @@ class LXDDriver(driver.ComputeDriver):
         self.vif_driver.plug(instance, vif)
         self.firewall_driver.setup_basic_filtering(instance, vif)
 
-        profile = self.client.profiles.get(instance.name)
-
-        net_device = lxd_vif.get_vif_devname(vif)
-        config_update = {
-            net_device: {
-                'nictype': 'physical',
-                'hwaddr': vif['address'],
-                'parent': lxd_vif.get_vif_internal_devname(vif),
-                'type': 'nic',
+        lock_path = os.path.join(CONF.instances_path, 'locks')
+        with lockutils.lock(
+                lock_path, external=True,
+                lock_file_prefix='lxd-profile-{}'.format(instance.name)):
+            profile = self.client.profiles.get(instance.name)
+            net_device = lxd_vif.get_vif_devname(vif)
+            config_update = {
+                net_device: {
+                    'nictype': 'physical',
+                    'hwaddr': vif['address'],
+                    'parent': lxd_vif.get_vif_internal_devname(vif),
+                    'type': 'nic',
+                }
             }
-        }
-
-        profile.devices.update(config_update)
-        profile.save(wait=True)
+            profile.devices.update(config_update)
+            profile.save(wait=True)
 
     def detach_interface(self, context, instance, vif):
         try:
-            profile = self.client.profiles.get(instance.name)
-            devname = lxd_vif.get_vif_devname(vif)
-
-            # NOTE(jamespage): Attempt to remove device using
-            #                  new style tap naming
-            if devname in profile.devices:
-                del profile.devices[devname]
-                profile.save(wait=True)
-            else:
-                # NOTE(jamespage): For upgrades, scan devices
-                #                  and attempt to identify
-                #                  using mac address as the
-                #                  device will *not* have a
-                #                  consistent name
-                for key, val in profile.devices.items():
-                    if val.get('hwaddr') == vif['address']:
-                        del profile.devices[key]
-                        profile.save(wait=True)
-                        break
+            lock_path = os.path.join(CONF.instances_path, 'locks')
+            with lockutils.lock(
+                    lock_path, external=True,
+                    lock_file_prefix='lxd-profile-{}'.format(instance.name)):
+                profile = self.client.profiles.get(instance.name)
+                devname = lxd_vif.get_vif_devname(vif)
+                # NOTE(jamespage): Attempt to remove device using
+                #                  new style tap naming
+                if devname in profile.devices:
+                    del profile.devices[devname]
+                    profile.save(wait=True)
+                else:
+                    # NOTE(jamespage): For upgrades, scan devices
+                    #                  and attempt to identify
+                    #                  using mac address as the
+                    #                  device will *not* have a
+                    #                  consistent name
+                    for key, val in profile.devices.items():
+                        if val.get('hwaddr') == vif['address']:
+                            del profile.devices[key]
+                            profile.save(wait=True)
+                            break
         except lxd_exceptions.NotFound:
             # This method is called when an instance get destroyed. It
             # could happen that Nova to receive an event
@@ -961,17 +981,20 @@ class LXDDriver(driver.ComputeDriver):
             nova.conf.CONF.lxd.root_dir, 'containers', instance.name, 'rootfs')
         container.rename(rescue, wait=True)
 
-        profile = self.client.profiles.get(instance.name)
-
-        rescue_dir = {
-            'rescue': {
-                'source': container_rootfs,
-                'path': '/mnt',
-                'type': 'disk',
+        lock_path = os.path.join(CONF.instances_path, 'locks')
+        with lockutils.lock(
+                lock_path, external=True,
+                lock_file_prefix='lxd-profile-{}'.format(instance.name)):
+            profile = self.client.profiles.get(instance.name)
+            rescue_dir = {
+                'rescue': {
+                    'source': container_rootfs,
+                    'path': '/mnt',
+                    'type': 'disk',
+                }
             }
-        }
-        profile.devices.update(rescue_dir)
-        profile.save()
+            profile.devices.update(rescue_dir)
+            profile.save()
 
         container_config = {
             'name': instance.name,
@@ -1003,9 +1026,13 @@ class LXDDriver(driver.ComputeDriver):
             container.stop(wait=True)
         container.delete(wait=True)
 
-        profile = self.client.profiles.get(instance.name)
-        del profile.devices['rescue']
-        profile.save()
+        lock_path = os.path.join(CONF.instances_path, 'locks')
+        with lockutils.lock(
+                lock_path, external=True,
+                lock_file_prefix='lxd-profile-{}'.format(instance.name)):
+            profile = self.client.profiles.get(instance.name)
+            del profile.devices['rescue']
+            profile.save()
 
         container = self.client.containers.get(rescue)
         container.rename(instance.name, wait=True)
@@ -1183,7 +1210,11 @@ class LXDDriver(driver.ComputeDriver):
     def confirm_migration(self, migration, instance, network_info):
         self.unplug_vifs(instance, network_info)
 
-        self.client.profiles.get(instance.name).delete()
+        lock_path = os.path.join(CONF.instances_path, 'locks')
+        with lockutils.lock(
+                lock_path, external=True,
+                lock_file_prefix='lxd-profile-{}'.format(instance.name)):
+            self.client.profiles.get(instance.name).delete()
         self.client.containers.get(instance.name).delete(wait=True)
 
     def finish_revert_migration(self, context, instance, network_info,
@@ -1215,7 +1246,11 @@ class LXDDriver(driver.ComputeDriver):
         self.client.containers.get(instance.name).delete(wait=True)
 
     def post_live_migration_at_source(self, context, instance, network_info):
-        self.client.profiles.get(instance.name).delete()
+        lock_path = os.path.join(CONF.instances_path, 'locks')
+        with lockutils.lock(
+                lock_path, external=True,
+                lock_file_prefix='lxd-profile-{}'.format(instance.name)):
+            self.client.profiles.get(instance.name).delete()
         self.cleanup(context, instance, network_info)
 
     def check_can_live_migrate_destination(
