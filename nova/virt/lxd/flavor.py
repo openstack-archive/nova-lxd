@@ -19,6 +19,7 @@ from nova import i18n
 from nova.virt import driver
 from oslo_config import cfg
 from oslo_utils import units
+from oslo_concurrency import lockutils
 
 from nova.virt.lxd import common
 from nova.virt.lxd import vif
@@ -224,11 +225,15 @@ def to_profile(client, instance, network_info, block_info, update=False):
         if new:
             devices.update(new)
 
-    if update is True:
-        profile = client.profiles.get(name)
-        profile.devices = devices
-        profile.config = config
-        profile.save()
-        return profile
-    else:
-        return client.profiles.create(name, config, devices)
+    lock_path = os.path.join(CONF.instances_path, 'locks')
+    with lockutils.lock(
+            lock_path, external=True,
+            lock_file_prefix='lxd-profile-{}'.format(instance.name)):
+        if update is True:
+            profile = client.profiles.get(name)
+            profile.devices = devices
+            profile.config = config
+            profile.save()
+            return profile
+        else:
+            return client.profiles.create(name, config, devices)
