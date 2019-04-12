@@ -479,7 +479,7 @@ class LXDDriver(driver.ComputeDriver):
         information.
         """
 
-    def get_info(self, instance):
+    def get_info(self, instance, use_cache=True):
         """Return an InstanceInfo object for the instance."""
         try:
             container = self.client.containers.get(instance.name)
