@@ -627,10 +627,7 @@ class LXDDriver(driver.ComputeDriver):
         See `nova.virt.driver.ComputeDriver.destroy` for more
         information.
         """
-        lock_path = os.path.join(CONF.instances_path, 'locks')
-        with lockutils.lock(
-                lock_path, external=True,
-                lock_file_prefix='lxd-container-{}'.format(instance.name)):
+        with lockutils.lock('lxd-container-{}'.format(instance.name)):
             # TODO(sahid): Each time we get a container we should
             # protect it by using a mutex.
             try:
@@ -864,12 +861,7 @@ class LXDDriver(driver.ComputeDriver):
         return ''
 
     def snapshot(self, context, instance, image_id, update_task_state):
-        lock_path = str(os.path.join(CONF.instances_path, 'locks'))
-
-        with lockutils.lock(
-                lock_path, external=True,
-                lock_file_prefix='lxd-container-{}'.format(instance.name)):
-
+        with lockutils.lock('lxd-container-{}'.format(instance.name)):
             update_task_state(task_state=task_states.IMAGE_PENDING_UPLOAD)
 
             container = self.client.containers.get(instance.name)
